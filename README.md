@@ -17,12 +17,14 @@ Declare → Initialize → Explore → Evaluate → Prune → Rank → Route
 - Schema 可执行性告警，不以 Schema 建边
 - 支持一层多个节点的 RoutePlan 及拓扑约束校验
 
-Phase 2 当前已完成 Step 1/2：
+Phase 2 当前已完成 Step 1/2/3：
 
 - Tool 可声明一个或多个规范化 Capability
 - CapabilityRegistry 提供 Tool ↔ Capability 多对多索引
 - Scenario / ScenarioSuite 同时支持 Gold 与 Query-only 数据
 - ScenarioLoader 对 JSON Dataset 进行严格校验
+- CoverageAnalyzer 判断 required capabilities 是否被当前 Topology 覆盖（COVERED）
+- 区分 Capability Gap（MISSING_CAPABILITY）与 Topology Gap（TOPOLOGY_DISCONNECTED）
 
 ## Quick start
 

@@ -12,6 +12,7 @@ from .errors import (
     ScenarioValidationError,
     ToolNotFoundError,
     TopologyBuildError,
+    CoverageAnalyzerError,
     TopologyFrameworkError,
 )
 from .layer import Layer
@@ -34,6 +35,7 @@ __all__ = [
     "ToolNode",
     "ToolNotFoundError",
     "ToolSpec",
+    "CoverageAnalyzerError",
     "TopologyBuildError",
     "TopologyFrameworkError",
     "validate_capability_name",

@@ -48,3 +48,7 @@ class ScenarioLoadError(ScenarioError):
 
 class ScenarioValidationError(ScenarioError):
     pass
+
+
+class CoverageAnalyzerError(TopologyFrameworkError):
+    pass

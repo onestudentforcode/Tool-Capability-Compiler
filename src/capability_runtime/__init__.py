@@ -19,14 +19,26 @@ from .core import (
 )
 from .decorators import tool
 from .registry import CapabilityRegistry, LayerRegistry, ToolRegistry
+from .regression import (
+    CoverageAnalyzer,
+    CoverageAnalyzerError,
+    CoverageResult,
+    CoverageStatus,
+    FailureReason,
+)
 from .route import RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
 
 __all__ = [
     "CapabilityRegistry",
+    "CoverageAnalyzer",
+    "CoverageAnalyzerError",
+    "CoverageResult",
+    "CoverageStatus",
     "DuplicateLayerError",
     "DuplicateToolError",
+    "FailureReason",
     "InvalidCapabilityError",
     "InvalidTopologyReferenceError",
     "Layer",
