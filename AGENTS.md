@@ -149,12 +149,13 @@ Step 3: Gold Mode Coverage Analyzer (COVERED / UNCOVERED)
 Step 4: Candidate Route Search
 Step 5: Coverage Status + complete Failure Reason
 Step 6: Coverage Report + Category / Capability / Topology Gap Reports
+Step 7: CapabilityResolver Protocol + Fake Resolver
 ```
 
 尚未进入：
 
 ```text
-Step 7+: Resolver, Baseline, CLI
+Step 8+: Real LLM Resolver, Baseline, CLI
 ```
 
 后续任务必须从当前最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。

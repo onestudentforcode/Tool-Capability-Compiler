@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 
 from ..core.errors import FastRegressionError
+from ..capability import CapabilityResolver
 from ..scenario import Scenario, ScenarioSuite
 from ..topology import Topology
 from .coverage import (
@@ -27,6 +28,8 @@ class FastRegressionResult:
     candidate_routes: tuple[CandidateRoute, ...]
     confidence: float
     reason_detail: str
+    optional_capabilities: tuple[str, ...] = ()
+    missing_capability_hints: tuple[str, ...] = ()
 
     @classmethod
     def from_coverage(
@@ -93,10 +96,15 @@ class CoverageReport:
 
 
 class FastRegressionRunner:
-    """Run deterministic metadata-only Gold regression and aggregate reports."""
+    """Run metadata-only Gold or resolver-backed Discovery regression."""
 
-    def __init__(self, analyzer: CoverageAnalyzer | None = None) -> None:
+    def __init__(
+        self,
+        analyzer: CoverageAnalyzer | None = None,
+        resolver: CapabilityResolver | None = None,
+    ) -> None:
         self._analyzer = analyzer or CoverageAnalyzer()
+        self._resolver = resolver
 
     async def run(
         self,
@@ -108,9 +116,18 @@ class FastRegressionRunner:
         if not isinstance(topology_version, str) or not topology_version.strip():
             raise FastRegressionError("topology_version must be a non-empty string")
 
+        available_capabilities = frozenset(
+            capability
+            for name in topology.nodes()
+            for capability in topology.node(name).spec.capabilities
+        )
         results = tuple(
-            self._analyze_scenario(scenario, topology)
-            for scenario in suite.scenarios
+            [
+                await self._analyze_scenario(
+                    scenario, topology, available_capabilities
+                )
+                for scenario in suite.scenarios
+            ]
         )
         counts = Counter(result.status for result in results)
         return CoverageReport(
@@ -129,10 +146,19 @@ class FastRegressionRunner:
             topology_gaps=self._topology_gap_entries(results),
         )
 
-    def _analyze_scenario(
-        self, scenario: Scenario, topology: Topology
+    async def _analyze_scenario(
+        self,
+        scenario: Scenario,
+        topology: Topology,
+        available_capabilities: frozenset[str],
     ) -> FastRegressionResult:
-        if not scenario.is_gold:
+        if scenario.is_gold:
+            coverage = self._analyzer.analyze(
+                topology, set(scenario.expected_capabilities)
+            )
+            return FastRegressionResult.from_coverage(scenario, coverage)
+
+        if self._resolver is None:
             return FastRegressionResult(
                 scenario_id=scenario.id,
                 category=scenario.category,
@@ -147,10 +173,65 @@ class FastRegressionRunner:
                     "Query-only scenario requires a CapabilityResolver from Step 7"
                 ),
             )
-        coverage = self._analyzer.analyze(
-            topology, set(scenario.expected_capabilities)
+
+        resolution = await self._resolver.resolve(
+            scenario.query, available_capabilities
         )
-        return FastRegressionResult.from_coverage(scenario, coverage)
+        if resolution.missing_capability_hints:
+            required = tuple(
+                sorted(
+                    set(resolution.required)
+                    | set(resolution.missing_capability_hints)
+                )
+            )
+            return FastRegressionResult(
+                scenario_id=scenario.id,
+                category=scenario.category,
+                status=CoverageStatus.UNCOVERED,
+                reason=FailureReason.MISSING_CAPABILITY,
+                required_capabilities=required,
+                covered_capabilities=(),
+                missing_capabilities=resolution.missing_capability_hints,
+                candidate_routes=(),
+                confidence=resolution.confidence,
+                reason_detail=resolution.reasoning or "Resolver discovered capability gaps",
+                optional_capabilities=resolution.optional,
+                missing_capability_hints=resolution.missing_capability_hints,
+            )
+        if not resolution.required:
+            return FastRegressionResult(
+                scenario_id=scenario.id,
+                category=scenario.category,
+                status=CoverageStatus.UNCERTAIN,
+                reason=FailureReason.AMBIGUOUS_CAPABILITY,
+                required_capabilities=(),
+                covered_capabilities=(),
+                missing_capabilities=(),
+                candidate_routes=(),
+                confidence=resolution.confidence,
+                reason_detail=resolution.reasoning or "Resolver found no required capability",
+                optional_capabilities=resolution.optional,
+            )
+        coverage = self._analyzer.analyze(
+            topology,
+            set(resolution.required),
+            resolution_confidence=resolution.confidence,
+        )
+        result = FastRegressionResult.from_coverage(scenario, coverage)
+        return FastRegressionResult(
+            scenario_id=result.scenario_id,
+            category=result.category,
+            status=result.status,
+            reason=result.reason,
+            required_capabilities=result.required_capabilities,
+            covered_capabilities=result.covered_capabilities,
+            missing_capabilities=result.missing_capabilities,
+            candidate_routes=result.candidate_routes,
+            confidence=result.confidence,
+            reason_detail=result.reason_detail or resolution.reasoning or "",
+            optional_capabilities=resolution.optional,
+            missing_capability_hints=resolution.missing_capability_hints,
+        )
 
     @staticmethod
     def _category_coverage(

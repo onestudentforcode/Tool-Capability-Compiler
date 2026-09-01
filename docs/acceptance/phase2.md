@@ -2357,7 +2357,8 @@ Step 3  COMPLETE        (Gold Mode Coverage Analyzer: COVERED / UNCOVERED;
 Step 4  COMPLETE        (CandidateRoute / RouteLayer / bounded Route Search)
 Step 5  COMPLETE        (COVERED / UNCERTAIN / UNCOVERED + Failure Reason)
 Step 6  COMPLETE        (Coverage / Category / Capability Gap / Topology Gap)
-Step 7+ NOT STARTED
+Step 7  COMPLETE        (CapabilityResolver Protocol + Fake Resolver)
+Step 8+ NOT STARTED
 ```
 
 本状态只表示代码落地进度，不改变后续步骤的验收要求。

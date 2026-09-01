@@ -60,3 +60,7 @@ class RouteSearchError(TopologyFrameworkError):
 
 class FastRegressionError(TopologyFrameworkError):
     pass
+
+
+class CapabilityResolutionError(TopologyFrameworkError):
+    pass

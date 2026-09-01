@@ -1,5 +1,6 @@
 from .capability import validate_capability_name
 from .errors import (
+    CapabilityResolutionError,
     DuplicateLayerError,
     DuplicateToolError,
     FastRegressionError,
@@ -21,6 +22,7 @@ from .layer import Layer
 from .tool import NodeSelector, SelectorInput, ToolNode, ToolSpec
 
 __all__ = [
+    "CapabilityResolutionError",
     "DuplicateLayerError",
     "DuplicateToolError",
     "FastRegressionError",

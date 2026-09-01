@@ -1,6 +1,7 @@
 """Public API for the layered tool-topology MVP."""
 
 from .core import (
+    CapabilityResolutionError,
     DuplicateLayerError,
     DuplicateToolError,
     FastRegressionError,
@@ -36,11 +37,19 @@ from .regression import (
     TopologyGapEntry,
     RouteSearcher,
 )
+from .capability import (
+    CapabilityResolution,
+    CapabilityResolver,
+    FakeCapabilityResolver,
+)
 from .route import RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
 
 __all__ = [
+    "CapabilityResolution",
+    "CapabilityResolutionError",
+    "CapabilityResolver",
     "CapabilityRegistry",
     "CandidateRoute",
     "CategoryCoverage",
@@ -55,6 +64,7 @@ __all__ = [
     "FastRegressionResult",
     "FastRegressionRunner",
     "FailureReason",
+    "FakeCapabilityResolver",
     "GapEntry",
     "InvalidCapabilityError",
     "InvalidTopologyReferenceError",
