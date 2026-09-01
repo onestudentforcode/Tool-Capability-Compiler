@@ -26,6 +26,7 @@ from .regression import (
     CoverageResult,
     CoverageStatus,
     FailureReason,
+    RouteSearch,
 )
 from .route import RouteLayer, RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
@@ -49,6 +50,7 @@ __all__ = [
     "RegistrationError",
     "RouteLayer",
     "RoutePlan",
+    "RouteSearch",
     "RouteValidationError",
     "Scenario",
     "ScenarioError",

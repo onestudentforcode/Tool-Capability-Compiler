@@ -6,6 +6,7 @@ from .coverage import (
     CoverageStatus,
     FailureReason,
 )
+from .route_search import RouteSearch
 
 __all__ = [
     "CandidateRoute",
@@ -14,4 +15,5 @@ __all__ = [
     "CoverageResult",
     "CoverageStatus",
     "FailureReason",
+    "RouteSearch",
 ]
