@@ -267,7 +267,10 @@ def test_covered_three_layer_refund_topology() -> None:
     assert multi_tool is not None
 
 
-def test_disconnected_three_layer_refund_topology() -> None:
+def test_single_layer_multi_tool_covered() -> None:
+    """Both capabilities live in the same layer, provided by two tools.
+    A single-layer route covers both, even though one tool has no workers
+    (cross-layer connectivity is irrelevant within a single layer)."""
     @tool(layer="read", workers=["policy_check"], capabilities={"order.read"})
     async def good_db():
         return None
@@ -283,7 +286,55 @@ def test_disconnected_three_layer_refund_topology() -> None:
     result = CoverageAnalyzer().analyze(
         topology, {"order.read", "policy.read"}
     )
-    assert result.status == CoverageStatus.UNCOVERED
-    assert result.reason == FailureReason.TOPOLOGY_DISCONNECTED
-    assert result.covered_capabilities == ("order.read",)
-    assert result.missing_capabilities == ("policy.read",)
+    assert result.status == CoverageStatus.COVERED
+    assert result.reason is None
+    assert result.covered_capabilities == ("order.read", "policy.read")
+    assert result.missing_capabilities == ()
+    assert len(result.candidate_routes) == 1
+    assert result.candidate_routes[0].layers == (
+        RouteLayer("read", ("disconnected_rag", "good_db")),
+    )
+
+
+def test_bridge_depth_over_limit_covered() -> None:
+    """Regression: a legal route bridging more than two intermediate layers
+    must still be reported COVERED. The old max_bridge_depth gate falsely
+    reported UNCOVERED for such topologies."""
+    @tool(layer="read", workers=["b1"], capabilities={"order.read"})
+    async def source():
+        return None
+
+    @tool(layer="enrich", providers=["source"], workers=["b2"])
+    async def b1():
+        return None
+
+    @tool(layer="normalize", providers=["b1"], workers=["b3"])
+    async def b2():
+        return None
+
+    @tool(layer="transform", providers=["b2"], workers=["target"])
+    async def b3():
+        return None
+
+    @tool(layer="act", providers=["b3"], capabilities={"refund.execute"})
+    async def target():
+        return None
+
+    topology = _build(
+        ("read", "enrich", "normalize", "transform", "act"),
+        (source, b1, b2, b3, target),
+    )
+    result = CoverageAnalyzer().analyze(
+        topology, {"order.read", "refund.execute"}
+    )
+    assert result.status == CoverageStatus.COVERED
+    assert result.reason is None
+    assert result.covered_capabilities == ("order.read", "refund.execute")
+    assert len(result.candidate_routes) == 1
+    assert [layer.layer for layer in result.candidate_routes[0].layers] == [
+        "read",
+        "enrich",
+        "normalize",
+        "transform",
+        "act",
+    ]

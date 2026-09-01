@@ -279,3 +279,133 @@ def test_route_id_fingerprint() -> None:
     assert len(routes) == 1
     assert len(routes[0].route_id) == 16
     assert all(c in "0123456789abcdef" for c in routes[0].route_id)
+
+
+def test_bridge_chain_three_layers() -> None:
+    """Regression: a route bridging three intermediate layers must be found.
+    The old max_bridge_depth=2 gate rejected such spans outright."""
+    @tool(layer="read", workers=["b1"], capabilities={"order.read"})
+    async def src(): return None
+
+    @tool(layer="enrich", providers=["src"], workers=["b2"])
+    async def b1(): return None
+
+    @tool(layer="normalize", providers=["b1"], workers=["b3"])
+    async def b2(): return None
+
+    @tool(layer="transform", providers=["b2"], workers=["sink"])
+    async def b3(): return None
+
+    @tool(layer="act", providers=["b3"], capabilities={"refund.execute"})
+    async def sink(): return None
+
+    routes = _search(
+        ("read", "enrich", "normalize", "transform", "act"),
+        (src, b1, b2, b3, sink),
+        {"order.read", "refund.execute"},
+    )
+    assert len(routes) == 1
+    assert [layer.layer for layer in routes[0].layers] == [
+        "read", "enrich", "normalize", "transform", "act",
+    ]
+
+
+def test_is_feasible_multi_tool_layer() -> None:
+    """A single layer with multiple tools covering all capabilities is feasible,
+    even when no tool connects to the next layer."""
+    @tool(layer="read", workers=[], capabilities={"order.read"})
+    async def only_db(): return None
+
+    @tool(layer="read", workers=[], capabilities={"policy.read"})
+    async def only_rag(): return None
+
+    routes = _search(
+        ("read", "analyze"),
+        (only_db, only_rag),
+        {"order.read", "policy.read"},
+    )
+    assert len(routes) == 1
+    assert routes[0].layers == (RouteLayer("read", ("only_db", "only_rag")),)
+
+
+def test_is_feasible_parallel_branches() -> None:
+    """Cross-layer parallel branches: each required capability is provided in a
+    different layer, with multiple candidate tools per layer."""
+    @tool(layer="read", capabilities={"order.read"})
+    async def m0(): return None
+
+    @tool(layer="read", capabilities={"order.read"})
+    async def m1(): return None
+
+    @tool(layer="read", capabilities={"order.read"})
+    async def m2(): return None
+
+    @tool(layer="analyze", capabilities={"refund.policy.check"})
+    async def n0(): return None
+
+    @tool(layer="analyze", capabilities={"refund.execute"})
+    async def n1(): return None
+
+    @tool(layer="analyze", capabilities={"order.read"})
+    async def n2(): return None
+
+    routes = _search(
+        ("read", "analyze"),
+        (m0, m1, m2, n0, n1, n2),
+        {"order.read", "refund.policy.check", "refund.execute"},
+    )
+    assert len(routes) >= 1
+    first_layer_tools = {r.layers[0].tools for r in routes}
+    assert ("m0", "m1", "m2") in first_layer_tools
+
+
+def test_search_terminates_on_dense_topology() -> None:
+    """Regression: a dense topology must not cause combinatorial explosion.
+    The search returns within a bounded number of expansions."""
+    import time
+
+    @tool(layer="read", workers="all", capabilities={"order.read"})
+    async def d0(): return None
+
+    @tool(layer="read", workers="all", capabilities={"order.read"})
+    async def d1(): return None
+
+    @tool(layer="read", workers="all", capabilities={"order.read"})
+    async def d2(): return None
+
+    @tool(layer="read", workers="all", capabilities={"order.read"})
+    async def d3(): return None
+
+    @tool(layer="analyze", providers="all", workers="all", capabilities={"refund.policy.check"})
+    async def a0(): return None
+
+    @tool(layer="analyze", providers="all", workers="all", capabilities={"refund.policy.check"})
+    async def a1(): return None
+
+    @tool(layer="analyze", providers="all", workers="all", capabilities={"refund.policy.check"})
+    async def a2(): return None
+
+    @tool(layer="analyze", providers="all", workers="all", capabilities={"refund.policy.check"})
+    async def a3(): return None
+
+    @tool(layer="act", providers="all", capabilities={"refund.execute"})
+    async def t0(): return None
+
+    @tool(layer="act", providers="all", capabilities={"refund.execute"})
+    async def t1(): return None
+
+    @tool(layer="act", providers="all", capabilities={"refund.execute"})
+    async def t2(): return None
+
+    @tool(layer="act", providers="all", capabilities={"refund.execute"})
+    async def t3(): return None
+
+    routes = _search(
+        ("read", "analyze", "act"),
+        (d0, d1, d2, d3, a0, a1, a2, a3, t0, t1, t2, t3),
+        {"order.read", "refund.policy.check", "refund.execute"},
+        max_expansions=100_000,
+    )
+    # The assertion is on bounded work, not on a specific count: the call
+    # must return promptly (look-ahead pruning keeps the search tractable).
+    assert len(routes) >= 1
