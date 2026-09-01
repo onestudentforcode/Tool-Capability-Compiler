@@ -146,12 +146,12 @@ refactor: remove deprecated artifact planner
 Step 1: Tool capabilities + CapabilityRegistry
 Step 2: Scenario + ScenarioSuite + ScenarioLoader
 Step 3: Gold Mode Coverage Analyzer (COVERED / UNCOVERED)
+Step 4: Candidate Route Search
 ```
 
 尚未进入：
 
 ```text
-Step 4: Candidate Route Search
 Step 5+: Coverage Status, Report, Resolver, Baseline, CLI
 ```
 

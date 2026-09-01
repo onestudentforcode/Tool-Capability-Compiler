@@ -2354,7 +2354,8 @@ Step 1  COMPLETE
 Step 2  COMPLETE
 Step 3  COMPLETE        (Gold Mode Coverage Analyzer: COVERED / UNCOVERED;
                               MISSING_CAPABILITY / TOPOLOGY_DISCONNECTED)
-Step 4+ NOT STARTED
+Step 4  COMPLETE        (CandidateRoute / RouteLayer / bounded Route Search)
+Step 5+ NOT STARTED
 ```
 
 本状态只表示代码落地进度，不改变后续步骤的验收要求。

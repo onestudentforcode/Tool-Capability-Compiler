@@ -52,3 +52,7 @@ class ScenarioValidationError(ScenarioError):
 
 class CoverageAnalyzerError(TopologyFrameworkError):
     pass
+
+
+class RouteSearchError(TopologyFrameworkError):
+    pass
