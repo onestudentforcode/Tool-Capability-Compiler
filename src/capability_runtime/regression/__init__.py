@@ -1,3 +1,4 @@
+from .candidate_route import CandidateRoute
 from .coverage import (
     CoverageAnalyzer,
     CoverageAnalyzerError,
@@ -5,7 +6,6 @@ from .coverage import (
     CoverageStatus,
     FailureReason,
 )
-from .route_search import CandidateRoute, RouteSearcher
 from .report import (
     CategoryCoverage,
     CoverageReport,
@@ -14,19 +14,21 @@ from .report import (
     GapEntry,
     TopologyGapEntry,
 )
+from .route_search import RouteSearch, RouteSearcher
 
 __all__ = [
     "CandidateRoute",
     "CategoryCoverage",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
+    "CoverageReport",
     "CoverageResult",
     "CoverageStatus",
-    "CoverageReport",
+    "FailureReason",
     "FastRegressionResult",
     "FastRegressionRunner",
-    "FailureReason",
     "GapEntry",
-    "TopologyGapEntry",
+    "RouteSearch",
     "RouteSearcher",
+    "TopologyGapEntry",
 ]

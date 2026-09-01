@@ -1,50 +1,291 @@
 from __future__ import annotations
 
-import hashlib
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
-from itertools import combinations, product
-from typing import AbstractSet
+import itertools
+from collections.abc import Iterable
+from typing import AbstractSet, Any
 
 from ..core.capability import validate_capability_name
 from ..core.errors import RouteSearchError
-from ..route import RouteLayer
-from ..topology import ToolEdge, Topology
+from ..registry.capability_registry import CapabilityRegistry
+from ..route.models import RouteLayer
+from ..topology.models import ToolEdge, Topology
+from .candidate_route import CandidateRoute
 
 
-@dataclass(frozen=True, slots=True)
-class CandidateRoute:
-    """A theoretical topology-constrained route; it is not an execution plan."""
+class RouteSearch:
+    """Exact feasibility plus bounded candidate enumeration."""
 
-    layers: tuple[RouteLayer, ...]
-    edges: tuple[ToolEdge, ...]
-    capabilities: frozenset[str]
+    def __init__(
+        self,
+        topology: Topology,
+        capability_registry: CapabilityRegistry,
+        max_candidate_routes: int = 20,
+        max_expansions: int = 100_000,
+    ) -> None:
+        if max_candidate_routes <= 0:
+            raise RouteSearchError("max_candidate_routes must be positive")
+        if max_expansions <= 0:
+            raise RouteSearchError("max_expansions must be positive")
+        self._topology = topology
+        self._registry = capability_registry
+        self._limit = max_candidate_routes
+        self._max_expansions = max_expansions
 
-    @property
-    def fingerprint(self) -> str:
-        return "|".join(
-            f"{layer.layer}:[{','.join(layer.tools)}]" for layer in self.layers
+    def search(
+        self, required_capabilities: tuple[str, ...]
+    ) -> tuple[CandidateRoute, ...]:
+        required = frozenset(
+            validate_capability_name(capability)
+            for capability in required_capabilities
+        )
+        if not required:
+            return ()
+        cap_of = self._capabilities_by_tool()
+        witness = self._feasible_witness(required, cap_of)
+        if witness is None:
+            return ()
+
+        routes: dict[str, CandidateRoute] = {}
+        expansions = [0]
+        names = [layer.name for layer in self._topology.layers()]
+        for start in range(len(names)):
+            for end in range(start, len(names)):
+                span = names[start : end + 1]
+                maximal = self._max_chain(span)
+                if any(not maximal[name] for name in span):
+                    continue
+                available = {
+                    capability
+                    for name in span
+                    for tool in maximal[name]
+                    for capability in cap_of[tool]
+                }
+                if not required.issubset(available):
+                    continue
+                groups = [
+                    (name, tuple(sorted(maximal[name]))) for name in span
+                ]
+                self._enumerate(
+                    groups, 0, [], frozenset(), required, cap_of, routes, expansions
+                )
+                if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+                    break
+            if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+                break
+
+        # Feasibility must not depend on the enumeration budget.
+        if not routes:
+            span, maximal = witness
+            route = self._make_route(
+                [(name, tuple(sorted(maximal[name]))) for name in span], cap_of
+            )
+            routes[route.fingerprint] = route
+        ordered = sorted(
+            routes.values(), key=lambda route: (route.tool_count, route.fingerprint)
+        )
+        return tuple(ordered[: self._limit])
+
+    def is_feasible(self, required_capabilities: tuple[str, ...]) -> bool:
+        required = frozenset(required_capabilities)
+        return bool(required) and self._feasible_witness(
+            required, self._capabilities_by_tool()
+        ) is not None
+
+    def covered_capabilities(
+        self, required_capabilities: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        required = set(required_capabilities)
+        cap_of = self._capabilities_by_tool()
+        best: set[str] = set()
+        names = [layer.name for layer in self._topology.layers()]
+        for start in range(len(names)):
+            for end in range(start, len(names)):
+                span = names[start : end + 1]
+                maximal = self._max_chain(span)
+                covered = {
+                    capability
+                    for name in span
+                    for tool in maximal[name]
+                    for capability in cap_of[tool]
+                } & required
+                if len(covered) > len(best) or (
+                    len(covered) == len(best)
+                    and tuple(sorted(covered)) < tuple(sorted(best))
+                ):
+                    best = covered
+        return tuple(sorted(best))
+
+    def _capabilities_by_tool(self) -> dict[str, frozenset[str]]:
+        return {
+            name: self._topology.node(name).spec.capabilities
+            for name in self._topology.nodes()
+        }
+
+    def _max_chain(self, span: list[str]) -> dict[str, set[str]]:
+        """Compute the maximal legal chain by monotone deletion."""
+        surviving = {
+            name: set(self._topology.nodes_in_layer(name)) for name in span
+        }
+        changed = True
+        while changed:
+            changed = False
+            for left, right in zip(span, span[1:]):
+                keep_right = {
+                    target
+                    for target in surviving[right]
+                    if any(
+                        self._topology.has_edge(source, target)
+                        for source in surviving[left]
+                    )
+                }
+                keep_left = {
+                    source
+                    for source in surviving[left]
+                    if any(
+                        self._topology.has_edge(source, target)
+                        for target in keep_right
+                    )
+                }
+                if keep_left != surviving[left] or keep_right != surviving[right]:
+                    surviving[left], surviving[right] = keep_left, keep_right
+                    changed = True
+        return surviving
+
+    def _feasible_witness(
+        self,
+        required: frozenset[str],
+        cap_of: dict[str, frozenset[str]],
+    ) -> tuple[list[str], dict[str, set[str]]] | None:
+        names = [layer.name for layer in self._topology.layers()]
+        for start in range(len(names)):
+            for end in range(start, len(names)):
+                span = names[start : end + 1]
+                maximal = self._max_chain(span)
+                covered = {
+                    capability
+                    for name in span
+                    for tool in maximal[name]
+                    for capability in cap_of[tool]
+                }
+                if required.issubset(covered):
+                    return span, maximal
+        return None
+
+    def _enumerate(
+        self,
+        groups: list[tuple[str, tuple[str, ...]]],
+        index: int,
+        selected: list[tuple[str, tuple[str, ...]]],
+        covered: frozenset[str],
+        required: frozenset[str],
+        cap_of: dict[str, frozenset[str]],
+        routes: dict[str, CandidateRoute],
+        expansions: list[int],
+    ) -> None:
+        if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+            return
+        if index == len(groups):
+            if required.issubset(covered):
+                route = self._make_route(selected, cap_of)
+                route_tools = self._route_tools(route)
+                if any(self._route_tools(old) < route_tools for old in routes.values()):
+                    return
+                for key, old in tuple(routes.items()):
+                    if route_tools < self._route_tools(old):
+                        del routes[key]
+                routes[route.fingerprint] = route
+            return
+        expansions[0] += 1
+        layer, tools = groups[index]
+        for size in range(1, len(tools) + 1):
+            for subset in itertools.combinations(tools, size):
+                if selected and not self._interconnected(selected[-1][1], subset):
+                    continue
+                new_covered = covered.union(
+                    capability for tool in subset for capability in cap_of[tool]
+                )
+                missing = required - new_covered
+                suffix = {
+                    capability
+                    for _, later_tools in groups[index + 1 :]
+                    for tool in later_tools
+                    for capability in cap_of[tool]
+                }
+                if missing and not missing.issubset(suffix):
+                    continue
+                selected.append((layer, subset))
+                self._enumerate(
+                    groups, index + 1, selected, new_covered, required,
+                    cap_of, routes, expansions
+                )
+                selected.pop()
+
+    def _interconnected(
+        self, left: tuple[str, ...], right: tuple[str, ...]
+    ) -> bool:
+        return all(
+            any(self._topology.has_edge(source, target) for target in right)
+            for source in left
+        ) and all(
+            any(self._topology.has_edge(source, target) for source in left)
+            for target in right
         )
 
-    @property
-    def route_id(self) -> str:
-        return hashlib.sha256(self.fingerprint.encode("utf-8")).hexdigest()[:16]
+    def _make_route(
+        self,
+        groups: list[tuple[str, tuple[str, ...]]],
+        cap_of: dict[str, frozenset[str]],
+    ) -> CandidateRoute:
+        edges = tuple(
+            ToolEdge(source, target)
+            for (_, left), (_, right) in zip(groups, groups[1:])
+            for source in left
+            for target in right
+            if self._topology.has_edge(source, target)
+        )
+        return CandidateRoute(
+            layers=tuple(RouteLayer(layer, tools) for layer, tools in groups),
+            capabilities=frozenset(
+                capability
+                for _, tools in groups
+                for tool in tools
+                for capability in cap_of[tool]
+            ),
+            edges=edges,
+        )
 
-    @property
-    def tool_count(self) -> int:
-        return sum(len(layer.tools) for layer in self.layers)
+    @staticmethod
+    def _route_tools(route: CandidateRoute) -> set[str]:
+        return {tool for layer in route.layers for tool in layer.tools}
 
-    @property
-    def layer_count(self) -> int:
-        return len(self.layers)
 
-    @property
-    def route_depth(self) -> int:
-        return max(0, self.layer_count - 1)
+class _FilteredTopology:
+    def __init__(
+        self, topology: Topology, tools: set[str], edges: set[tuple[str, str]]
+    ) -> None:
+        self._topology, self._tools, self._edges = topology, tools, edges
+
+    def layers(self) -> Any:
+        return self._topology.layers()
+
+    def nodes(self) -> tuple[str, ...]:
+        return tuple(name for name in self._topology.nodes() if name in self._tools)
+
+    def node(self, name: str) -> Any:
+        return self._topology.node(name)
+
+    def nodes_in_layer(self, layer: str) -> tuple[str, ...]:
+        return tuple(
+            name for name in self._topology.nodes_in_layer(layer)
+            if name in self._tools
+        )
+
+    def has_edge(self, source: str, target: str) -> bool:
+        return (source, target) in self._edges
 
 
 class RouteSearcher:
-    """Find bounded feasible routes without executing tools or scoring quality."""
+    """Compatibility facade for the original stateless Step 4 API."""
 
     def search(
         self,
@@ -58,182 +299,11 @@ class RouteSearcher:
     ) -> tuple[CandidateRoute, ...]:
         if not required_capabilities:
             raise RouteSearchError("Route search requires at least one capability")
-        if max_candidate_routes <= 0:
-            raise RouteSearchError("max_candidate_routes must be positive")
         if max_bridge_depth < 0:
             raise RouteSearchError("max_bridge_depth cannot be negative")
-
-        required = tuple(
-            sorted(
-                validate_capability_name(capability)
-                for capability in required_capabilities
-            )
-        )
-        enabled_nodes, enabled_edges = self._enabled_search_space(
-            topology, disabled_tools, disabled_edges
-        )
-        providers = {
-            capability: tuple(
-                name
-                for name in enabled_nodes
-                if capability in topology.node(name).spec.capabilities
-            )
-            for capability in required
-        }
-        if any(not names for names in providers.values()):
-            return ()
-
-        layer_order = {layer.name: layer.order for layer in topology.layers()}
-        nodes_by_order = {
-            layer.order: tuple(
-                name
-                for name in enabled_nodes
-                if topology.node(name).spec.layer == layer.name
-            )
-            for layer in topology.layers()
-        }
-
-        routes: dict[str, CandidateRoute] = {}
-        provider_choices = (providers[capability] for capability in required)
-        for assignment in product(*provider_choices):
-            terminals = frozenset(assignment)
-            minimal_tool_sets: list[frozenset[str]] = []
-            for route in self._routes_for_terminals(
-                topology=topology,
-                terminals=terminals,
-                required=frozenset(required),
-                layer_order=layer_order,
-                nodes_by_order=nodes_by_order,
-                enabled_edges=enabled_edges,
-                max_bridge_depth=max_bridge_depth,
-            ):
-                route_tools = frozenset(
-                    name for layer in route.layers for name in layer.tools
-                )
-                if any(existing < route_tools for existing in minimal_tool_sets):
-                    continue
-                minimal_tool_sets = [
-                    existing
-                    for existing in minimal_tool_sets
-                    if not route_tools < existing
-                ]
-                minimal_tool_sets.append(route_tools)
-                routes.setdefault(route.fingerprint, route)
-                if len(routes) >= max_candidate_routes:
-                    return tuple(routes[key] for key in sorted(routes))
-        return tuple(routes[key] for key in sorted(routes))
-
-    def _routes_for_terminals(
-        self,
-        *,
-        topology: Topology,
-        terminals: frozenset[str],
-        required: frozenset[str],
-        layer_order: dict[str, int],
-        nodes_by_order: dict[int, tuple[str, ...]],
-        enabled_edges: frozenset[tuple[str, str]],
-        max_bridge_depth: int,
-    ) -> Iterator[CandidateRoute]:
-        terminal_orders: dict[int, tuple[str, ...]] = {}
-        for name in sorted(terminals):
-            order = layer_order[topology.node(name).spec.layer]
-            terminal_orders.setdefault(order, ())
-            terminal_orders[order] = (*terminal_orders[order], name)
-
-        ordered_terminal_layers = sorted(terminal_orders)
-        if any(
-            right - left - 1 > max_bridge_depth
-            for left, right in zip(
-                ordered_terminal_layers,
-                ordered_terminal_layers[1:],
-                strict=False,
-            )
-        ):
-            return
-
-        first = ordered_terminal_layers[0]
-        last = ordered_terminal_layers[-1]
-        options: list[tuple[tuple[str, ...], ...]] = []
-        for order in range(first, last + 1):
-            mandatory = terminal_orders.get(order)
-            if mandatory:
-                options.append((mandatory,))
-                continue
-            bridge_nodes = nodes_by_order.get(order, ())
-            options.append(tuple(self._non_empty_subsets(bridge_nodes)))
-            if not options[-1]:
-                return
-
-        groups: list[tuple[str, ...]] = []
-
-        def walk(index: int) -> Iterator[CandidateRoute]:
-            if index == len(options):
-                selected = {name for group in groups for name in group}
-                capabilities = frozenset(
-                    capability
-                    for name in selected
-                    for capability in topology.node(name).spec.capabilities
-                )
-                if not required.issubset(capabilities):
-                    return
-                route_layers = tuple(
-                    RouteLayer(
-                        layer=topology.node(group[0]).spec.layer,
-                        tools=group,
-                    )
-                    for group in groups
-                )
-                edges = tuple(
-                    ToolEdge(source, target)
-                    for left, right in zip(groups, groups[1:], strict=False)
-                    for source in left
-                    for target in right
-                    if (source, target) in enabled_edges
-                )
-                yield CandidateRoute(route_layers, edges, capabilities)
-                return
-
-            for group in options[index]:
-                if groups and not self._groups_connect(
-                    groups[-1], group, enabled_edges
-                ):
-                    continue
-                groups.append(group)
-                yield from walk(index + 1)
-                groups.pop()
-
-        yield from walk(0)
-
-    @staticmethod
-    def _groups_connect(
-        sources: tuple[str, ...],
-        targets: tuple[str, ...],
-        enabled_edges: frozenset[tuple[str, str]],
-    ) -> bool:
-        return all(
-            any((source, target) in enabled_edges for target in targets)
-            for source in sources
-        ) and all(
-            any((source, target) in enabled_edges for source in sources)
-            for target in targets
-        )
-
-    @staticmethod
-    def _non_empty_subsets(nodes: tuple[str, ...]) -> Iterator[tuple[str, ...]]:
-        for size in range(1, len(nodes) + 1):
-            yield from combinations(nodes, size)
-
-    @staticmethod
-    def _enabled_search_space(
-        topology: Topology,
-        disabled_tools: AbstractSet[str],
-        disabled_edges: Iterable[ToolEdge | tuple[str, str]],
-    ) -> tuple[tuple[str, ...], frozenset[tuple[str, str]]]:
-        unknown_tools = sorted(set(disabled_tools) - set(topology.nodes()))
-        if unknown_tools:
-            raise RouteSearchError(
-                f"Unknown disabled tools: {', '.join(unknown_tools)}"
-            )
+        unknown = sorted(set(disabled_tools) - set(topology.nodes()))
+        if unknown:
+            raise RouteSearchError(f"Unknown disabled tools: {', '.join(unknown)}")
 
         disabled_pairs: set[tuple[str, str]] = set()
         for edge in disabled_edges:
@@ -242,23 +312,55 @@ class RouteSearcher:
                 not isinstance(pair, tuple)
                 or len(pair) != 2
                 or not all(isinstance(name, str) for name in pair)
+                or not topology.has_edge(*pair)
             ):
-                raise RouteSearchError(f"Invalid disabled edge: {edge!r}")
-            if not topology.has_edge(*pair):
-                raise RouteSearchError(
-                    f"Disabled edge does not exist: {pair[0]} -> {pair[1]}"
-                )
+                raise RouteSearchError(f"Disabled edge does not exist: {pair!r}")
             disabled_pairs.add(pair)
 
-        enabled_nodes = tuple(
-            name for name in topology.nodes() if name not in disabled_tools
-        )
-        enabled_set = set(enabled_nodes)
-        enabled_edges = frozenset(
+        enabled_tools = set(topology.nodes()) - set(disabled_tools)
+        enabled_edges = {
             (edge.source, edge.target)
             for edge in topology.edges()
-            if edge.source in enabled_set
-            and edge.target in enabled_set
+            if edge.source in enabled_tools
+            and edge.target in enabled_tools
             and (edge.source, edge.target) not in disabled_pairs
+        }
+        filtered = _FilteredTopology(topology, enabled_tools, enabled_edges)
+        registry = CapabilityRegistry()
+        for name in filtered.nodes():
+            for capability in sorted(filtered.node(name).spec.capabilities):
+                registry.register(capability, name)
+        routes = RouteSearch(
+            filtered, registry, max_candidate_routes=max_candidate_routes
+        ).search(tuple(sorted(required_capabilities)))
+
+        layer_order = {layer.name: layer.order for layer in topology.layers()}
+        required = set(required_capabilities)
+        return tuple(
+            route for route in routes
+            if self._bridge_depth(route, topology, layer_order, required)
+            <= max_bridge_depth
         )
-        return enabled_nodes, enabled_edges
+
+    @staticmethod
+    def _bridge_depth(
+        route: CandidateRoute,
+        topology: Topology,
+        layer_order: dict[str, int],
+        required: set[str],
+    ) -> int:
+        terminal_orders = sorted({
+            layer_order[layer.layer]
+            for layer in route.layers
+            if any(
+                topology.node(tool).spec.capabilities & required
+                for tool in layer.tools
+            )
+        })
+        return max(
+            (
+                right - left - 1
+                for left, right in zip(terminal_orders, terminal_orders[1:])
+            ),
+            default=0,
+        )

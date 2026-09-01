@@ -1,5 +1,10 @@
 """Public API for the layered tool-topology MVP."""
 
+from .capability import (
+    CapabilityResolution,
+    CapabilityResolver,
+    FakeCapabilityResolver,
+)
 from .core import (
     CapabilityResolutionError,
     DuplicateLayerError,
@@ -23,26 +28,22 @@ from .core import (
 from .decorators import tool
 from .registry import CapabilityRegistry, LayerRegistry, ToolRegistry
 from .regression import (
-    CoverageAnalyzer,
-    CoverageAnalyzerError,
-    CoverageResult,
-    CoverageStatus,
     CandidateRoute,
     CategoryCoverage,
+    CoverageAnalyzer,
+    CoverageAnalyzerError,
     CoverageReport,
+    CoverageResult,
+    CoverageStatus,
+    FailureReason,
     FastRegressionResult,
     FastRegressionRunner,
-    FailureReason,
     GapEntry,
-    TopologyGapEntry,
+    RouteSearch,
     RouteSearcher,
+    TopologyGapEntry,
 )
-from .capability import (
-    CapabilityResolution,
-    CapabilityResolver,
-    FakeCapabilityResolver,
-)
-from .route import RoutePlan
+from .route import RouteLayer, RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
 
@@ -55,16 +56,16 @@ __all__ = [
     "CategoryCoverage",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
-    "CoverageResult",
     "CoverageReport",
+    "CoverageResult",
     "CoverageStatus",
     "DuplicateLayerError",
     "DuplicateToolError",
+    "FailureReason",
+    "FakeCapabilityResolver",
     "FastRegressionError",
     "FastRegressionResult",
     "FastRegressionRunner",
-    "FailureReason",
-    "FakeCapabilityResolver",
     "GapEntry",
     "InvalidCapabilityError",
     "InvalidTopologyReferenceError",
@@ -72,7 +73,9 @@ __all__ = [
     "LayerNotFoundError",
     "LayerRegistry",
     "RegistrationError",
+    "RouteLayer",
     "RoutePlan",
+    "RouteSearch",
     "RouteSearcher",
     "RouteSearchError",
     "RouteValidationError",

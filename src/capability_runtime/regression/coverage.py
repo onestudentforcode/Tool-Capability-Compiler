@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import AbstractSet
 
 from ..core.capability import validate_capability_name
-from ..core.errors import CoverageAnalyzerError, InvalidCapabilityError
+from ..core.errors import CoverageAnalyzerError
+from ..registry.capability_registry import CapabilityRegistry
 from ..topology.models import Topology
-from .route_search import CandidateRoute, RouteSearcher
+from .candidate_route import CandidateRoute
+from .route_search import RouteSearch
 
 
 class CoverageStatus(str, Enum):
@@ -22,7 +23,6 @@ class FailureReason(str, Enum):
     TOPOLOGY_DISCONNECTED = "topology_disconnected"
     LOW_RESOLUTION_CONFIDENCE = "low_resolution_confidence"
     AMBIGUOUS_CAPABILITY = "ambiguous_capability"
-    NO_VALID_ROUTE = "no_valid_route"
     ROUTE_SEARCH_LIMIT_REACHED = "route_search_limit_reached"
     INVALID_SCENARIO = "invalid_scenario"
 
@@ -40,27 +40,28 @@ class CoverageResult:
 
 
 class CoverageAnalyzer:
-    """Gold Mode: judge whether required capabilities are covered by the topology.
-
-    This is a static metadata analysis. It does not execute tools, does not call
-    any LLM, and does not modify the topology.
-    """
+    """Perform static coverage analysis without executing tools."""
 
     def __init__(
         self,
         *,
         confidence_threshold: float = 0.8,
         max_candidate_routes: int = 20,
-        max_bridge_depth: int = 2,
+        max_bridge_depth: int | None = None,
     ) -> None:
         if not 0.0 <= confidence_threshold <= 1.0:
             raise CoverageAnalyzerError(
                 "confidence_threshold must be between 0.0 and 1.0"
             )
+        if max_candidate_routes <= 0:
+            raise CoverageAnalyzerError("max_candidate_routes must be positive")
+        if max_bridge_depth is not None and max_bridge_depth < 0:
+            raise CoverageAnalyzerError("max_bridge_depth cannot be negative")
         self._confidence_threshold = confidence_threshold
         self._max_candidate_routes = max_candidate_routes
+        # Kept for constructor compatibility. Exact coverage must accept legal
+        # routes of arbitrary declared depth.
         self._max_bridge_depth = max_bridge_depth
-        self._route_searcher = RouteSearcher()
 
     def analyze(
         self,
@@ -75,22 +76,19 @@ class CoverageAnalyzer:
                 "Coverage analysis requires at least one capability; "
                 "query-only scenarios are not supported until the Resolver."
             )
-
-        required = sorted(
+        required = tuple(sorted(
             validate_capability_name(capability)
             for capability in required_capabilities
-        )
+        ))
         confidence = 1.0 if resolution_confidence is None else resolution_confidence
         if not 0.0 <= confidence <= 1.0:
             raise CoverageAnalyzerError(
                 "resolution_confidence must be between 0.0 and 1.0"
             )
-        ambiguous = tuple(
-            sorted(
-                validate_capability_name(capability)
-                for capability in ambiguous_capabilities
-            )
-        )
+        ambiguous = tuple(sorted(
+            validate_capability_name(capability)
+            for capability in ambiguous_capabilities
+        ))
         unknown_ambiguous = sorted(set(ambiguous) - set(required))
         if unknown_ambiguous:
             raise CoverageAnalyzerError(
@@ -98,54 +96,37 @@ class CoverageAnalyzer:
                 + ", ".join(unknown_ambiguous)
             )
 
-        provider_map, layer_of = self._index(topology)
-
-        missing = sorted(
+        registry = self._build_capability_registry(topology)
+        missing = tuple(
             capability
             for capability in required
-            if not provider_map.get(capability)
+            if not registry.providers(capability)
         )
         if missing:
             return CoverageResult(
                 status=CoverageStatus.UNCOVERED,
                 reason=FailureReason.MISSING_CAPABILITY,
-                required_capabilities=tuple(required),
+                required_capabilities=required,
                 covered_capabilities=(),
-                missing_capabilities=tuple(missing),
+                missing_capabilities=missing,
                 confidence=confidence,
-                reason_detail=(
-                    "No enabled tool declares: " + ", ".join(missing)
-                ),
+                reason_detail="No enabled tool declares: " + ", ".join(missing),
             )
 
-        candidate_routes = self._route_searcher.search(
+        search = RouteSearch(
             topology,
-            set(required),
+            registry,
             max_candidate_routes=self._max_candidate_routes,
-            max_bridge_depth=self._max_bridge_depth,
         )
-
-        relevant = sorted(
-            {
-                tool
-                for capability in required
-                for tool in provider_map[capability]
-            }
-        )
-        min_order = min(layer_of[tool] for tool in relevant)
-        max_order = max(layer_of[tool] for tool in relevant)
-
-        covered = self._covered_in_span(
-            topology, provider_map, required, layer_of, min_order, max_order
-        )
-        if not candidate_routes:
-            missing = sorted(set(required) - set(covered))
+        candidate_routes = search.search(required)
+        if not search.is_feasible(required):
+            covered = search.covered_capabilities(required)
             return CoverageResult(
                 status=CoverageStatus.UNCOVERED,
                 reason=FailureReason.TOPOLOGY_DISCONNECTED,
-                required_capabilities=tuple(required),
-                covered_capabilities=tuple(covered),
-                missing_capabilities=tuple(missing),
+                required_capabilities=required,
+                covered_capabilities=covered,
+                missing_capabilities=tuple(sorted(set(required) - set(covered))),
                 confidence=confidence,
                 reason_detail=(
                     "Capability providers exist but cannot form a valid topology route"
@@ -156,20 +137,19 @@ class CoverageAnalyzer:
             return CoverageResult(
                 status=CoverageStatus.UNCERTAIN,
                 reason=FailureReason.AMBIGUOUS_CAPABILITY,
-                required_capabilities=tuple(required),
-                covered_capabilities=tuple(required),
+                required_capabilities=required,
+                covered_capabilities=required,
                 missing_capabilities=(),
                 candidate_routes=candidate_routes,
                 confidence=confidence,
                 reason_detail="Ambiguous capabilities: " + ", ".join(ambiguous),
             )
-
         if confidence < self._confidence_threshold:
             return CoverageResult(
                 status=CoverageStatus.UNCERTAIN,
                 reason=FailureReason.LOW_RESOLUTION_CONFIDENCE,
-                required_capabilities=tuple(required),
-                covered_capabilities=tuple(required),
+                required_capabilities=required,
+                covered_capabilities=required,
                 missing_capabilities=(),
                 candidate_routes=candidate_routes,
                 confidence=confidence,
@@ -178,88 +158,20 @@ class CoverageAnalyzer:
                     f"{self._confidence_threshold:.3f}"
                 ),
             )
-
         return CoverageResult(
             status=CoverageStatus.COVERED,
             reason=None,
-            required_capabilities=tuple(required),
-            covered_capabilities=tuple(required),
+            required_capabilities=required,
+            covered_capabilities=required,
             missing_capabilities=(),
             candidate_routes=candidate_routes,
             confidence=confidence,
         )
 
     @staticmethod
-    def _index(
-        topology: Topology,
-    ) -> tuple[dict[str, list[str]], dict[str, int]]:
-        provider_map: dict[str, list[str]] = {}
+    def _build_capability_registry(topology: Topology) -> CapabilityRegistry:
+        registry = CapabilityRegistry()
         for name in topology.nodes():
-            node = topology.node(name)
-            for capability in sorted(node.spec.capabilities):
-                provider_map.setdefault(capability, []).append(name)
-
-        layer_order = {
-            layer.name: layer.order for layer in topology.layers()
-        }
-        layer_of = {
-            name: layer_order[node.spec.layer]
-            for name in topology.nodes()
-            for node in (topology.node(name),)
-        }
-        return provider_map, layer_of
-
-    @staticmethod
-    def _covered_in_span(
-        topology: Topology,
-        provider_map: dict[str, list[str]],
-        required: list[str],
-        layer_of: dict[str, int],
-        min_order: int,
-        max_order: int,
-    ) -> list[str]:
-        layer_order = {
-            layer.name: layer.order for layer in topology.layers()
-        }
-        in_span = {
-            name
-            for name in topology.nodes()
-            if min_order <= layer_of[name] <= max_order
-        }
-        remaining = set(in_span)
-        required_set = set(required)
-        best: list[str] = []
-        while remaining:
-            seed = min(remaining)
-            component: set[str] = set()
-            queue: deque[str] = deque([seed])
-            while queue:
-                current = queue.popleft()
-                if current in component:
-                    continue
-                component.add(current)
-                for neighbor in (
-                    *topology.predecessors(current),
-                    *topology.successors(current),
-                ):
-                    if (
-                        neighbor in in_span
-                        and neighbor not in component
-                    ):
-                        queue.append(neighbor)
-            remaining -= component
-
-            covered_here = sorted(
-                capability
-                for capability in required
-                if any(tool in component for tool in provider_map[capability])
-            )
-            if (
-                len(covered_here) > len(best)
-                or (len(covered_here) == len(best) and covered_here < best)
-            ):
-                best = covered_here
-            if set(best) == required_set:
-                break
-
-        return best
+            for capability in sorted(topology.node(name).spec.capabilities):
+                registry.register(capability, name)
+        return registry
