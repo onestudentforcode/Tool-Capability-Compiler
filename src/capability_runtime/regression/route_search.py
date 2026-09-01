@@ -59,54 +59,26 @@ class RouteSearch:
         if not relevant:
             return ()
 
-        min_order = min(layer_of[tool] for tool in relevant)
-        max_order = max(layer_of[tool] for tool in relevant)
-
-        # Include ALL tools in the span (not just relevant ones) so that
-        # bridge tools participate in connected-component discovery.
-        in_span = {
-            name
-            for name in self._topology.nodes()
-            if min_order <= layer_of[name] <= max_order
-        }
-
-        components = self._connected_components(in_span)
-
+        relevant_orders = sorted({layer_of[t] for t in relevant})
         required_set = set(required_capabilities)
         candidates: list[CandidateRoute] = []
 
-        for component in components:
-            covered_here = required_set & {
-                cap
-                for tool in component
-                for cap in self._topology.node(tool).spec.capabilities
-            }
-            if covered_here != required_set:
-                continue
-
-            relevant_in_component = sorted(
-                tool for tool in relevant if tool in component
-            )
-            relevant_orders = sorted({layer_of[t] for t in relevant_in_component})
-
-            for start_idx, start_order in enumerate(relevant_orders):
-                for end_order in relevant_orders[start_idx:]:
-                    if not self._span_bridge_depth_ok(
-                        relevant_orders, start_order, end_order
-                    ):
-                        continue
-                    self._enumerate_in_span(
-                        required_capabilities=required_capabilities,
-                        start_order=start_order,
-                        end_order=end_order,
-                        layer_of=layer_of,
-                        component=component,
-                        candidates=candidates,
-                    )
-                    if len(candidates) >= self._max_candidate_routes:
-                        break
+        for start_idx, start_order in enumerate(relevant_orders):
+            for end_order in relevant_orders[start_idx:]:
+                if not self._span_bridge_depth_ok(relevant_orders, start_order, end_order):
+                    continue
+                self._enumerate_in_span(
+                    required_capabilities=required_set,
+                    relevant_orders=relevant_orders,
+                    start_order=start_order,
+                    end_order=end_order,
+                    layer_of=layer_of,
+                    candidates=candidates,
+                )
                 if len(candidates) >= self._max_candidate_routes:
                     break
+            if len(candidates) >= self._max_candidate_routes:
+                break
 
         return self._deduplicate_and_limit(candidates)
 
@@ -121,28 +93,6 @@ class RouteSearch:
             for name in self._topology.nodes()
         }
         return provider_map, layer_of
-
-    def _connected_components(self, in_span: set[str]) -> list[set[str]]:
-        remaining = set(in_span)
-        components: list[set[str]] = []
-        while remaining:
-            seed = min(remaining)
-            component: set[str] = set()
-            queue: deque[str] = deque([seed])
-            while queue:
-                current = queue.popleft()
-                if current in component:
-                    continue
-                component.add(current)
-                for neighbor in (
-                    *self._topology.predecessors(current),
-                    *self._topology.successors(current),
-                ):
-                    if neighbor in in_span and neighbor not in component:
-                        queue.append(neighbor)
-            remaining -= component
-            components.append(component)
-        return components
 
     def _span_bridge_depth_ok(
         self,
@@ -160,11 +110,11 @@ class RouteSearch:
 
     def _enumerate_in_span(
         self,
-        required_capabilities: tuple[str, ...],
+        required_capabilities: set[str],
+        relevant_orders: list[int],
         start_order: int,
         end_order: int,
         layer_of: dict[str, int],
-        component: set[str],
         candidates: list[CandidateRoute],
     ) -> None:
         all_orders_in_span = sorted(
@@ -174,9 +124,16 @@ class RouteSearch:
         layer_candidates: list[tuple[str, list[str]]] = []
         for order in all_orders_in_span:
             layer_name = self._order_to_layer[order]
-            relevant_here = sorted(t for t in component if layer_of[t] == order)
+            relevant_here = sorted(
+                t
+                for t in self._topology.nodes_in_layer(layer_name)
+                if any(
+                    cap in required_capabilities
+                    for cap in self._topology.node(t).spec.capabilities
+                )
+            )
             bridge_here = sorted(
-                self._bridge_tools(order, start_order, end_order, component, layer_of)
+                self._bridge_tools(order, start_order, end_order, layer_of)
             )
             tools = sorted(set(relevant_here) | set(bridge_here))
             if not tools:
@@ -187,7 +144,7 @@ class RouteSearch:
             layer_candidates=layer_candidates,
             layer_index=0,
             current_groups=[],
-            required_capabilities=set(required_capabilities),
+            required_capabilities=required_capabilities,
             candidates=candidates,
         )
 
@@ -196,10 +153,9 @@ class RouteSearch:
         order: int,
         start_order: int,
         end_order: int,
-        component: set[str],
         layer_of: dict[str, int],
     ) -> list[str]:
-        """Find tools in intermediate layers that connect relevant tools on both sides."""
+        """Find tools in intermediate layers that connect forward and backward."""
         if order == start_order or order == end_order:
             return []
         layer_name = self._order_to_layer[order]
@@ -207,8 +163,7 @@ class RouteSearch:
         return sorted(
             tool
             for tool in tools
-            if tool in component
-            and any(layer_of.get(pred, -1) >= start_order for pred in self._topology.predecessors(tool))
+            if any(layer_of.get(pred, -1) >= start_order for pred in self._topology.predecessors(tool))
             and any(layer_of.get(succ, -1) <= end_order for succ in self._topology.successors(tool))
         )
 

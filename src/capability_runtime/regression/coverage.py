@@ -7,8 +7,10 @@ from typing import AbstractSet
 
 from ..core.capability import validate_capability_name
 from ..core.errors import CoverageAnalyzerError, InvalidCapabilityError
+from ..registry.capability_registry import CapabilityRegistry
 from ..topology.models import Topology
 from .candidate_route import CandidateRoute
+from .route_search import RouteSearch
 
 
 class CoverageStatus(str, Enum):
@@ -90,9 +92,21 @@ class CoverageAnalyzer:
             topology, provider_map, required, layer_of, min_order, max_order
         )
         if covered == required:
+            capability_registry = self._build_capability_registry(topology)
+            route_search = RouteSearch(topology, capability_registry)
+            candidate_routes = route_search.search(tuple(required))
+            if candidate_routes:
+                return CoverageResult(
+                    status=CoverageStatus.COVERED,
+                    reason=None,
+                    required_capabilities=tuple(required),
+                    covered_capabilities=tuple(covered),
+                    missing_capabilities=(),
+                    candidate_routes=candidate_routes,
+                )
             return CoverageResult(
-                status=CoverageStatus.COVERED,
-                reason=None,
+                status=CoverageStatus.UNCOVERED,
+                reason=FailureReason.NO_VALID_ROUTE,
                 required_capabilities=tuple(required),
                 covered_capabilities=tuple(covered),
                 missing_capabilities=(),
@@ -106,6 +120,15 @@ class CoverageAnalyzer:
             covered_capabilities=tuple(covered),
             missing_capabilities=tuple(missing),
         )
+
+    @staticmethod
+    def _build_capability_registry(topology: Topology) -> CapabilityRegistry:
+        registry = CapabilityRegistry()
+        for name in topology.nodes():
+            node = topology.node(name)
+            for capability in sorted(node.spec.capabilities):
+                registry.register(capability, name)
+        return registry
 
     @staticmethod
     def _index(

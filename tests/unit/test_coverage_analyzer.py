@@ -9,6 +9,7 @@ from capability_runtime import (
     FailureReason,
     InvalidCapabilityError,
     LayerRegistry,
+    RouteLayer,
     ToolRegistry,
     Topology,
     TopologyBuilder,
@@ -79,6 +80,11 @@ def test_covered_simple_connected_route() -> None:
     assert result.required_capabilities == ("order.read", "refund.policy.check")
     assert result.covered_capabilities == ("order.read", "refund.policy.check")
     assert result.missing_capabilities == ()
+    assert len(result.candidate_routes) >= 1
+    assert all(
+        set(result.required_capabilities).issubset(r.capabilities)
+        for r in result.candidate_routes
+    )
 
 
 def test_missing_capability() -> None:
@@ -93,6 +99,7 @@ def test_missing_capability() -> None:
     assert result.reason == FailureReason.MISSING_CAPABILITY
     assert result.missing_capabilities == ("order.shipping_address.update",)
     assert result.covered_capabilities == ()
+    assert result.candidate_routes == ()
 
 
 def test_missing_reports_all_missing() -> None:
@@ -120,6 +127,7 @@ def test_topology_disconnected() -> None:
     assert result.reason == FailureReason.TOPOLOGY_DISCONNECTED
     assert result.covered_capabilities == ("order.read",)
     assert result.missing_capabilities == ("refund.policy.check",)
+    assert result.candidate_routes == ()
 
 
 def test_multi_provider_covered() -> None:
@@ -130,6 +138,10 @@ def test_multi_provider_covered() -> None:
     result = CoverageAnalyzer().analyze(topology, {"order.read"})
     assert result.status == CoverageStatus.COVERED
     assert result.covered_capabilities == ("order.read",)
+    first_layer_tools = {r.layers[0].tools for r in result.candidate_routes}
+    assert ("db",) in first_layer_tools
+    assert ("erp",) in first_layer_tools
+    assert ("db", "erp") in first_layer_tools
 
 
 def test_bridge_tool_enables_coverage() -> None:
@@ -155,6 +167,13 @@ def test_bridge_tool_enables_coverage() -> None:
     )
     assert result.status == CoverageStatus.COVERED
     assert result.covered_capabilities == ("order.read", "refund.execute")
+    assert len(result.candidate_routes) == 1
+    assert [layer.layer for layer in result.candidate_routes[0].layers] == [
+        "read",
+        "analyze",
+        "act",
+    ]
+    assert result.candidate_routes[0].layers[1].tools == ("normalize",)
 
 
 def test_single_layer_span() -> None:
@@ -240,6 +259,12 @@ def test_covered_three_layer_refund_topology() -> None:
     assert result.status == CoverageStatus.COVERED
     assert result.reason is None
     assert result.missing_capabilities == ()
+    assert len(result.candidate_routes) >= 1
+    multi_tool = next(
+        (r for r in result.candidate_routes if r.layers[0].tools == ("db", "rag")),
+        None,
+    )
+    assert multi_tool is not None
 
 
 def test_disconnected_three_layer_refund_topology() -> None:
