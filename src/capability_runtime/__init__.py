@@ -20,18 +20,20 @@ from .core import (
 from .decorators import tool
 from .registry import CapabilityRegistry, LayerRegistry, ToolRegistry
 from .regression import (
+    CandidateRoute,
     CoverageAnalyzer,
     CoverageAnalyzerError,
     CoverageResult,
     CoverageStatus,
     FailureReason,
 )
-from .route import RoutePlan
+from .route import RouteLayer, RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
 
 __all__ = [
     "CapabilityRegistry",
+    "CandidateRoute",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
     "CoverageResult",
@@ -45,6 +47,7 @@ __all__ = [
     "LayerNotFoundError",
     "LayerRegistry",
     "RegistrationError",
+    "RouteLayer",
     "RoutePlan",
     "RouteValidationError",
     "Scenario",

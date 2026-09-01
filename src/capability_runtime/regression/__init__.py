@@ -1,3 +1,4 @@
+from .candidate_route import CandidateRoute
 from .coverage import (
     CoverageAnalyzer,
     CoverageAnalyzerError,
@@ -7,6 +8,7 @@ from .coverage import (
 )
 
 __all__ = [
+    "CandidateRoute",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
     "CoverageResult",
