@@ -8,6 +8,7 @@ from typing import AbstractSet
 from ..core.capability import validate_capability_name
 from ..core.errors import CoverageAnalyzerError, InvalidCapabilityError
 from ..topology.models import Topology
+from .candidate_route import CandidateRoute
 
 
 class CoverageStatus(str, Enum):
@@ -33,6 +34,7 @@ class CoverageResult:
     required_capabilities: tuple[str, ...]
     covered_capabilities: tuple[str, ...]
     missing_capabilities: tuple[str, ...]
+    candidate_routes: tuple[CandidateRoute, ...] = ()
 
 
 class CoverageAnalyzer:
