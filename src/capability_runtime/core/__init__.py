@@ -2,6 +2,7 @@ from .capability import validate_capability_name
 from .errors import (
     DuplicateLayerError,
     DuplicateToolError,
+    FastRegressionError,
     InvalidCapabilityError,
     InvalidTopologyReferenceError,
     LayerNotFoundError,
@@ -22,6 +23,7 @@ from .tool import NodeSelector, SelectorInput, ToolNode, ToolSpec
 __all__ = [
     "DuplicateLayerError",
     "DuplicateToolError",
+    "FastRegressionError",
     "InvalidCapabilityError",
     "InvalidTopologyReferenceError",
     "Layer",

@@ -56,3 +56,7 @@ class CoverageAnalyzerError(TopologyFrameworkError):
 
 class RouteSearchError(TopologyFrameworkError):
     pass
+
+
+class FastRegressionError(TopologyFrameworkError):
+    pass

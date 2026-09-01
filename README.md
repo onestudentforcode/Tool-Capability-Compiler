@@ -17,7 +17,7 @@ Declare → Initialize → Explore → Evaluate → Prune → Rank → Route
 - Schema 可执行性告警，不以 Schema 建边
 - 支持一层多个节点的 RoutePlan 及拓扑约束校验
 
-Phase 2 当前已完成 Step 1/2/3/4/5：
+Phase 2 当前已完成 Step 1/2/3/4/5/6：
 
 - Tool 可声明一个或多个规范化 Capability
 - CapabilityRegistry 提供 Tool ↔ Capability 多对多索引
@@ -29,6 +29,8 @@ Phase 2 当前已完成 Step 1/2/3/4/5：
 - 支持多 Provider、同层多 Tool、Bridge Tool、禁用节点/边与稳定 route_id
 - CoverageResult 携带 CandidateRoute、confidence 与结构化 FailureReason
 - 支持低解析置信度和能力歧义对应的 UNCERTAIN 状态
+- FastRegressionRunner 聚合 Suite、Category、Capability Gap 与 Topology Gap
+- CoverageReport 绑定 Scenario Suite 版本与 Topology 版本
 
 ## Quick start
 
