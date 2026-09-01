@@ -147,12 +147,13 @@ Step 1: Tool capabilities + CapabilityRegistry
 Step 2: Scenario + ScenarioSuite + ScenarioLoader
 Step 3: Gold Mode Coverage Analyzer (COVERED / UNCOVERED)
 Step 4: Candidate Route Search
+Step 5: Coverage Status + complete Failure Reason
 ```
 
 尚未进入：
 
 ```text
-Step 5+: Coverage Status, Report, Resolver, Baseline, CLI
+Step 6+: Coverage Report, Resolver, Baseline, CLI
 ```
 
 后续任务必须从当前最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。

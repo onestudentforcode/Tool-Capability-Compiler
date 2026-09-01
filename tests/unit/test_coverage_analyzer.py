@@ -242,7 +242,7 @@ def test_covered_three_layer_refund_topology() -> None:
     assert result.missing_capabilities == ()
 
 
-def test_disconnected_three_layer_refund_topology() -> None:
+def test_same_layer_parallel_capabilities_do_not_require_edges() -> None:
     @tool(layer="read", workers=["policy_check"], capabilities={"order.read"})
     async def good_db():
         return None
@@ -258,7 +258,68 @@ def test_disconnected_three_layer_refund_topology() -> None:
     result = CoverageAnalyzer().analyze(
         topology, {"order.read", "policy.read"}
     )
-    assert result.status == CoverageStatus.UNCOVERED
-    assert result.reason == FailureReason.TOPOLOGY_DISCONNECTED
-    assert result.covered_capabilities == ("order.read",)
-    assert result.missing_capabilities == ("policy.read",)
+    assert result.status == CoverageStatus.COVERED
+    assert result.reason is None
+    assert result.covered_capabilities == ("order.read", "policy.read")
+    assert result.missing_capabilities == ()
+
+
+def test_covered_result_contains_candidate_routes() -> None:
+    topology = _build(("read", "analyze"), (db, erp, policy_check))
+    result = CoverageAnalyzer().analyze(
+        topology, {"order.read", "refund.policy.check"}
+    )
+    assert result.status == CoverageStatus.COVERED
+    assert len(result.candidate_routes) == 2
+    assert result.confidence == 1.0
+
+
+def test_low_resolution_confidence_is_uncertain() -> None:
+    topology = _build(("read", "analyze"), (db, policy_check))
+    result = CoverageAnalyzer(confidence_threshold=0.8).analyze(
+        topology,
+        {"order.read", "refund.policy.check"},
+        resolution_confidence=0.6,
+    )
+    assert result.status == CoverageStatus.UNCERTAIN
+    assert result.reason == FailureReason.LOW_RESOLUTION_CONFIDENCE
+    assert result.missing_capabilities == ()
+    assert result.candidate_routes
+    assert "0.600" in result.reason_detail
+
+
+def test_ambiguous_capability_is_uncertain() -> None:
+    topology = _build(("read", "analyze"), (db, policy_check))
+    result = CoverageAnalyzer().analyze(
+        topology,
+        {"order.read", "refund.policy.check"},
+        ambiguous_capabilities={"refund.policy.check"},
+    )
+    assert result.status == CoverageStatus.UNCERTAIN
+    assert result.reason == FailureReason.AMBIGUOUS_CAPABILITY
+    assert result.covered_capabilities == ("order.read", "refund.policy.check")
+
+
+def test_gold_mode_ignores_resolution_threshold() -> None:
+    topology = _build(("read", "analyze"), (db, policy_check))
+    result = CoverageAnalyzer(confidence_threshold=1.0).analyze(
+        topology, {"order.read", "refund.policy.check"}
+    )
+    assert result.status == CoverageStatus.COVERED
+    assert result.confidence == 1.0
+
+
+def test_invalid_confidence_and_ambiguity_are_rejected() -> None:
+    topology = _build(("read",), (db,))
+    with pytest.raises(CoverageAnalyzerError):
+        CoverageAnalyzer(confidence_threshold=1.1)
+    with pytest.raises(CoverageAnalyzerError):
+        CoverageAnalyzer().analyze(
+            topology, {"order.read"}, resolution_confidence=-0.1
+        )
+    with pytest.raises(CoverageAnalyzerError):
+        CoverageAnalyzer().analyze(
+            topology,
+            {"order.read"},
+            ambiguous_capabilities={"refund.policy.check"},
+        )

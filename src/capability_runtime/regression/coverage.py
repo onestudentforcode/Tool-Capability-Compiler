@@ -8,6 +8,7 @@ from typing import AbstractSet
 from ..core.capability import validate_capability_name
 from ..core.errors import CoverageAnalyzerError, InvalidCapabilityError
 from ..topology.models import Topology
+from .route_search import CandidateRoute, RouteSearcher
 
 
 class CoverageStatus(str, Enum):
@@ -33,6 +34,9 @@ class CoverageResult:
     required_capabilities: tuple[str, ...]
     covered_capabilities: tuple[str, ...]
     missing_capabilities: tuple[str, ...]
+    candidate_routes: tuple[CandidateRoute, ...] = ()
+    confidence: float = 1.0
+    reason_detail: str = ""
 
 
 class CoverageAnalyzer:
@@ -42,10 +46,29 @@ class CoverageAnalyzer:
     any LLM, and does not modify the topology.
     """
 
+    def __init__(
+        self,
+        *,
+        confidence_threshold: float = 0.8,
+        max_candidate_routes: int = 20,
+        max_bridge_depth: int = 2,
+    ) -> None:
+        if not 0.0 <= confidence_threshold <= 1.0:
+            raise CoverageAnalyzerError(
+                "confidence_threshold must be between 0.0 and 1.0"
+            )
+        self._confidence_threshold = confidence_threshold
+        self._max_candidate_routes = max_candidate_routes
+        self._max_bridge_depth = max_bridge_depth
+        self._route_searcher = RouteSearcher()
+
     def analyze(
         self,
         topology: Topology,
         required_capabilities: AbstractSet[str],
+        *,
+        resolution_confidence: float | None = None,
+        ambiguous_capabilities: AbstractSet[str] = frozenset(),
     ) -> CoverageResult:
         if not required_capabilities:
             raise CoverageAnalyzerError(
@@ -57,6 +80,23 @@ class CoverageAnalyzer:
             validate_capability_name(capability)
             for capability in required_capabilities
         )
+        confidence = 1.0 if resolution_confidence is None else resolution_confidence
+        if not 0.0 <= confidence <= 1.0:
+            raise CoverageAnalyzerError(
+                "resolution_confidence must be between 0.0 and 1.0"
+            )
+        ambiguous = tuple(
+            sorted(
+                validate_capability_name(capability)
+                for capability in ambiguous_capabilities
+            )
+        )
+        unknown_ambiguous = sorted(set(ambiguous) - set(required))
+        if unknown_ambiguous:
+            raise CoverageAnalyzerError(
+                "Ambiguous capabilities must be required capabilities: "
+                + ", ".join(unknown_ambiguous)
+            )
 
         provider_map, layer_of = self._index(topology)
 
@@ -72,7 +112,18 @@ class CoverageAnalyzer:
                 required_capabilities=tuple(required),
                 covered_capabilities=(),
                 missing_capabilities=tuple(missing),
+                confidence=confidence,
+                reason_detail=(
+                    "No enabled tool declares: " + ", ".join(missing)
+                ),
             )
+
+        candidate_routes = self._route_searcher.search(
+            topology,
+            set(required),
+            max_candidate_routes=self._max_candidate_routes,
+            max_bridge_depth=self._max_bridge_depth,
+        )
 
         relevant = sorted(
             {
@@ -87,22 +138,55 @@ class CoverageAnalyzer:
         covered = self._covered_in_span(
             topology, provider_map, required, layer_of, min_order, max_order
         )
-        if covered == required:
+        if not candidate_routes:
+            missing = sorted(set(required) - set(covered))
             return CoverageResult(
-                status=CoverageStatus.COVERED,
-                reason=None,
+                status=CoverageStatus.UNCOVERED,
+                reason=FailureReason.TOPOLOGY_DISCONNECTED,
                 required_capabilities=tuple(required),
                 covered_capabilities=tuple(covered),
-                missing_capabilities=(),
+                missing_capabilities=tuple(missing),
+                confidence=confidence,
+                reason_detail=(
+                    "Capability providers exist but cannot form a valid topology route"
+                ),
             )
 
-        missing = sorted(set(required) - set(covered))
+        if ambiguous:
+            return CoverageResult(
+                status=CoverageStatus.UNCERTAIN,
+                reason=FailureReason.AMBIGUOUS_CAPABILITY,
+                required_capabilities=tuple(required),
+                covered_capabilities=tuple(required),
+                missing_capabilities=(),
+                candidate_routes=candidate_routes,
+                confidence=confidence,
+                reason_detail="Ambiguous capabilities: " + ", ".join(ambiguous),
+            )
+
+        if confidence < self._confidence_threshold:
+            return CoverageResult(
+                status=CoverageStatus.UNCERTAIN,
+                reason=FailureReason.LOW_RESOLUTION_CONFIDENCE,
+                required_capabilities=tuple(required),
+                covered_capabilities=tuple(required),
+                missing_capabilities=(),
+                candidate_routes=candidate_routes,
+                confidence=confidence,
+                reason_detail=(
+                    f"Resolution confidence {confidence:.3f} is below threshold "
+                    f"{self._confidence_threshold:.3f}"
+                ),
+            )
+
         return CoverageResult(
-            status=CoverageStatus.UNCOVERED,
-            reason=FailureReason.TOPOLOGY_DISCONNECTED,
+            status=CoverageStatus.COVERED,
+            reason=None,
             required_capabilities=tuple(required),
-            covered_capabilities=tuple(covered),
-            missing_capabilities=tuple(missing),
+            covered_capabilities=tuple(required),
+            missing_capabilities=(),
+            candidate_routes=candidate_routes,
+            confidence=confidence,
         )
 
     @staticmethod
