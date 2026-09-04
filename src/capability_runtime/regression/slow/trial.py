@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ...core.errors import ExecutionError
+from ...core.metrics import TokenUsage
+from ...evaluation.base import EvaluationResult
+from .route import ObservedRoute
+from .trace import ExecutionTrace
 
 
 class TrialExecutionStatus(Enum):
@@ -40,3 +44,23 @@ class Trial:
             raise ExecutionError("Trial router_config_id must be a non-empty string")
         if isinstance(self.trial_index, bool) or self.trial_index < 0:
             raise ExecutionError("Trial trial_index must be a non-negative integer")
+
+
+@dataclass(slots=True)
+class TrialResult:
+    """Everything produced by one Trial: structure, trace, and outcome ($75)."""
+
+    trial: Trial
+    execution_status: TrialExecutionStatus
+    route: ObservedRoute | None
+    trace: ExecutionTrace
+    evaluation: EvaluationResult | None
+    latency_ms: float
+    token_usage: TokenUsage
+    cost: float | None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.latency_ms, bool) or self.latency_ms < 0:
+            raise ExecutionError("TrialResult latency_ms must be non-negative")
+        if not isinstance(self.token_usage, TokenUsage):
+            raise ExecutionError("TrialResult token_usage must be a TokenUsage")
