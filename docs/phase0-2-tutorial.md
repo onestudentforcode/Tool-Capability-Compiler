@@ -2,7 +2,7 @@
 
 > 面向读者：刚接触本仓库的开发者 / Agent。目标：让你在 30 分钟内理解这个框架"为什么存在、解决什么问题、已经做完了什么"。
 
----
+***
 
 ## 0. 一句话先说它是什么
 
@@ -12,13 +12,14 @@
 
 名字里的 `Tool-Capability-Compiler` 透露了核心动机：**把"工具"和"业务能力"分开，用能力作为中间语言**，让 Agent、Layer、拓扑都能在统一的能力维度上对齐。
 
----
+***
 
 ## 1. 它解决的痛点
 
 假设你现在要用 Agent 处理"订单退款"：
 
 - 你有数据库工具 `db`、策略文档工具 `rag`、退款执行工具 `refund`…（**Tools**）
+
 - 你要让 Agent 处理"查订单 → 查退款策略 → 判断可退 → 执行退款"（**一个流程**）
 
 多数框架的做法是：把流程硬编码成一个 DAG 或一条 tool chain。缺点：
@@ -36,18 +37,18 @@ Tool（具体实现）  ←→  Capability(能力)  ←→  Scenario(业务场�
 
 并给出两个关键分离，贯穿始终。
 
----
+***
 
 ## 2. 两条贯穿全部实现的核心原则
 
 ### 2.1 必须区分两种拓扑
 
-| | Declared Topology（声明的） | Active Topology（活跃的） |
-|---|---|---|
-| 是什么 | 由 `layer / provider / worker` 声明出来的 | 由真实回归结果统计出来的 |
-| 来源 | 人工/配置 | 执行与评估的沉淀 |
-| 立场 | 可能性空间 | 已被证明有效的 |
-| 时机 | 现在就建 | 未来才派生的东西 |
+| <br /> | Declared Topology（声明的）              | Active Topology（活跃的） |
+| ------ | ----------------------------------- | -------------------- |
+| 是什么    | 由 `layer / provider / worker` 声明出来的 | 由真实回归结果统计出来的         |
+| 来源     | 人工/配置                               | 执行与评估的沉淀             |
+| 立场     | 可能性空间                               | 已被证明有效的              |
+| 时机     | 现在就建                                | 未来才派生的东西             |
 
 **项目文档反复强调：这两者必须分开，绝不能混在同一个对象里。** 因为"我号称连接了 db 和 refund"和"db 真的喂得了 refund"是两回事。
 
@@ -70,18 +71,20 @@ Coverage Calculation   覆盖率计算
 
 原因：可复现、省成本、可测试。能 100% 确定的逻辑，为什么要交给随机模型？
 
----
+***
 
 ## 3. Phase 0 —— 先定"宪法"
 
 `docs/acceptance/phase0.md` 是全局纲领，定义了地基对象，并且立了三道"边界"：
 
 **（1）一条边是怎么来的？**
+
 > Edge 由 `Layer + Provider + Worker` 决定。
 
 不是靠 `consumes / produces` Schema 自动建边。Schema（`consumes / produces`）**只负责验证"已经声明存在的边"是否合法**，不负责自动连边。
 
 **（2）Route 是什么？**
+
 > Route 是允许同层多个 Tool 的执行子图，不是严格的一条 chain。
 
 强调的是"同层可选性"，而不是单链。
@@ -96,7 +99,7 @@ Backward Planner / Minimal Dependency DAG / Provider Priority Planner
 
 这套旧主线的错误在于：把"预先算出一个最小的任务 DAG"当目标。方向相反——**Graph 要保留搜索空间，不是压缩成一个答案**。
 
----
+***
 
 ## 4. Phase 1 —— 模型层（Declared Topology 的骨架）
 
@@ -104,13 +107,13 @@ Backward Planner / Minimal Dependency DAG / Provider Priority Planner
 
 核心概念对应到代码（`src/capability_runtime/`）：
 
-| 领域对象 | 含义 | 关键文件 |
-|---|---|---|
-| `Layer` | 执行分层（read / analyze / act） | `core/layer.py` |
-| `ToolNode` / `ToolSpec` | 工具节点，含 layer、providers、workers、capabilities | `core/tool.py` |
-| `ToolEdge` | 一条有向允许边 | `topology/models.py` |
-| `ToolRegistry` / `LayerRegistry` | 唯一性校验的注册表 | `registry/` |
-| `TopologyBuilder` | 按分层与白名单建边 | `topology/builder.py` |
+| 领域对象                             | 含义                                          | 关键文件                  |
+| -------------------------------- | ------------------------------------------- | --------------------- |
+| `Layer`                          | 执行分层（read / analyze / act）                  | `core/layer.py`       |
+| `ToolNode` / `ToolSpec`          | 工具节点，含 layer、providers、workers、capabilities | `core/tool.py`        |
+| `ToolEdge`                       | 一条有向允许边                                     | `topology/models.py`  |
+| `ToolRegistry` / `LayerRegistry` | 唯一性校验的注册表                                   | `registry/`           |
+| `TopologyBuilder`                | 按分层与白名单建边                                   | `topology/builder.py` |
 
 **Phase 1 最体现设计的地方：双向白名单取交集建边。**
 
@@ -141,7 +144,7 @@ async def policy_check(): ...
 
 校验点包括：**跨层引用被拒绝**（`db` 不能直接连 `act` 层的工具）、Schema 告警、多节点 Route 等。
 
----
+***
 
 ## 5. Phase 2 —— Fast Regression（当前的全部实现）
 
@@ -163,10 +166,10 @@ UNCOVERED   缺能力(Capability Gap) 或 有工具但连不上(Topology Gap)
 
 关键是在 UNCOVERED 里再细分两类缺口：
 
-| 缺口类型 | 含义 | 例子 |
-|---|---|---|
-| **Capability Gap** | 系统里根本没有这个能力 | 场景要 `invoice.send`，但没有工具声明它 |
-| **Topology Gap** | 能力存在，但边连不上 | 有 `refund.execute`，但没有任何边能到达它 |
+| 缺口类型               | 含义          | 例子                            |
+| ------------------ | ----------- | ----------------------------- |
+| **Capability Gap** | 系统里根本没有这个能力 | 场景要 `invoice.send`，但没有工具声明它   |
+| **Topology Gap**   | 能力存在，但边连不上  | 有 `refund.execute`，但没有任何边能到达它 |
 
 ### 5.2 Gold Mode vs Discovery Mode（Step 6–7）
 
@@ -181,23 +184,23 @@ UNCOVERED   缺能力(Capability Gap) 或 有工具但连不上(Topology Gap)
 
 ### 5.3 具体实现的 7 个 Step
 
-| Step | 内容 |
-|---|---|
-| 1 | Tool capability + `CapabilityRegistry`（能力为 lowercase dot-separated） |
-| 2 | `Scenario` + `ScenarioSuite` + `ScenarioLoader` |
-| 3 | Gold Mode Coverage Analyzer（COVERED / UNCERTAIN / UNCOVERED） |
-| 4 | Candidate Route Search（保留多样性的候选子图，不选唯一最优解） |
-| 5 | 完整的 Failure Reason（为什么未覆盖） |
-| 6 | Coverage Report + Category / Capability / Topology Gap 报表 |
-| 7 | `CapabilityResolver` Protocol + Fake Resolver（先抽象接口） |
+| Step | 内容                                                                  |
+| ---- | ------------------------------------------------------------------- |
+| 1    | Tool capability + `CapabilityRegistry`（能力为 lowercase dot-separated） |
+| 2    | `Scenario` + `ScenarioSuite` + `ScenarioLoader`                     |
+| 3    | Gold Mode Coverage Analyzer（COVERED / UNCERTAIN / UNCOVERED）        |
+| 4    | Candidate Route Search（保留多样性的候选子图，不选唯一最优解）                          |
+| 5    | 完整的 Failure Reason（为什么未覆盖）                                          |
+| 6    | Coverage Report + Category / Capability / Topology Gap 报表           |
+| 7    | `CapabilityResolver` Protocol + Fake Resolver（先抽象接口）                |
 
----
+***
 
 ## 6. Phase 2 的后三块（本次会话完成）—— Step 8/9/10
 
 ### 6.1 Step 8：给 Discovery 接上真实 LLM（`OllamaCapabilityResolver`）
 
-Step 7 只搭了抽象接口和假实现。Step 8 把假实现换成真的，用 **本地 Ollama + `qwen3:1.7b`**，配置从 `.env` 读取：
+Step 7 只搭了抽象接口和假实现。Step 8 把假实现换成真的，用 **本地 Ollama +** **`qwen3:1.7b`**，配置从 `.env` 读取：
 
 ```bash
 # .env（已在 gitignore，不含密钥）
@@ -209,18 +212,21 @@ LLM_TIMEOUT_SECONDS=60
 实现要点（`src/capability_runtime/capability/ollama_resolver.py`）：
 
 - **零依赖**：标准库 `urllib` + 自带的轻量 `.env` 加载器；
+
 - 走 Ollama 的 OpenAI 兼容端点 `/v1/chat/completions`，强制 `response_format: json_object` **结构化输出**（禁止"自然语言 + 正则解析"那条老路）；
-- 只做 Query→Capability；`required/optional` **被约束在 `available_capabilities` 内**，缺口只能进 `missing_capability_hints`（禁止模型自由发明能力）；
+
+- 只做 Query→Capability；`required/optional` **被约束在** **`available_capabilities`** **内**，缺口只能进 `missing_capability_hints`（禁止模型自由发明能力）；
+
 - 构造器可显式覆盖，也可注入假 `_http` 让测试不触网。
 
 实测（连真 Ollama）：
 
-| Query | required | hints | confidence |
-|---|---|---|---|
-| 查一下订单123能不能退款 | `order.read`,`refund.policy.check` | — | 1.0 |
-| 帮我把订单123的配送地址改成上海 | `order.read` | `order.update` | 0.3 |
+| Query             | required                           | hints          | confidence |
+| ----------------- | ---------------------------------- | -------------- | ---------- |
+| 查一下订单123能不能退款     | `order.read`,`refund.policy.check` | —              | 1.0        |
+| 帮我把订单123的配送地址改成上海 | `order.read`                       | `order.update` | 0.3        |
 
-第二个 query 的 `order.update` 系统里没有 → 正确进入 hints → 判 UNCOVERED/MISSING_CAPABILITY。
+第二个 query 的 `order.update` 系统里没有 → 正确进入 hints → 判 UNCOVERED/MISSING\_CAPABILITY。
 
 ### 6.2 Step 9：Baseline + Regression Diff（`regression/baseline.py`）
 
@@ -260,7 +266,7 @@ Gold 模式：       refund_001 covered，refund_002(纯 query) uncertain   → 
 Discovery 模式：  refund_002 被 qwen3 解析后 covered                    → 100%
 ```
 
----
+***
 
 ## 7. 到现在为止：Phase 0–2 一句话回顾
 
@@ -289,7 +295,7 @@ Step 10 Fast Regression CLI
 
 测试规模：全量 **107 个测试通过**（Python 3.14），且 **Phase 2 测试不依赖真实 LLM / 网络 / HTTP**（LLM 相关用注入假 HTTP，CLI 用 Gold 模式）。
 
----
+***
 
 ## 8. 如果继续往下做（Phase 3 的前瞻）
 
@@ -303,7 +309,7 @@ Phase 3 的核心将是 **真正执行 Tool、产生 Trace、做 Evaluation**（
 
 > 一条纪律提醒（AGENTS.md）：**不要提前实现下一 Phase 的功能。** 现在 Phase 2 已完成，紧接着的正确动作是先起草 Phase 3 验收文档（`docs/acceptance/phase3.md`），再动手实现。
 
----
+***
 
 ## 附录：快速上手指令
 
@@ -322,3 +328,4 @@ C:\Python314\python.exe -m capability_runtime.cli regression fast \
     --scenario examples/scenarios/refund.json \
     --mode discovery
 ```
+
