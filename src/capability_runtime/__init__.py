@@ -78,6 +78,7 @@ from .regression import (
     compute_diff,
 )
 from .route import RouteLayer, RoutePlan
+from .router import TopologyFilter
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .regression.slow import Trial, TrialExecutionStatus
 from .topology import (
@@ -166,6 +167,7 @@ __all__ = [
     "TopologyGapEntry",
     "TopologyLoader",
     "TopologyValidationWarning",
+    "TopologyFilter",
     "TraceSerializationError",
     "Trial",
     "TrialExecutionStatus",
