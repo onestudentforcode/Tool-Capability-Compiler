@@ -19,6 +19,81 @@
 
 ---
 
+## 0.1 设计裁定（用户纠正）：Fast Regression 的 CandidateRoute 是 Slow Regression 的起点
+
+> 覆盖 phase3.md §5/§60/§58 的定位。phase3.md 把 CandidateRoute 当成"可选的 reference / search
+> hint"，并把默认探索模式定为 `free`。**本裁定推翻该默认**。
+
+### 裁定内容
+
+Slow Regression **不空手探索**，而是以 Fast Regression 为每个 Scenario 发现出的
+`CandidateRoute` 作为 **每个 Trial 的起点（seed）**，再从它逐层向外扩展。
+
+### 机制
+
+```text
+Fast Regression
+   ↓ 每个 Scenario 产出 CandidateRoute
+Slow Regression 的一个 Trial：
+   ① 先按该 CandidateRoute 的逐层选择执行一遍            ── baseline branch
+   ② 在每一层，额外叠加该层"可达但与候选选择不同的兄弟 Tool"── 生成扩展变体 variant
+   ③ baseline 与每个 variant 分别计时 / 计 token/cost，
+      并跑同一个 Evaluator 得到产物质量
+   ④ 计算 delta = variant − baseline（时间、成本、质量）
+   ⑤ 汇总出"候选路线是否需要修正"的观测证据
+```
+
+- 扩展变体的范围：`候选层选择 ∪ 额外可达兄弟`，**数量上限 = max_tools_per_layer**。
+- 一个 layer 可以产生多个变体（例如分别追加 B、追加 C、追加 {B,C}），也可维持原候选不扩展。
+- delta 观测维度：`latency_delta`、`cost_delta`、`quality_delta`、以及"产物捕获到的
+  字段数/信息完整度"差异。
+
+### 与 Phase 4 的边界
+
+本裁定只让 Slow Regression **产出"哪些扩展值得修正候选路线"的证据**（比如"恒加 B 但质量不
+升反而更慢"就是修正信号），**真正的路线修正 / 剪枝 / 排名仍属于 Phase 4**。
+
+### 触发方式：CLI 旗标 `--basefast`
+
+是否以 Fast Regression 结果作为起点，**由 CLI 旗标控制**，不是默认常开。
+
+```bash
+tool-topology regression slow \
+    --topology topology.json \
+    --scenario scenarios/customer_service.json \
+    --trials 10 \
+    --environment sandbox \
+    [--basefast fast_out.json]   # 传入路径：以该 fast 结果为激活/初始值
+```
+
+- **传 `--basefast <path>`**：读取指定 Fast Regression 输出，每个 Trial 以对应 Scenario 的
+  `CandidateRoute` 为起点（seed）逐层扩展。不传路径值仅传布尔时不合法（必须给路径）。
+- **不传 `--basefast`**：走标准 `free` 探索（全层可达即可用），与纯探索模式一致。
+
+```text
+--basefast 传入  seed-anchored   （以 CandidateRoute 为起点逐层扩展）
+--basefast 缺省  free            （无 seed：全层可达即可用）
+可选项            replay          （严格只重复某条 ObservedRoute，供复现）
+```
+
+回退规则：**已传 `--basefast` 但某 Scenario 在 Fast Regression 中没有产出 CandidateRoute**
+（例如 COVERAGE 为空或 resolve 失败），该 Scenario 回退到 `free` 探索，并在报告里标记
+`seed_missing`。
+
+---
+
+## 0.2 新增概念：ExpansionPlan / RouteDelta（承接 0.1）
+
+`router` 层新增"扩展规划"职责（随 Step 10 落地）：
+
+| 对象 | 落点 |
+|---|---|
+| `ExpansionPlan`（某 layer 是否扩展、追加哪些兄弟） | `router/models.py` |
+| `ExpansionDelta`（baseline 与 variant 的时间/成本/质量差） | `regression/slow/stats.py` |
+| `SeedMissing`（scenario 无 CandidateRoute 的标记） | `regression/slow/report.py` |
+
+---
+
 ## 1. 命名规则
 
 - 目录/模块：`snake_case`；类：`PascalCase`；枚举：`PascalCase(suffix Enum 省略)`。
@@ -154,8 +229,12 @@ tool-topology regression slow \
     --environment sandbox \
     [--max-concurrency 4] \
     [--router-config router.json] \
+    [--basefast fast_out.json] \
     [--out-dir artifacts/slow_regression/run_001]
 ```
+
+`--basefast <path>`：以指定 Fast Regression 输出中的 CandidateRoute 作为每个 Trial 的起点
+逐层扩展（详见 §0.1）；必须给出路径值。
 
 输出 manifest.json / report.json / traces.jsonl / node_stats.json / edge_stats.json /
 route_stats.json（phase3.md §105）。CLI 只打印观测数据，**不输出剪枝建议**（§108 边界）。
@@ -178,8 +257,8 @@ route_stats.json（phase3.md §105）。CLI 只打印观测数据，**不输出�
 | 7 | `slow/route.py` | ObservedRoute；fingerprint 层内 ASC 规范化、稳定 route_id |
 | 8 | `evaluation/structured.py` + `base.py` | 确定性场景 PASS/FAIL；execution vs business success 分离 |
 | 9 | `fixtures/` | setup→execute→evaluate→teardown；连续两 Trial 状态隔离 |
-| 10 | `slow/runner.py` | Scenario × N Trials 编排；max_concurrency |
-| 11 | `slow/stats.py` | Node/Edge opportunity + observed；Route usage；不剪枝 |
+| 10 | `slow/runner.py` + `router/models.py` | Scenario × N Trials 编排；**以 CandidateRoute 为 seed**；生成 ExpansionPlan；max_concurrency；`seed_missing` 回退 `free` |
+| 11 | `slow/stats.py` | Node/Edge opportunity + observed；Route usage；**baseline vs variant 的 latency/cost/quality delta**；不剪枝 |
 | 12 | `router/llm_router.py` + `prompts.py` | 接 Ollama（复用 Step 8 基建）；record config |
 | 13 | `evaluation/llm_judge.py`、`composite.py` | LLM Judge 支持 fake 注入 + Composite 组合 |
 | 14 | 持久化 + `cli.py` + demo | JSONL/manifest 落盘；`regression slow` 命令；集成 Demo（10-20 Tool / 3 Layer） |
@@ -209,3 +288,6 @@ route_stats.json（phase3.md §105）。CLI 只打印观测数据，**不输出�
 - [ ] 无 Loop / 递归 / 跨层回跳 / Layer Skip
 - [ ] 只记录观察事实；`available` 与 `selected` 成对统计
 - [ ] 每次 Trial 绑定 Topology version + Router model + Prompt version
+- [ ] 以 Fast Regression CandidateRoute 为起点仅在 CLI 传 `--basefast` 时启用；未传则 `free`
+- [ ] 每层扩展受 `max_tools_per_layer` 约束，记录 baseline 与各 variant 的时间/成本/质量 delta
+- [ ] 只产出"候选路线修正证据"，不出具正式剪枝/排名结论（归 Phase 4）
