@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from ..core.errors import ExecutionError, ToolExecutionError
+from ..core.errors import ExecutionError, LayerExecutionError, ToolExecutionError
 from ..core.metrics import TokenUsage
 from ..core.tool import ToolNode
 from .context import ExecutionContext
@@ -128,3 +130,36 @@ class ToolExecutor:
                     layer=tool.spec.layer,
                 ),
             )
+
+
+@dataclass(slots=True)
+class LayerExecutor:
+    """Runs the selected tools of one layer concurrently.
+
+    Same-layer tools never depend on each other, so they execute independently
+    against the incoming state. Orders the returned executions consistently and
+    preserves partial results: a failing sibling keeps the successful ones
+    ($41). Only when every selected tool fails does the layer fail ($42).
+    """
+
+    context: ExecutionContext
+
+    async def run(
+        self, tools: Sequence[ToolNode], state: ExecutionState
+    ) -> tuple[ToolExecution, ...]:
+        executor = ToolExecutor(self.context)
+        semaphore = asyncio.Semaphore(self.context.max_concurrency)
+
+        async def constrained(node: ToolNode) -> ToolExecution:
+            async with semaphore:
+                return await executor.execute(node, state)
+
+        executions = await asyncio.gather(*(constrained(node) for node in tools))
+        results = tuple(executions)
+        if results and all(
+            execution.status is ToolExecutionStatus.ERROR for execution in results
+        ):
+            raise LayerExecutionError(
+                f"all {len(results)} selected tools in layer failed"
+            )
+        return results

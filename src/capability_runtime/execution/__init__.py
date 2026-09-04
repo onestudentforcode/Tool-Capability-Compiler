@@ -1,5 +1,10 @@
 from .context import ExecutionContext, ExecutionEnvironment
-from .executor import ToolExecution, ToolExecutionStatus, ToolExecutor
+from .executor import (
+    LayerExecutor,
+    ToolExecution,
+    ToolExecutionStatus,
+    ToolExecutor,
+)
 from .state import ArtifactValue, ExecutionInputs, ExecutionState
 
 __all__ = [
@@ -8,6 +13,7 @@ __all__ = [
     "ExecutionEnvironment",
     "ExecutionInputs",
     "ExecutionState",
+    "LayerExecutor",
     "ToolExecution",
     "ToolExecutionStatus",
     "ToolExecutor",
