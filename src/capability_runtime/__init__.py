@@ -78,7 +78,18 @@ from .regression import (
     compute_diff,
 )
 from .route import RouteLayer, RoutePlan
-from .router import TopologyFilter
+from .router import (
+    EXPLORATION_MODES,
+    FakeRouter,
+    LayerRouter,
+    RouterConfig,
+    RoutingAction,
+    RoutingContext,
+    RoutingDecision,
+    ToolSummary,
+    TopologyFilter,
+    validate_decision,
+)
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .regression.slow import Trial, TrialExecutionStatus
 from .topology import (
@@ -90,6 +101,7 @@ from .topology import (
 )
 
 __all__ = [
+    "EXPLORATION_MODES",
     "ArtifactValue",
     "Baseline",
     "BaselineError",
@@ -117,6 +129,7 @@ __all__ = [
     "ExecutionError",
     "ExecutionInputs",
     "ExecutionState",
+    "FakeRouter",
     "FailureReason",
     "FakeCapabilityResolver",
     "FastRegressionError",
@@ -135,6 +148,7 @@ __all__ = [
     "LayerExecutionError",
     "LayerNotFoundError",
     "LayerRegistry",
+    "LayerRouter",
     "RegistrationError",
     "RegressionDiff",
     "RouteLayer",
@@ -143,6 +157,10 @@ __all__ = [
     "RouteSearcher",
     "RouteSearchError",
     "RouteValidationError",
+    "RouterConfig",
+    "RoutingAction",
+    "RoutingContext",
+    "RoutingDecision",
     "RoutingError",
     "Scenario",
     "ScenarioError",
@@ -160,6 +178,7 @@ __all__ = [
     "ToolNotFoundError",
     "ToolRegistry",
     "ToolSpec",
+    "ToolSummary",
     "Topology",
     "TopologyBuildError",
     "TopologyBuilder",
@@ -173,4 +192,5 @@ __all__ = [
     "TrialExecutionStatus",
     "compute_diff",
     "tool",
+    "validate_decision",
 ]
