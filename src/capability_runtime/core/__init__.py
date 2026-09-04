@@ -1,5 +1,8 @@
 from .capability import validate_capability_name
 from .errors import (
+    BaselineError,
+    BaselineLoadError,
+    BaselineSaveError,
     CapabilityResolutionError,
     DuplicateLayerError,
     DuplicateToolError,
@@ -22,6 +25,9 @@ from .layer import Layer
 from .tool import NodeSelector, SelectorInput, ToolNode, ToolSpec
 
 __all__ = [
+    "BaselineError",
+    "BaselineLoadError",
+    "BaselineSaveError",
     "CapabilityResolutionError",
     "DuplicateLayerError",
     "DuplicateToolError",

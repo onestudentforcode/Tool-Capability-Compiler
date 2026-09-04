@@ -9,6 +9,9 @@ from .capability import (
     OllamaCapabilityResolver,
 )
 from .core import (
+    BaselineError,
+    BaselineLoadError,
+    BaselineSaveError,
     CapabilityResolutionError,
     DuplicateLayerError,
     DuplicateToolError,
@@ -31,6 +34,8 @@ from .core import (
 from .decorators import tool
 from .registry import CapabilityRegistry, LayerRegistry, ToolRegistry
 from .regression import (
+    Baseline,
+    BaselineStore,
     CandidateRoute,
     CategoryCoverage,
     CoverageAnalyzer,
@@ -42,15 +47,24 @@ from .regression import (
     FastRegressionResult,
     FastRegressionRunner,
     GapEntry,
+    RegressionDiff,
     RouteSearch,
     RouteSearcher,
+    ScenarioStatus,
+    StatusChange,
     TopologyGapEntry,
+    compute_diff,
 )
 from .route import RouteLayer, RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
 from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
 
 __all__ = [
+    "Baseline",
+    "BaselineError",
+    "BaselineLoadError",
+    "BaselineSaveError",
+    "BaselineStore",
     "CapabilityResolution",
     "CapabilityResolutionError",
     "CapabilityResolver",
@@ -78,6 +92,7 @@ __all__ = [
     "LayerNotFoundError",
     "LayerRegistry",
     "RegistrationError",
+    "RegressionDiff",
     "RouteLayer",
     "RoutePlan",
     "RouteSearch",
@@ -88,8 +103,10 @@ __all__ = [
     "ScenarioError",
     "ScenarioLoadError",
     "ScenarioLoader",
+    "ScenarioStatus",
     "ScenarioSuite",
     "ScenarioValidationError",
+    "StatusChange",
     "ToolEdge",
     "ToolNode",
     "ToolNotFoundError",
@@ -100,5 +117,6 @@ __all__ = [
     "TopologyFrameworkError",
     "TopologyGapEntry",
     "TopologyValidationWarning",
+    "compute_diff",
     "tool",
 ]

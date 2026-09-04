@@ -1,3 +1,11 @@
+from .baseline import (
+    Baseline,
+    BaselineStore,
+    RegressionDiff,
+    ScenarioStatus,
+    StatusChange,
+    compute_diff,
+)
 from .candidate_route import CandidateRoute
 from .coverage import (
     CoverageAnalyzer,
@@ -17,6 +25,8 @@ from .report import (
 from .route_search import RouteSearch, RouteSearcher
 
 __all__ = [
+    "Baseline",
+    "BaselineStore",
     "CandidateRoute",
     "CategoryCoverage",
     "CoverageAnalyzer",
@@ -28,7 +38,11 @@ __all__ = [
     "FastRegressionResult",
     "FastRegressionRunner",
     "GapEntry",
+    "RegressionDiff",
     "RouteSearch",
     "RouteSearcher",
+    "ScenarioStatus",
+    "StatusChange",
     "TopologyGapEntry",
+    "compute_diff",
 ]

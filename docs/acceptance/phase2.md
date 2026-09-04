@@ -2359,13 +2359,19 @@ Step 5  COMPLETE        (COVERED / UNCERTAIN / UNCOVERED + Failure Reason)
 Step 6  COMPLETE        (Coverage / Category / Capability Gap / Topology Gap)
 Step 7  COMPLETE        (CapabilityResolver Protocol + Fake Resolver)
 Step 8  COMPLETE        (OllamaCapabilityResolver: qwen3:1.7b via .env)
-Step 9-10 NOT STARTED
+Step 9  COMPLETE        (Baseline 持久化 + Regression Diff)
+Step 10 NOT STARTED     (Fast Regression CLI)
 ```
 
 Step 8 说明：真实 LLM Capability Resolver 已接入本地 Ollama（`qwen3:1.7b`），
 配置通过 `.env` 加载（`LLM_BASE_URL` / `LLM_MODEL` / `LLM_TIMEOUT_SECONDS`），
 仅用于 Query → Capability 解析（Discovery Mode），不参与路由搜索与覆盖判定。
 Gold Mode 仍不依赖 LLM。单元测试通过注入式假 HTTP 覆盖正反路径，不依赖真实模型。
+
+Step 9 说明：`Baseline` 记录每场景的 `CoverageStatus` + 计数器，可由
+`CoverageReport` 快照生成，`BaselineStore` 严格 JSON 持久化（格式校验+错误定位）。
+`compute_diff(baseline, report)` 对比两版本，输出 Newly Covered / Newly Uncovered /
+Still Uncovered / Still Covered 与逐场景 StatusChange（含变更后的失败原因）。
 
 本状态只表示代码落地进度，不改变后续步骤的验收要求。
 

@@ -62,5 +62,17 @@ class FastRegressionError(TopologyFrameworkError):
     pass
 
 
+class BaselineError(FastRegressionError):
+    pass
+
+
+class BaselineSaveError(BaselineError):
+    pass
+
+
+class BaselineLoadError(BaselineError):
+    pass
+
+
 class CapabilityResolutionError(TopologyFrameworkError):
     pass
