@@ -54,6 +54,12 @@ from .evaluation import (
     FinalResult,
     StructuredEvaluator,
 )
+from .fixtures import (
+    DefaultFixtureManager,
+    FixtureManager,
+    FixtureRegistry,
+    IsolationMode,
+)
 from .execution import (
     ArtifactValue,
     ExecutionContext,
@@ -144,6 +150,7 @@ __all__ = [
     "DEFAULT_MODEL",
     "DuplicateLayerError",
     "DuplicateToolError",
+    "DefaultFixtureManager",
     "EvaluationError",
     "EvaluationResult",
     "Evaluator",
@@ -161,6 +168,8 @@ __all__ = [
     "FastRegressionRunner",
     "FinalResult",
     "FixtureError",
+    "FixtureManager",
+    "FixtureRegistry",
     "FixtureResetError",
     "FixtureSetupError",
     "FixtureTeardownError",
@@ -169,6 +178,7 @@ __all__ = [
     "InvalidRoutingDecisionError",
     "InvalidToolSelectionError",
     "InvalidTopologyReferenceError",
+    "IsolationMode",
     "Layer",
     "LayerExecution",
     "LayerExecutionError",
