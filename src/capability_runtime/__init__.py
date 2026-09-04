@@ -95,7 +95,7 @@ from .router import (
     validate_decision,
 )
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
-from .regression.slow import Trial, TrialExecutionStatus
+from .regression.slow import ExecutionTrace, LayerExecution, Trial, TrialExecutionStatus
 from .topology import (
     ToolEdge,
     Topology,
@@ -133,6 +133,7 @@ __all__ = [
     "ExecutionError",
     "ExecutionInputs",
     "ExecutionState",
+    "ExecutionTrace",
     "FakeRouter",
     "FailureReason",
     "FakeCapabilityResolver",
@@ -149,6 +150,7 @@ __all__ = [
     "InvalidToolSelectionError",
     "InvalidTopologyReferenceError",
     "Layer",
+    "LayerExecution",
     "LayerExecutionError",
     "LayerExecutor",
     "LayerNotFoundError",

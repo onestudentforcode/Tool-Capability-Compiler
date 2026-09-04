@@ -48,6 +48,9 @@ class RoutingContext:
     available_tools: tuple[ToolSummary, ...]
     topology_version: str
     state_summary: Any = None
+    # String forward ref: LayerExecution lives in regression.slow.trace to avoid
+    # a router.models <-> slow.trace import cycle; record type must line up.
+    previous_layers: tuple["LayerExecution", ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
