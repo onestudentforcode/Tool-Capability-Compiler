@@ -53,6 +53,9 @@ from .execution import (
     ExecutionEnvironment,
     ExecutionInputs,
     ExecutionState,
+    ToolExecution,
+    ToolExecutionStatus,
+    ToolExecutor,
 )
 from .registry import CapabilityRegistry, LayerRegistry, ToolRegistry
 from .regression import (
@@ -173,7 +176,10 @@ __all__ = [
     "StatusChange",
     "TokenUsage",
     "ToolEdge",
+    "ToolExecution",
     "ToolExecutionError",
+    "ToolExecutionStatus",
+    "ToolExecutor",
     "ToolNode",
     "ToolNotFoundError",
     "ToolRegistry",
