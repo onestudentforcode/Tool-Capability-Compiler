@@ -95,7 +95,15 @@ from .router import (
     validate_decision,
 )
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
-from .regression.slow import ExecutionTrace, LayerExecution, Trial, TrialExecutionStatus
+from .regression.slow import (
+    ExecutionTrace,
+    LayerExecution,
+    ObservedRoute,
+    RouteSegment,
+    Trial,
+    TrialExecutionStatus,
+    extract_observed_route,
+)
 from .topology import (
     ToolEdge,
     Topology,
@@ -156,6 +164,7 @@ __all__ = [
     "LayerNotFoundError",
     "LayerRegistry",
     "LayerRouter",
+    "ObservedRoute",
     "RegistrationError",
     "RegressionDiff",
     "RouteLayer",
@@ -169,6 +178,7 @@ __all__ = [
     "RoutingContext",
     "RoutingDecision",
     "RoutingError",
+    "RouteSegment",
     "Scenario",
     "ScenarioError",
     "ScenarioLoadError",
