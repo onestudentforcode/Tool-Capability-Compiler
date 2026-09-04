@@ -57,7 +57,13 @@ from .regression import (
 )
 from .route import RouteLayer, RoutePlan
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
-from .topology import ToolEdge, Topology, TopologyBuilder, TopologyValidationWarning
+from .topology import (
+    ToolEdge,
+    Topology,
+    TopologyBuilder,
+    TopologyLoader,
+    TopologyValidationWarning,
+)
 
 __all__ = [
     "Baseline",
@@ -116,6 +122,7 @@ __all__ = [
     "TopologyBuilder",
     "TopologyFrameworkError",
     "TopologyGapEntry",
+    "TopologyLoader",
     "TopologyValidationWarning",
     "compute_diff",
     "tool",

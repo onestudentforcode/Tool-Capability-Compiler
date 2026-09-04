@@ -2360,7 +2360,7 @@ Step 6  COMPLETE        (Coverage / Category / Capability Gap / Topology Gap)
 Step 7  COMPLETE        (CapabilityResolver Protocol + Fake Resolver)
 Step 8  COMPLETE        (OllamaCapabilityResolver: qwen3:1.7b via .env)
 Step 9  COMPLETE        (Baseline 持久化 + Regression Diff)
-Step 10 NOT STARTED     (Fast Regression CLI)
+Step 10 COMPLETE        (Fast Regression CLI: tool-topology regression fast)
 ```
 
 Step 8 说明：真实 LLM Capability Resolver 已接入本地 Ollama（`qwen3:1.7b`），
@@ -2372,6 +2372,12 @@ Step 9 说明：`Baseline` 记录每场景的 `CoverageStatus` + 计数器，可
 `CoverageReport` 快照生成，`BaselineStore` 严格 JSON 持久化（格式校验+错误定位）。
 `compute_diff(baseline, report)` 对比两版本，输出 Newly Covered / Newly Uncovered /
 Still Uncovered / Still Covered 与逐场景 StatusChange（含变更后的失败原因）。
+
+Step 10 说明：新增 `TopologyLoader`（声明式 JSON 构建 Topology，Fast Regression 不执行
+真实 Tool）与 `tool-topology regression fast` 命令。支持 Gold / Discovery 模式、
+`--baseline` 差分、`--save-baseline` 快照、`--fail-on-regression`（CI 退出码）。
+终端脚本已在 `pyproject.toml [project.scripts]` 注册。示例见
+`examples/topology/refund.json`。
 
 本状态只表示代码落地进度，不改变后续步骤的验收要求。
 
