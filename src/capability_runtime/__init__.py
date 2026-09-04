@@ -1,9 +1,12 @@
 """Public API for the layered tool-topology MVP."""
 
 from .capability import (
+    DEFAULT_BASE_URL,
+    DEFAULT_MODEL,
     CapabilityResolution,
     CapabilityResolver,
     FakeCapabilityResolver,
+    OllamaCapabilityResolver,
 )
 from .core import (
     CapabilityResolutionError,
@@ -59,6 +62,8 @@ __all__ = [
     "CoverageReport",
     "CoverageResult",
     "CoverageStatus",
+    "DEFAULT_BASE_URL",
+    "DEFAULT_MODEL",
     "DuplicateLayerError",
     "DuplicateToolError",
     "FailureReason",
