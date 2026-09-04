@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any
 
 from ..core.errors import (
+    ExecutionError,
     InvalidRoutingDecisionError,
     InvalidToolSelectionError,
     RoutingError,
@@ -119,3 +120,50 @@ def validate_decision(
         raise InvalidToolSelectionError(
             f"selected tools not available: {', '.join(unknown)}"
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ExpansionPlan:
+    """How one layer is explored atop a fast CandidateRoute seed (basefast).
+
+    baseline_tools is the seed's selection for this layer; candidate_sets are the
+    full tool-sets a Trial may run here, starting from the baseline (index 0)
+    and one per added sibling. Every set obeys max_tools_per_layer.
+    """
+
+    layer: str
+    baseline_tools: tuple[str, ...] = ()
+    candidate_sets: tuple[tuple[str, ...], ...] = ()
+
+    @property
+    def variants(self) -> int:
+        return max(0, len(self.candidate_sets) - 1)
+
+
+def build_expansion_plan(
+    *,
+    layer: str,
+    available_tools: tuple[str, ...],
+    seed_tools: tuple[str, ...] = (),
+    max_tools_per_layer: int,
+) -> ExpansionPlan:
+    """Derive the exploration for one layer from a seed selection.
+
+    The baseline is the seed's tools intersected with what is actually
+    reachable; each additional sibling of the seed becomes a separate candidate
+    set. Sets are sorted and capped at max_tools_per_layer.
+    """
+    if isinstance(max_tools_per_layer, bool) or max_tools_per_layer < 1:
+        raise ExecutionError("max_tools_per_layer must be a positive integer")
+    baseline = tuple(sorted(tool for tool in seed_tools if tool in available_tools))
+    siblings = tuple(tool for tool in available_tools if tool not in baseline)
+    candidates: list[tuple[str, ...]] = [baseline]
+    for sibling in siblings:
+        extended = tuple(sorted(set(baseline) | {sibling}))[:max_tools_per_layer]
+        if extended not in candidates:
+            candidates.append(extended)
+    return ExpansionPlan(
+        layer=layer,
+        baseline_tools=baseline,
+        candidate_sets=tuple(candidates),
+    )

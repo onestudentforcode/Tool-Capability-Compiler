@@ -97,6 +97,7 @@ from .regression import (
 from .route import RouteLayer, RoutePlan
 from .router import (
     EXPLORATION_MODES,
+    ExpansionPlan,
     FakeRouter,
     LayerRouter,
     RouterConfig,
@@ -105,6 +106,7 @@ from .router import (
     RoutingDecision,
     ToolSummary,
     TopologyFilter,
+    build_expansion_plan,
     validate_decision,
 )
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
@@ -113,6 +115,8 @@ from .regression.slow import (
     LayerExecution,
     ObservedRoute,
     RouteSegment,
+    SlowRegressionRunner,
+    SlowRunOutcome,
     Trial,
     TrialExecutionStatus,
     TrialResult,
@@ -134,6 +138,7 @@ __all__ = [
     "BaselineLoadError",
     "BaselineSaveError",
     "BaselineStore",
+    "build_expansion_plan",
     "CapabilityResolution",
     "CapabilityResolutionError",
     "CapabilityResolver",
@@ -160,6 +165,7 @@ __all__ = [
     "ExecutionInputs",
     "ExecutionState",
     "ExecutionTrace",
+    "ExpansionPlan",
     "FailureReason",
     "FakeCapabilityResolver",
     "FakeRouter",
@@ -209,6 +215,8 @@ __all__ = [
     "ScenarioSuite",
     "ScenarioValidationError",
     "SlowRegressionError",
+    "SlowRegressionRunner",
+    "SlowRunOutcome",
     "StatusChange",
     "StructuredEvaluator",
     "TokenUsage",
