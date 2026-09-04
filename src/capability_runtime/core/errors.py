@@ -76,3 +76,55 @@ class BaselineLoadError(BaselineError):
 
 class CapabilityResolutionError(TopologyFrameworkError):
     pass
+
+
+class SlowRegressionError(TopologyFrameworkError):
+    pass
+
+
+class FixtureError(SlowRegressionError):
+    pass
+
+
+class FixtureSetupError(FixtureError):
+    pass
+
+
+class FixtureResetError(FixtureError):
+    pass
+
+
+class FixtureTeardownError(FixtureError):
+    pass
+
+
+class ExecutionError(SlowRegressionError):
+    pass
+
+
+class ToolExecutionError(ExecutionError):
+    pass
+
+
+class LayerExecutionError(ExecutionError):
+    pass
+
+
+class RoutingError(SlowRegressionError):
+    pass
+
+
+class InvalidRoutingDecisionError(RoutingError):
+    pass
+
+
+class InvalidToolSelectionError(RoutingError):
+    pass
+
+
+class EvaluationError(SlowRegressionError):
+    pass
+
+
+class TraceSerializationError(SlowRegressionError):
+    pass
