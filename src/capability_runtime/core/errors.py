@@ -152,3 +152,7 @@ class ProbeError(OptimizationError):
 
 class PruningError(OptimizationError):
     pass
+
+
+class ValidationGateError(OptimizationError):
+    pass

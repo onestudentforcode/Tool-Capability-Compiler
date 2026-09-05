@@ -26,6 +26,13 @@ from .probe import (
     build_directed_seed,
     edge_observed_in_trace,
 )
+from .pruning import (
+    FastGateResult,
+    FastValidationGate,
+    GateFailure,
+    GateVerdict,
+    summarize_by_category,
+)
 
 __all__ = [
     "BatchCandidateBuilder",
@@ -40,6 +47,10 @@ __all__ = [
     "EdgeEvidence",
     "EvidenceAggregator",
     "EvidenceReport",
+    "FastGateResult",
+    "FastValidationGate",
+    "GateFailure",
+    "GateVerdict",
     "NodeEvidence",
     "PruningConfig",
     "ProbeResult",
@@ -49,4 +60,5 @@ __all__ = [
     "ScenarioCounterfactual",
     "build_directed_seed",
     "edge_observed_in_trace",
+    "summarize_by_category",
 ]

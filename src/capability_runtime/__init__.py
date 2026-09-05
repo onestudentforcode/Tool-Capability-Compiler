@@ -51,6 +51,7 @@ from .core import (
     TopologyPatchError,
     TraceSerializationError,
     TopologyFrameworkError,
+    ValidationGateError,
 )
 from .decorators import tool
 from .evaluation import (
@@ -81,6 +82,10 @@ from .optimization import (
     EdgeEvidence,
     EvidenceAggregator,
     EvidenceReport,
+    FastGateResult,
+    FastValidationGate,
+    GateFailure,
+    GateVerdict,
     NodeEvidence,
     PruningConfig,
     ProbeResult,
@@ -90,6 +95,7 @@ from .optimization import (
     ScenarioCounterfactual,
     build_directed_seed,
     edge_observed_in_trace,
+    summarize_by_category,
 )
 from .execution import (
     ArtifactValue,
@@ -242,9 +248,11 @@ __all__ = [
     "FailureReason",
     "FakeCapabilityResolver",
     "FakeRouter",
+    "FastGateResult",
     "FastRegressionError",
     "FastRegressionResult",
     "FastRegressionRunner",
+    "FastValidationGate",
     "FinalResult",
     "FixtureError",
     "FixtureManager",
@@ -253,6 +261,8 @@ __all__ = [
     "FixtureSetupError",
     "FixtureTeardownError",
     "GapEntry",
+    "GateFailure",
+    "GateVerdict",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",
     "InvalidToolSelectionError",
@@ -335,6 +345,7 @@ __all__ = [
     "Trial",
     "TrialExecutionStatus",
     "TrialResult",
+    "ValidationGateError",
     "build_observation_stats",
     "compute_diff",
     "compute_expansion_deltas",
@@ -345,4 +356,5 @@ __all__ = [
     "build_candidate",
     "build_directed_seed",
     "edge_observed_in_trace",
+    "summarize_by_category",
 ]
