@@ -1,6 +1,6 @@
 # 项目教程：Tool-Capability-Compiler 到目前为止做了什么
 
-> 面向读者：刚接触本仓库的开发者 / Agent。目标：让你在 30 分钟内理解这个框架"为什么存在、解决什么问题、已经做完了什么（Phase 0–3）"。
+> 面向读者：刚接触本仓库的开发者 / Agent。目标：让你在 30 分钟内理解这个框架"为什么存在、解决什么问题、已经做完了什么（Phase 0–4）"。
 
 ***
 
@@ -390,7 +390,7 @@ Step 14  持久化（JSONL/manifest/stats）+ `regression slow` CLI + 离线 Dem
 
 ***
 
-## 8. 到现在为止：Phase 0–3 一句话回顾
+## 8. 到现在为止：Phase 0–4 一句话回顾
 
 ```text
 Phase 0  立宪：Graph 是搜索空间，不是答案；声明拓扑与活跃拓扑分离。
@@ -401,28 +401,104 @@ Phase 2  验证：Fast Regression —— 只吃元数据，判 COVERED/UNCERTAIN
 Phase 3  探索：Slow Regression —— 真正执行 Tool、逐层传播状态、产生 Trace，
                抽 ObservedRoute，用 seed 扩展出多条候选路线，评估业务结果，
                沉淀观测统计与 JSONL 落的证据，只给"事实"不做剪枝。
+Phase 4  优化：Topology Optimization —— 消费 Phase 3 证据，规则式识别剪枝候选、
+               虚拟补丁反事实验证、探针补证、快/慢双门 + 多样性命门校验，
+               版本化提交/回滚 + 优化报告 + optimize CLI，把活跃拓扑逐步收敛。
 ```
 
-实现边界（`phase2.md` §68 全部标记 COMPLETE；`phase3-plan.md` §9 全部勾选 `[x]`）：
+实现边界（`phase2.md` §68 全部标记 COMPLETE；`phase3-plan.md` §9 全部勾选 `[x]`；
+`phase4-plan.md` §6 的 13 个 Step 全部勾选 `[x]`）：
 
 ```text
 Phase 2  Step 1–10  能力覆盖验证（CapabilityRegistry → … → Fast Regression CLI）
 Phase 3  Step 1–14  执行探索（ExecutionState → … → 持久化 + slow CLI + 离线 Demo）
+Phase 4  Step 1–13  拓扑优化（Evidence → Candidate → Patch → Counterfactual → Probe
+                     → Batch → Fast/Slow Gate → Diversity Guard → Dataset Split
+                     → Versioning → Report）+ optimize CLI
 ```
 
-测试规模：全量 **247 个测试通过**（Python 3.14），且 **Phase 2 / Phase 3 测试都不依赖真实 LLM / 网络 / HTTP**（LLM 相关统一注入假 HTTP；CLI 的 slow 模式用 JSON 描述的可执行占位工具）。
+测试规模：全量 **354 个测试通过**（Python 3.14），且 **Phase 2 / Phase 3 / Phase 4 测试都不依赖真实 LLM / 网络 / HTTP**（LLM 相关统一注入假 HTTP；CLI 的 slow 模式用 JSON 描述的可执行占位工具；Phase 4 的探针/反事实全部走 fake 执行路径）。
 
 ***
 
-## 9. 如果继续往下做（Phase 4 前瞻）
+## 9. Phase 4 —— Topology Optimization（把探索证据变成更收敛的活跃拓扑）
 
-Phase 3 把"真实执行"的**证据**攒齐了：哪条边从没走通、哪个节点的 latency 高、哪条路线业务失败——这些都是 `Unused Edges` / `expansion delta` / 各层 stats 里的事实。Phase 4 该接手的是：
+> 一句话：Phase 3 已经把"真实执行"的证据攒齐了，Phase 4 该做的事是**在确保业务能力不回退的前提下，把从来没被验证过的边从活跃拓扑里安全摘除**。
+
+开头那幅图里，`Declared Topology → Active Topology` 的路正是在 Phase 4 补上第一个环节。但纪律极严：Phase 4 **只做"证据 → 候选 → 验证 → 版本化提交"**，剪枝的判断和最终 commit **必须来自人工或回归证据**，不是观测统计自说自话替你决定（AGENTS.md 三令五申）。
+
+### 9.1 总体流程：从观测到收敛
+
+Phase 4 把 Phase 3 的观测统计走一条完整流水线：
 
 ```text
-Active Topology 派生 ──► Pruning（剪枝，把从没用的边去掉）──► Ranking（排序）
+Observation(Phase 3)  →  Evidence（逐节点/逐边证据，含成功路线支持数）
+     →  Candidate（规则式剪枝候选，只输出不改任何东西）
+     →  Patch（TopologyPatch 虚拟禁用，声明拓扑不可变）
+     →  Counterfactual（对补丁视图重跑 Fast Regression，看覆盖是否掉）
+     →  Probe（对"证据不足"的边用定向 seed 补证）
+     →  Batch（把单独安全的多候选分组，整批验证，失败二分定位有害子集）
+     →  Fast Gate / Slow Gate / Diversity Guard（三关校验）
+     →  Version（TopologyVersion 版本化提交与回滚）
+     →  Report + CLI
 ```
 
-要动手前的纪律提醒（AGENTS.md）：**先按 phase 顺序起草 `phase4.md` 验收文档，再实现**；且 Phase 4 的**剪枝/排名指令仍需来自人工或回归证据，不能由观测统计自行"替用户做决定"**。
+### 9.2 13 个 Step 拆开看
+
+| Step | 模块 | 一句话 |
+| ---- | ---- | ---- |
+| 1 | `optimization/evidence.py` | 从 Phase 3 观测聚合 `NodeEvidence` / `EdgeEvidence`，补齐逐边"成功路线支持数" |
+| 2 | `optimization/candidate.py` | `CandidateDetector`：高机会+低用量→IDENTIFIED，低机会→INSUFFICIENT_EVIDENCE |
+| 3 | `optimization/candidate.py` | `ProtectionRegistry`：唯一 Provider / bridge / sentinel → PROTECTED（绝不触碰） |
+| 4 | `topology/patch.py` | `TopologyPatch`（disabled_edges/nodes）+ `CandidateTopology`，只虚拟禁用不改声明 |
+| 5 | `optimization/counterfactual.py` | `CounterfactualRunner`：删 A→B 还有 A→C→B 就继续验证；覆盖掉→REJECTED |
+| 6 | `optimization/probe.py` | `ProbeRunner`：复用 basefast 定向 seed 补证，不新造 guided/replay 模式 |
+| 7 | `optimization/batch.py` | `BatchCandidateBuilder`：多候选整批验证，超 `max_pruning_batch_size` 回滚，失败二分定位 |
+| 8 | `optimization/pruning.py` | `FastValidationGate`：global / category / sentinel 三域 Fast 门 |
+| 9 | `optimization/pruning.py` | `SlowValidationGate`：成功率 / 质量 / 错误率增量校验 |
+| 10 | `optimization/pruning.py` | `RouteDiversityGuard`：禁止把搜索空间压成单一路线 |
+| 11 | `optimization/analyzer.py` | `DatasetSplit`：hash 稳定切 Optimization / Validation / Sentinel，Validation 不参与候选生成（防过拟合） |
+| 12 | `topology/version.py` | `TopologyVersion` 不可变版本快照 + `commit_patch` / `rollback` |
+| 13 | `optimization/report.py` + `cli.py` | `OptimizationReport`（JSON/text）+ `optimize` CLI 子命令 |
+
+### 9.3 两个贯穿 Phase 4 的设计要点
+
+**（1）补丁层而非改声明。** `Topology` 声明模型在 Phase 4 始终保持不可变。剪枝只在上面叠一层 `TopologyPatch`（`disabled_edges` / `disabled_nodes`），得到可回滚的候选视图。这样"宣称连接了 db 和 refund"与"db 真的喂得了 refund"（§2.1 那两个分离）永远不混在一个对象里，试错了随时滚回去。
+
+**（2）Validation/Sentinel 隔离。** `DatasetSplit` 把场景切成 Optimization / Validation / Sentinel 三份，其中 **Validation 与 Sentinel 永不参与候选生成**——防止你用"已知答案"去逆向优化而过度拟合（overfitting guard）。Sentinel 还是 Fast Gate 单场景回归的哨兵。
+
+### 9.4 Phase 4 的 CLI
+
+```bash
+# 生成一份优化报告（当前 Phase 4 的 optimize 子命令会打印确定性报告）
+tool-topology optimize \
+    --topology topology.json \
+    --scenario scenarios/refund.json \
+    --start-version v1 --end-version v2 \
+    --format text | json \
+    --out report.json
+```
+
+> 注意：Phase 4 把"证据 → 候选 → 验证 → 版本化"的**组件**全部落地；但完整的 `analyze / validate / commit` 三段式端到端编排（`optimize analyze|validate|commit`）属后续 Step，最终 commit 始终显式需人工/脚本确认。
+
+***
+
+## 10. 前三阶段一卷串起来看这份"中间语言"
+
+把 Project 定位那句再读一遍：
+
+> A layered tool-routing and topology optimization framework for AI agents.
+
+三个阶段各干各的、又首尾相接：
+
+```text
+Phase 1 建空间：   layer/provider/worker 声明出 Graph（搜索空间）
+Phase 2 验覆盖：   元数据侧回答"我有能力吗"（COVERED / UNCERTAIN / UNCOVERED）
+Phase 3 跑真执行： 执行侧回答"我做成功了吗"（证据：成功路线 / unused edges）
+Phase 4 收敛空间：  用证据把从未被验证的边安全摘除（候选→验证→版本化）
+```
+
+一处更底层的东西贯穿始终：**Capability 是中间语言**。Tool 用 capability 声明能力，Scenario 用 expected capability 描述需求，Layer 通过 capability 校验边是否合法，拓扑缺口（Topology Gap）与能力缺口（Capability Gap）都用 capability 对齐——这就是 `Tool-Capability-Compiler` 这个名字的由来。
 
 ***
 
@@ -451,5 +527,12 @@ C:\Python314\python.exe -m capability_runtime.cli regression slow \
 
 # 跑离线退款 Demo（10 Tool / 3 Layer，脱网可跑）
 C:\Python314\python.exe examples\slow_refund\run_demo.py --trials 100 --out-dir artifacts
+
+# 跑一次拓扑优化报告（Phase 4，确定性输出，可存 JSON）
+C:\Python314\python.exe -m capability_runtime.cli optimize \
+    --topology examples/topology/refund.json \
+    --scenario examples/scenarios/refund.json \
+    --start-version v1 --end-version v2 \
+    --format text
 ```
 
