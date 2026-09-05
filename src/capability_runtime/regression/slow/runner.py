@@ -5,7 +5,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
-from ...core.errors import ExecutionError, FixtureError, LayerExecutionError
+from ...core.errors import (
+    ExecutionError,
+    FixtureError,
+    LayerExecutionError,
+    RoutingError,
+)
 from ...core.metrics import TokenUsage
 from ...evaluation.base import EvaluationResult, Evaluator, FinalResult
 from ...execution.context import ExecutionContext, ExecutionEnvironment
@@ -17,9 +22,13 @@ from ...router.filtering import TopologyFilter
 from ...router.models import (
     ExpansionPlan,
     RoutingAction,
+    RoutingContext,
     RoutingDecision,
+    ToolSummary,
     build_expansion_plan,
+    validate_decision,
 )
+from ...router.protocol import LayerRouter
 from ...scenario.models import Scenario, ScenarioSuite
 from ...topology.models import Topology
 from .route import ObservedRoute, extract_observed_route
@@ -62,6 +71,7 @@ class SlowRegressionRunner:
         topology_version: str = "1.0",
         environment: ExecutionEnvironment = ExecutionEnvironment.SANDBOX,
         router_config_id: str = "basefast",
+        router: LayerRouter | None = None,
     ) -> None:
         if trials_per_scenario < 1:
             raise ExecutionError("trials_per_scenario must be positive")
@@ -75,6 +85,7 @@ class SlowRegressionRunner:
         self._topology_version = topology_version
         self._environment = environment
         self._router_config_id = router_config_id
+        self._router = router
         self._filter = TopologyFilter(topology)
 
     async def run(self, suite: ScenarioSuite) -> SlowRunOutcome:
@@ -128,12 +139,20 @@ class SlowRegressionRunner:
             for layer in self._topology.layers():
                 layer_name = layer.name
                 available = self._filter.available_tools(layer_name, previous_selected, state)
-                selection = self._select(available, seed, layer_name, trial.trial_index)
-                decision = RoutingDecision(
-                    action=RoutingAction.EXECUTE if selection else RoutingAction.FINISH,
-                    selected_tools=selection,
-                    reason="basefast-expansion" if seed else "free",
-                )
+                if self._router is not None:
+                    decision = await self._route_with_router(
+                        layer_name, available, state, trace
+                    )
+                    selection = decision.selected_tools
+                else:
+                    selection = self._select(available, seed, layer_name, trial.trial_index)
+                    decision = RoutingDecision(
+                        action=(
+                            RoutingAction.EXECUTE if selection else RoutingAction.FINISH
+                        ),
+                        selected_tools=selection,
+                        reason="basefast-expansion" if seed else "free",
+                    )
                 started_at = datetime.now()
                 if not selection:
                     trace.add_layer(
@@ -170,6 +189,8 @@ class SlowRegressionRunner:
                     )
                 )
                 previous_selected = selection
+        except RoutingError:
+            status = TrialExecutionStatus.ROUTING_ERROR
         except LayerExecutionError:
             status = TrialExecutionStatus.LAYER_ERROR
         except ExecutionError:
@@ -191,6 +212,28 @@ class SlowRegressionRunner:
         return self._finalize(
             trial, status, start_wall, trace=trace, route=route, evaluation=evaluation
         )
+
+    async def _route_with_router(
+        self,
+        layer_name: str,
+        available: tuple[str, ...],
+        state: ExecutionState,
+        trace: ExecutionTrace,
+    ) -> RoutingDecision:
+        summaries = tuple(
+            ToolSummary.from_tool_node(self._topology.node(name)) for name in available
+        )
+        context = RoutingContext(
+            query=state.query,
+            current_layer=layer_name,
+            available_tools=summaries,
+            topology_version=self._topology_version,
+            state_summary=state,
+            previous_layers=trace.layers,
+        )
+        decision = await self._router.route(context)
+        validate_decision(decision, available, self._max_tools)
+        return decision
 
     def _select(
         self,

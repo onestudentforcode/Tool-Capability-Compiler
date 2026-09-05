@@ -1,3 +1,9 @@
+from .persistence import RunManifest, SlowRegressionWriter, serialize_trial_result
+from .report import (
+    SlowRegressionReport,
+    build_slow_regression_report,
+    render_slow_report,
+)
 from .route import ObservedRoute, RouteSegment, extract_observed_route
 from .runner import SlowRegressionRunner, SlowRunOutcome
 from .stats import (
@@ -24,14 +30,20 @@ __all__ = [
     "ObservedRoute",
     "RouteObservationStats",
     "RouteSegment",
+    "RunManifest",
     "SelectionEvent",
+    "SlowRegressionReport",
     "SlowRegressionRunner",
+    "SlowRegressionWriter",
     "SlowRunOutcome",
     "Trial",
     "TrialExecutionStatus",
     "TrialResult",
     "build_observation_stats",
+    "build_slow_regression_report",
     "compute_expansion_deltas",
     "extract_observed_route",
+    "render_slow_report",
+    "serialize_trial_result",
     "summarize",
 ]
