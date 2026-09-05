@@ -6,6 +6,7 @@ from .candidate import (
     PruningConfig,
     ProtectionRegistry,
 )
+from .batch import BatchCandidateBuilder, CandidateBatch
 from .counterfactual import (
     CounterfactualResult,
     CounterfactualRunner,
@@ -27,7 +28,9 @@ from .probe import (
 )
 
 __all__ = [
+    "BatchCandidateBuilder",
     "Candidate",
+    "CandidateBatch",
     "CandidateDetector",
     "CandidateReason",
     "CandidateStatus",

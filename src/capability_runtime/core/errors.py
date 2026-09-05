@@ -148,3 +148,7 @@ class CounterfactualError(OptimizationError):
 
 class ProbeError(OptimizationError):
     pass
+
+
+class PruningError(OptimizationError):
+    pass
