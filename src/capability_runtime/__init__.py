@@ -48,10 +48,12 @@ from .core import (
 )
 from .decorators import tool
 from .evaluation import (
+    CompositeEvaluator,
     CriterionResult,
     EvaluationResult,
     Evaluator,
     FinalResult,
+    LLMJudgeEvaluator,
     StructuredEvaluator,
 )
 from .fixtures import (
@@ -159,6 +161,7 @@ __all__ = [
     "CapabilityRegistry",
     "CandidateRoute",
     "CategoryCoverage",
+    "CompositeEvaluator",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
     "CoverageReport",
@@ -208,6 +211,8 @@ __all__ = [
     "LayerNotFoundError",
     "LayerRegistry",
     "LayerRouter",
+    "LLMJudgeEvaluator",
+    "LLMRouter",
     "NodeObservationStats",
     "ObservationReport",
     "ObservedRoute",
