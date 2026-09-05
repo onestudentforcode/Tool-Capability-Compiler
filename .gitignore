@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Slow Regression demo artifacts
+examples/slow_refund/artifacts/

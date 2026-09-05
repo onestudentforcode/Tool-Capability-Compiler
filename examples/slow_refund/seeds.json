@@ -1,0 +1,42 @@
+{
+  "refund_basic": {
+    "layers": [
+      {"layer": "read", "tools": ["order_db"]},
+      {"layer": "analyze", "tools": ["policy_check"]},
+      {"layer": "action", "tools": ["refund_api"]}
+    ],
+    "capabilities": ["order.read", "refund.policy.check", "refund.execute"]
+  },
+  "refund_verify": {
+    "layers": [
+      {"layer": "read", "tools": ["order_db", "erp"]},
+      {"layer": "analyze", "tools": ["policy_check"]},
+      {"layer": "action", "tools": ["refund_api"]}
+    ],
+    "capabilities": ["order.read", "erp.read", "refund.policy.check", "refund.execute"]
+  },
+  "refund_policy": {
+    "layers": [
+      {"layer": "read", "tools": ["order_db"]},
+      {"layer": "analyze", "tools": ["policy_check"]},
+      {"layer": "action", "tools": ["refund_api"]}
+    ],
+    "capabilities": ["order.read", "refund.policy.check", "refund.execute"]
+  },
+  "refund_risk": {
+    "layers": [
+      {"layer": "read", "tools": ["order_db"]},
+      {"layer": "analyze", "tools": ["risk_check"]},
+      {"layer": "action", "tools": ["refund_api"]}
+    ],
+    "capabilities": ["order.read", "refund.risk.check", "refund.execute"]
+  },
+  "refund_summary": {
+    "layers": [
+      {"layer": "read", "tools": ["order_db"]},
+      {"layer": "analyze", "tools": ["summarizer"]},
+      {"layer": "action", "tools": ["refund_api"]}
+    ],
+    "capabilities": ["order.read", "order.summarize", "refund.execute"]
+  }
+}

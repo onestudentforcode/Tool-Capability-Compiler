@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "name": "slow_refund",
+  "description": "Refund-decision scenarios executed end-to-end by Slow Regression",
+  "scenarios": [
+    {
+      "id": "refund_basic",
+      "query": "Order ORD-123 is eligible, refund it if allowed"
+    },
+    {
+      "id": "refund_verify",
+      "query": "Verify the ERP record before deciding whether to refund ORD-123"
+    },
+    {
+      "id": "refund_policy",
+      "query": "Check the refund policy and refund ORD-123"
+    },
+    {
+      "id": "refund_risk",
+      "query": "Refund ORD-123 after a risk assessment"
+    },
+    {
+      "id": "refund_summary",
+      "query": "Summarize ORD-123 and issue a refund"
+    }
+  ]
+}
