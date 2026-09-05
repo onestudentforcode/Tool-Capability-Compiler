@@ -13,6 +13,7 @@ from .core import (
     BaselineLoadError,
     BaselineSaveError,
     CapabilityResolutionError,
+    CounterfactualError,
     DuplicateLayerError,
     DuplicateToolError,
     EvaluationError,
@@ -45,6 +46,7 @@ from .core import (
     ToolNotFoundError,
     ToolSpec,
     TopologyBuildError,
+    TopologyPatchError,
     TraceSerializationError,
     TopologyFrameworkError,
 )
@@ -69,12 +71,16 @@ from .optimization import (
     CandidateDetector,
     CandidateReason,
     CandidateStatus,
+    CounterfactualResult,
+    CounterfactualRunner,
+    CounterfactualVerdict,
     EdgeEvidence,
     EvidenceAggregator,
     EvidenceReport,
     NodeEvidence,
     PruningConfig,
     ProtectionRegistry,
+    ScenarioCounterfactual,
 )
 from .execution import (
     ArtifactValue,
@@ -158,11 +164,15 @@ from .regression.slow import (
     summarize,
 )
 from .topology import (
+    CandidateTopology,
     ToolEdge,
     Topology,
     TopologyBuilder,
     TopologyLoader,
+    TopologyPatch,
     TopologyValidationWarning,
+    apply_patch,
+    build_candidate,
 )
 
 __all__ = [
@@ -177,6 +187,7 @@ __all__ = [
     "build_router_prompt",
     "CapabilityResolution",
     "CapabilityResolutionError",
+    "CandidateTopology",
     "CapabilityResolver",
     "CapabilityRegistry",
     "CandidateRoute",
@@ -186,6 +197,10 @@ __all__ = [
     "CandidateStatus",
     "CategoryCoverage",
     "CompositeEvaluator",
+    "CounterfactualError",
+    "CounterfactualResult",
+    "CounterfactualRunner",
+    "CounterfactualVerdict",
     "CoverageAnalyzer",
     "CoverageAnalyzerError",
     "CoverageReport",
@@ -272,6 +287,7 @@ __all__ = [
     "ScenarioStatus",
     "ScenarioSuite",
     "ScenarioValidationError",
+    "ScenarioCounterfactual",
     "SelectionEvent",
     "SlowRegressionError",
     "SlowRegressionRunner",
@@ -295,6 +311,8 @@ __all__ = [
     "TopologyFrameworkError",
     "TopologyGapEntry",
     "TopologyLoader",
+    "TopologyPatch",
+    "TopologyPatchError",
     "TopologyValidationWarning",
     "TopologyFilter",
     "TraceSerializationError",
@@ -307,4 +325,6 @@ __all__ = [
     "summarize",
     "tool",
     "validate_decision",
+    "apply_patch",
+    "build_candidate",
 ]

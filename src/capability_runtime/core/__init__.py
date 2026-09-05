@@ -4,6 +4,8 @@ from .errors import (
     BaselineLoadError,
     BaselineSaveError,
     CapabilityResolutionError,
+    CounterfactualError,
+    CoverageAnalyzerError,
     DuplicateLayerError,
     DuplicateToolError,
     EvaluationError,
@@ -35,6 +37,7 @@ from .errors import (
     TopologyFrameworkError,
     OptimizationError,
     EvidenceError,
+    TopologyPatchError,
 )
 from .layer import Layer
 from .metrics import TokenUsage
@@ -45,6 +48,7 @@ __all__ = [
     "BaselineLoadError",
     "BaselineSaveError",
     "CapabilityResolutionError",
+    "CounterfactualError",
     "CoverageAnalyzerError",
     "DuplicateLayerError",
     "DuplicateToolError",
@@ -57,6 +61,7 @@ __all__ = [
     "FixtureTeardownError",
     "EvidenceError",
     "OptimizationError",
+    "TopologyPatchError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",
     "InvalidToolSelectionError",

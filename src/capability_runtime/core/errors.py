@@ -136,3 +136,11 @@ class OptimizationError(TopologyFrameworkError):
 
 class EvidenceError(OptimizationError):
     pass
+
+
+class TopologyPatchError(OptimizationError):
+    pass
+
+
+class CounterfactualError(OptimizationError):
+    pass

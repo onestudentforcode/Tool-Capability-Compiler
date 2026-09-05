@@ -6,6 +6,12 @@ from .candidate import (
     PruningConfig,
     ProtectionRegistry,
 )
+from .counterfactual import (
+    CounterfactualResult,
+    CounterfactualRunner,
+    CounterfactualVerdict,
+    ScenarioCounterfactual,
+)
 from .evidence import (
     EdgeEvidence,
     EvidenceAggregator,
@@ -18,10 +24,14 @@ __all__ = [
     "CandidateDetector",
     "CandidateReason",
     "CandidateStatus",
+    "CounterfactualResult",
+    "CounterfactualRunner",
+    "CounterfactualVerdict",
     "EdgeEvidence",
     "EvidenceAggregator",
     "EvidenceReport",
     "NodeEvidence",
     "PruningConfig",
     "ProtectionRegistry",
+    "ScenarioCounterfactual",
 ]
