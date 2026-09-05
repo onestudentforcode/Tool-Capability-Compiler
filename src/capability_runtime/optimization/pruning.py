@@ -162,3 +162,129 @@ def summarize_by_category(
             "delta": after.get(category, 0) - before.get(category, 0),
         }
     return out
+
+
+@dataclass(frozen=True, slots=True)
+class SlowGateResult:
+    """Verdict from Slow Validation Gate (Step 9): business + quality + errors."""
+
+    verdict: GateVerdict
+    failures: tuple[GateFailure, ...] = ()
+
+    @property
+    def passed(self) -> bool:
+        return self.verdict is GateVerdict.PASS
+
+
+class SlowValidationGate:
+    """Validate that a pruned topology does not regress on slow metrics.
+
+    Three checks, all gated by ``PruningConfig``:
+    - **success_rate**: business success / completed must not drop more than
+      ``max_success_rate_drop``.
+    - **quality**: when before/after quality scores are provided, mean quality
+      must not drop more than ``max_quality_drop``.
+    - **error_rate**: routing + execution + fixture errors must not grow more
+      than the allowed relative increase (default: none allowed).
+
+    If before has zero completed trials the gate raises ``ValidationGateError``
+    to avoid division-by-zero nonsense.
+    """
+
+    def __init__(
+        self,
+        config: PruningConfig | None = None,
+        *,
+        max_error_rate_increase: float = 0.0,
+    ) -> None:
+        if isinstance(max_error_rate_increase, bool) or not (
+            0.0 <= max_error_rate_increase <= 1.0
+        ):
+            raise ValidationGateError(
+                "max_error_rate_increase must be a float in [0, 1]"
+            )
+        self._config = config or PruningConfig()
+        self._max_error_increase = max_error_rate_increase
+
+    def evaluate(
+        self,
+        *,
+        before,
+        after,
+        before_quality: float | None = None,
+        after_quality: float | None = None,
+    ) -> SlowGateResult:
+        from ..regression.slow.report import SlowRegressionReport
+
+        if not isinstance(before, SlowRegressionReport) or not isinstance(
+            after, SlowRegressionReport
+        ):
+            raise ValidationGateError(
+                "SlowValidationGate requires SlowRegressionReport inputs"
+            )
+        if before.completed == 0:
+            raise ValidationGateError(
+                "Slow gate cannot evaluate: before-report has zero completed trials"
+            )
+
+        failures: list[GateFailure] = []
+
+        # 1. business success rate
+        before_success_rate = before.business_success / before.completed
+        after_success_rate = (
+            after.business_success / after.completed if after.completed > 0 else 0.0
+        )
+        success_drop = before_success_rate - after_success_rate
+        if success_drop > self._config.max_success_rate_drop + 1e-9:
+            failures.append(
+                GateFailure(
+                    domain="slow",
+                    key="success_rate",
+                    reason=(
+                        f"business success rate dropped by {success_drop:.2%}, "
+                        f"exceeding {self._config.max_success_rate_drop:.2%}"
+                    ),
+                    before=before.business_success,
+                    after=after.business_success,
+                )
+            )
+
+        # 2. quality (optional)
+        if before_quality is not None and after_quality is not None:
+            quality_drop = before_quality - after_quality
+            if quality_drop > self._config.max_quality_drop + 1e-9:
+                failures.append(
+                    GateFailure(
+                        domain="slow",
+                        key="quality",
+                        reason=(
+                            f"mean quality dropped by {quality_drop:.3f}, "
+                            f"exceeding {self._config.max_quality_drop:.3f}"
+                        ),
+                        before=0,
+                        after=0,
+                    )
+                )
+
+        # 3. error rate
+        before_errors = before.routing_error + before.execution_failed + before.fixture_error
+        after_errors = after.routing_error + after.execution_failed + after.fixture_error
+        before_error_rate = before_errors / before.trial_count if before.trial_count else 0.0
+        after_error_rate = after_errors / after.trial_count if after.trial_count else 0.0
+        if after_error_rate > before_error_rate + self._max_error_increase + 1e-9:
+            failures.append(
+                GateFailure(
+                    domain="slow",
+                    key="error_rate",
+                    reason=(
+                        f"error rate increased from {before_error_rate:.2%} to "
+                        f"{after_error_rate:.2%}, exceeding allowed "
+                        f"{self._max_error_increase:.2%} increase"
+                    ),
+                    before=before_errors,
+                    after=after_errors,
+                )
+            )
+
+        verdict = GateVerdict.PASS if not failures else GateVerdict.REJECTED
+        return SlowGateResult(verdict=verdict, failures=tuple(failures))

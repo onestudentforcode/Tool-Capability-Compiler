@@ -31,6 +31,8 @@ from .pruning import (
     FastValidationGate,
     GateFailure,
     GateVerdict,
+    SlowGateResult,
+    SlowValidationGate,
     summarize_by_category,
 )
 
@@ -58,6 +60,8 @@ __all__ = [
     "ProbeVerdict",
     "ProtectionRegistry",
     "ScenarioCounterfactual",
+    "SlowGateResult",
+    "SlowValidationGate",
     "build_directed_seed",
     "edge_observed_in_trace",
     "summarize_by_category",
