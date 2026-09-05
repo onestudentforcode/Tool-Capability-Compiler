@@ -220,3 +220,12 @@ PROTECTED / ACCEPTED / REJECTED）与剪枝建议，**最终 commit 显式需要
 - [ ] 不做 Route 最终排名 / 性能等级 / Cost 等级（归 Phase 5/6）
 - [ ] 不以 Cost 作为主要剪枝依据
 - [ ] 不触碰既有的有效测试；新测试全部离线（FakeRouter / JSON 占位工具）
+
+---
+
+## 9. 实现进度
+
+| Step | 状态 | 落点 |
+|---|---|---|
+| 1 | [x] | `optimization/evidence.py`：`EvidenceAggregator / NodeEvidence / EdgeEvidence / EvidenceReport`；逐边 `successful_route_count / scenario_count` 从 trace 端重聚合；新测试 `tests/unit/test_opt_evidence.py`（§122 全覆盖，7 项） |
+| 2–13 | [ ] | 待实现 |
