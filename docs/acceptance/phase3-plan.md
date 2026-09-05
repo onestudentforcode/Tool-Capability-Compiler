@@ -291,3 +291,26 @@ route_stats.json（phase3.md §105）。CLI 只打印观测数据，**不输出�
 - [ ] 以 Fast Regression CandidateRoute 为起点仅在 CLI 传 `--basefast` 时启用；未传则 `free`
 - [ ] 每层扩展受 `max_tools_per_layer` 约束，记录 baseline 与各 variant 的时间/成本/质量 delta
 - [ ] 只产出"候选路线修正证据"，不出具正式剪枝/排名结论（归 Phase 4）
+
+---
+
+## 9. 实现进度
+
+落地顺序与验收：Step 1→14 全部完成，全量 `pytest`（247）、`compileall`、`git diff --check` 通过。
+
+- [x] Step 1  ExecutionState / ExecutionContext / Trial
+- [x] Step 2  TopologyFilter（prev + provider/worker + state，OR Reachability）
+- [x] Step 3  Router models / protocol / FakeRouter 契约
+- [x] Step 4  单 Tool 逐层执行，State 顺序传播
+- [x] Step 5  同层 multi-tool 并发
+- [x] Step 6  Trace 记录
+- [x] Step 7  ObservedRoute / 稳定 route_id
+- [x] Step 8  Structured / EvaluationResult 确定性评估
+- [x] Step 9  Fixtures setup→execute→evaluate→teardown 状态隔离
+- [x] Step 10 SlowRegressionRunner（CandidateRoute seed + ExpansionPlan + seed_missing 回退 free）
+- [x] Step 11 Observation Stats（node/edge/route + expansion delta，不剪枝）
+- [x] Step 12 LLMRouter + prompts（fake 注入）
+- [x] Step 13 LLMJudgeEvaluator + CompositeEvaluator（fake 注入）
+- [x] Step 14 持久化（JSONL/manifest/stats）+ `regression slow` CLI + 离线集成 Demo `examples/slow_refund`（10 Tool / 3 Layer / 20+ Trial 冒烟）
+
+边界遵守：只**观测**记录 `available/selected/ latencies / token`，输出 `Unused Edges` 事实而不输出剪枝建议（§108）；`--basefast` 仅在显式传参时启用，未传则 `free`。
