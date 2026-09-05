@@ -18,6 +18,13 @@ from .evidence import (
     EvidenceReport,
     NodeEvidence,
 )
+from .probe import (
+    ProbeResult,
+    ProbeRunner,
+    ProbeVerdict,
+    build_directed_seed,
+    edge_observed_in_trace,
+)
 
 __all__ = [
     "Candidate",
@@ -32,6 +39,11 @@ __all__ = [
     "EvidenceReport",
     "NodeEvidence",
     "PruningConfig",
+    "ProbeResult",
+    "ProbeRunner",
+    "ProbeVerdict",
     "ProtectionRegistry",
     "ScenarioCounterfactual",
+    "build_directed_seed",
+    "edge_observed_in_trace",
 ]

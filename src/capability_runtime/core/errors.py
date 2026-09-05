@@ -144,3 +144,7 @@ class TopologyPatchError(OptimizationError):
 
 class CounterfactualError(OptimizationError):
     pass
+
+
+class ProbeError(OptimizationError):
+    pass
