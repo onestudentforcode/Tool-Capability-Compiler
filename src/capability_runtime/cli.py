@@ -55,6 +55,8 @@ from .route.models import RouteLayer
 from .router.llm_router import LLMRouter
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader
+from .optimization.report import OptimizationReport, build_report
+from .topology.version import initial_version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -122,18 +124,51 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME=VALUE",
         help="A fact the deterministic evaluator expects in the final state (repeatable)",
     )
+
+    optimize = subparsers.add_parser(
+        "optimize",
+        help="Optimize topology by pruning underused edges/nodes",
+    )
+    optimize.add_argument("--topology", required=True, help="Topology JSON file")
+    optimize.add_argument(
+        "--scenario",
+        required=True,
+        help="Scenario suite JSON file (used for coverage validation)",
+    )
+    optimize.add_argument(
+        "--start-version",
+        default="v1",
+        help="Starting version tag for the active topology (default: v1)",
+    )
+    optimize.add_argument(
+        "--end-version",
+        default="v2",
+        help="Version tag for the optimized topology (default: v2)",
+    )
+    optimize.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text)",
+    )
+    optimize.add_argument(
+        "--out",
+        help="Write the optimization report to this file instead of stdout",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command != "regression":
-        build_parser().error(f"Unsupported command: {args.command}")
-    if args.subcommand == "fast":
-        return run_fast(args)
-    if args.subcommand == "slow":
-        return run_slow(args)
-    build_parser().error(f"Unsupported subcommand: {args.subcommand}")
+    if args.command == "regression":
+        if args.subcommand == "fast":
+            return run_fast(args)
+        if args.subcommand == "slow":
+            return run_slow(args)
+        build_parser().error(f"Unsupported subcommand: {args.subcommand}")
+    if args.command == "optimize":
+        return run_optimize(args)
+    build_parser().error(f"Unsupported command: {args.command}")
 
 
 def run_fast(args: argparse.Namespace) -> int:
@@ -243,6 +278,33 @@ def run_slow(args: argparse.Namespace) -> int:
         )
 
     print(render_slow_report(report))
+    return 0
+
+
+def run_optimize(args: argparse.Namespace) -> int:
+    """Run a topology optimization pass.
+
+    In Phase 4, the optimize CLI produces a deterministic report based on
+    the declared topology (no real pruning is executed yet — the full
+    pruning pipeline will be wired up in later phases).
+    """
+    topology = TopologyLoader().load_file(args.topology)
+    suite = ScenarioLoader().load_file(args.scenario)
+
+    start = initial_version(topology, version=args.start_version)
+    end = initial_version(topology, version=args.end_version)
+    report = build_report(start=start, end=end)
+
+    if args.format == "json":
+        import json as _json
+        output = _json.dumps(report.to_json(), indent=2, ensure_ascii=False)
+    else:
+        output = report.summary_text()
+
+    if args.out:
+        Path(args.out).write_text(output, encoding="utf-8")
+    else:
+        print(output)
     return 0
 
 

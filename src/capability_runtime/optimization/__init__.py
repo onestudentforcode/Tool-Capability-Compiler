@@ -38,6 +38,7 @@ from .pruning import (
     SlowValidationGate,
     summarize_by_category,
 )
+from .report import OptimizationReport, OptimizationRound, build_report
 
 __all__ = [
     "BatchCandidateBuilder",
@@ -59,6 +60,8 @@ __all__ = [
     "GateFailure",
     "GateVerdict",
     "NodeEvidence",
+    "OptimizationReport",
+    "OptimizationRound",
     "PruningConfig",
     "ProbeResult",
     "ProbeRunner",
@@ -69,6 +72,7 @@ __all__ = [
     "SlowGateResult",
     "SlowValidationGate",
     "build_directed_seed",
+    "build_report",
     "edge_observed_in_trace",
     "split_ids",
     "split_suite",
