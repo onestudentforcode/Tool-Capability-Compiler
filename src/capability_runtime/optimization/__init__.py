@@ -4,6 +4,7 @@ from .candidate import (
     CandidateReason,
     CandidateStatus,
     PruningConfig,
+    ProtectionRegistry,
 )
 from .evidence import (
     EdgeEvidence,
@@ -22,4 +23,5 @@ __all__ = [
     "EvidenceReport",
     "NodeEvidence",
     "PruningConfig",
+    "ProtectionRegistry",
 ]

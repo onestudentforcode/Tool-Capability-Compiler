@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import defaultdict
+from collections.abc import Iterable
 from enum import Enum
 
+from ..scenario.models import Scenario
+from ..topology.models import Topology
 from .evidence import EvidenceReport
 
 
@@ -76,8 +80,13 @@ class Candidate:
 class CandidateDetector:
     """Rule-based first-pass detector ($26): evidence in, candidates out. No changes."""
 
-    def __init__(self, config: PruningConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: PruningConfig | None = None,
+        protected_nodes: Iterable[str] = (),
+    ) -> None:
         self._config = config or PruningConfig()
+        self._protected_nodes = frozenset(protected_nodes)
 
     def detect(self, evidence: EvidenceReport) -> tuple[Candidate, ...]:
         detected: list[Candidate] = []
@@ -102,6 +111,20 @@ class CandidateDetector:
                 )
             )
         for tool in sorted(evidence.node_evidence):
+            if tool in self._protected_nodes:
+                detected.append(
+                    Candidate(
+                        kind="node",
+                        subject=tool,
+                        status=CandidateStatus.PROTECTED,
+                        reason=None,
+                        opportunity_count=0,
+                        usage_rate=0.0,
+                        source=tool,
+                        protected=True,
+                    )
+                )
+                continue
             node = evidence.node_evidence[tool]
             if node.never_available:
                 continue
@@ -138,3 +161,140 @@ class CandidateDetector:
             )
             return CandidateStatus.IDENTIFIED, reason
         return None, None
+
+
+class ProtectionRegistry:
+    """Declares which edges and nodes must never enter pruning.
+
+    Rules: unique capability provider ($33), bridge node ($110), sentinel-locked
+    edges (a unique provider of a sentinel-required capability), plus explicit
+    must-route overrides. Protection is structural and static -- it never
+    depends on any observed usage or a scenario's business outcome.
+    """
+
+    def __init__(
+        self,
+        topology: Topology,
+        *,
+        extra_protected_edges: Iterable[tuple[str, str]] = (),
+        extra_protected_nodes: Iterable[str] = (),
+        sentinel_scenarios: Iterable[Scenario] = (),
+    ) -> None:
+        self._topology = topology
+        self._protected_nodes = self._compute_protected_nodes(extra_protected_nodes)
+        self._protected_edges = self._compute_protected_edges(
+            extra_protected_edges, sentinel_scenarios
+        )
+
+    def protected_nodes(self) -> frozenset[str]:
+        return self._protected_nodes
+
+    def protected_edges(self) -> frozenset[tuple[str, str]]:
+        return self._protected_edges
+
+    def is_node_protected(self, name: str) -> bool:
+        return name in self._protected_nodes
+
+    def is_edge_protected(self, source: str, target: str) -> bool:
+        return (source, target) in self._protected_edges
+
+    # -- internals ---------------------------------------------------------
+
+    def _unique_capability_providers(self) -> frozenset[str]:
+        providers: dict[str, set[str]] = defaultdict(set)
+        for name in self._topology.nodes():
+            node = self._topology.node(name)
+            for capability in node.spec.capabilities:
+                providers[capability].add(name)
+        unique: set[str] = set()
+        for names in providers.values():
+            if len(names) == 1:
+                unique |= names
+        return frozenset(unique)
+
+    def _bridge_nodes(self) -> frozenset[str]:
+        nodes = frozenset(self._topology.nodes())
+        edges = frozenset((edge.source, edge.target) for edge in self._topology.edges())
+        full_reach = _reachability(nodes, edges)
+        bridges: set[str] = set()
+        for removed in nodes:
+            remaining = nodes - {removed}
+            if not remaining:
+                continue
+            sub_edges = {
+                (source, target)
+                for (source, target) in edges
+                if source != removed and target != removed
+            }
+            sub_reach = _reachability(remaining, sub_edges)
+            for source in remaining:
+                for target in full_reach[source]:
+                    if target in remaining and target not in sub_reach[source]:
+                        bridges.add(removed)
+                        break
+                if removed in bridges:
+                    break
+        return frozenset(bridges)
+
+    def _compute_protected_nodes(self, extra: Iterable[str]) -> frozenset[str]:
+        return frozenset(extra) | self._unique_capability_providers() | self._bridge_nodes()
+
+    def _compute_protected_edges(
+        self,
+        extra: Iterable[tuple[str, str]],
+        sentinel_scenarios: Iterable[Scenario],
+    ) -> frozenset[tuple[str, str]]:
+        protected = frozenset(extra)
+        unique = self._unique_capability_providers()
+        sentinel_required = _sentinel_required_capabilities(sentinel_scenarios)
+        if sentinel_required:
+            critical = self._capability_providers(sentinel_required) & unique
+            edges = frozenset(
+                (edge.source, edge.target) for edge in self._topology.edges()
+            )
+            incident = {
+                edge
+                for edge in edges
+                if edge[0] in critical or edge[1] in critical
+            }
+            protected |= incident
+        return protected
+
+    def _capability_providers(self, capabilities: frozenset[str]) -> set[str]:
+        providers: set[str] = set()
+        for name in self._topology.nodes():
+            node = self._topology.node(name)
+            if node.spec.capabilities & capabilities:
+                providers.add(name)
+        return providers
+
+
+def _reachability(nodes, edges) -> dict[str, frozenset[str]]:
+    adjacency: dict[str, set[str]] = {node: set() for node in nodes}
+    for source, target in edges:
+        if source in adjacency and target in adjacency:
+            adjacency[source].add(target)
+    reach: dict[str, frozenset[str]] = {}
+    for node in nodes:
+        seen: set[str] = set()
+        stack = list(adjacency[node])
+        while stack:
+            top = stack.pop()
+            if top == node or top in seen:
+                continue
+            seen.add(top)
+            stack.extend(adjacency[top])
+        reach[node] = frozenset(seen)
+    return reach
+
+
+def _sentinel_required_capabilities(scenarios: Iterable[Scenario]) -> frozenset[str]:
+    required: set[str] = set()
+    for scenario in scenarios:
+        if _is_sentinel(scenario):
+            required |= set(scenario.expected_capabilities)
+    return frozenset(required)
+
+
+def _is_sentinel(scenario: Scenario) -> bool:
+    return bool(scenario.metadata.get("sentinel", False))

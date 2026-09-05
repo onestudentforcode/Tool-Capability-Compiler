@@ -74,6 +74,7 @@ from .optimization import (
     EvidenceReport,
     NodeEvidence,
     PruningConfig,
+    ProtectionRegistry,
 )
 from .execution import (
     ArtifactValue,
@@ -248,6 +249,7 @@ __all__ = [
     "OptimizationError",
     "RegistrationError",
     "PruningConfig",
+    "ProtectionRegistry",
     "RegressionDiff",
     "RouteLayer",
     "RouteObservationStats",
