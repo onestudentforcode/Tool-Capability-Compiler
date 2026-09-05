@@ -48,3 +48,115 @@ class ScenarioLoadError(ScenarioError):
 
 class ScenarioValidationError(ScenarioError):
     pass
+
+
+class CoverageAnalyzerError(TopologyFrameworkError):
+    pass
+
+
+class RouteSearchError(TopologyFrameworkError):
+    pass
+
+
+class FastRegressionError(TopologyFrameworkError):
+    pass
+
+
+class BaselineError(FastRegressionError):
+    pass
+
+
+class BaselineSaveError(BaselineError):
+    pass
+
+
+class BaselineLoadError(BaselineError):
+    pass
+
+
+class CapabilityResolutionError(TopologyFrameworkError):
+    pass
+
+
+class SlowRegressionError(TopologyFrameworkError):
+    pass
+
+
+class FixtureError(SlowRegressionError):
+    pass
+
+
+class FixtureSetupError(FixtureError):
+    pass
+
+
+class FixtureResetError(FixtureError):
+    pass
+
+
+class FixtureTeardownError(FixtureError):
+    pass
+
+
+class ExecutionError(SlowRegressionError):
+    pass
+
+
+class ToolExecutionError(ExecutionError):
+    pass
+
+
+class LayerExecutionError(ExecutionError):
+    pass
+
+
+class RoutingError(SlowRegressionError):
+    pass
+
+
+class InvalidRoutingDecisionError(RoutingError):
+    pass
+
+
+class InvalidToolSelectionError(RoutingError):
+    pass
+
+
+class EvaluationError(SlowRegressionError):
+    pass
+
+
+class TraceSerializationError(SlowRegressionError):
+    pass
+
+
+class OptimizationError(TopologyFrameworkError):
+    pass
+
+
+class EvidenceError(OptimizationError):
+    pass
+
+
+class TopologyPatchError(OptimizationError):
+    pass
+
+
+class CounterfactualError(OptimizationError):
+    pass
+
+
+class ProbeError(OptimizationError):
+    pass
+
+
+class PruningError(OptimizationError):
+    pass
+
+
+class ValidationGateError(OptimizationError):
+    pass
+
+
+class TopologyVersioningError(OptimizationError):
+    pass

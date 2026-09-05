@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "layers": [
+    { "name": "read", "order": 0 },
+    { "name": "analyze", "order": 1 },
+    { "name": "act", "order": 2 }
+  ],
+  "tools": [
+    {
+      "name": "db",
+      "layer": "read",
+      "workers": ["policy_check"],
+      "capabilities": ["order.read", "order.search"]
+    },
+    {
+      "name": "rag",
+      "layer": "read",
+      "workers": ["policy_check"],
+      "capabilities": ["refund.policy.read"]
+    },
+    {
+      "name": "web_search",
+      "layer": "read",
+      "capabilities": ["web.search"]
+    },
+    {
+      "name": "policy_check",
+      "layer": "analyze",
+      "providers": ["db", "rag"],
+      "workers": ["refund"],
+      "capabilities": ["refund.policy.check"]
+    },
+    {
+      "name": "summarizer",
+      "layer": "analyze",
+      "workers": [],
+      "capabilities": ["summary.compose"]
+    },
+    {
+      "name": "refund",
+      "layer": "act",
+      "providers": ["policy_check"],
+      "capabilities": ["refund.execute"],
+      "description": "Submit a refund for an order"
+    },
+    {
+      "name": "send_email",
+      "layer": "act",
+      "providers": [],
+      "capabilities": ["email.send"]
+    }
+  ]
+}
