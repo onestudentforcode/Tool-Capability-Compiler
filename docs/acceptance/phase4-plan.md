@@ -228,4 +228,5 @@ PROTECTED / ACCEPTED / REJECTED）与剪枝建议，**最终 commit 显式需要
 | Step | 状态 | 落点 |
 |---|---|---|
 | 1 | [x] | `optimization/evidence.py`：`EvidenceAggregator / NodeEvidence / EdgeEvidence / EvidenceReport`；逐边 `successful_route_count / scenario_count` 从 trace 端重聚合；新测试 `tests/unit/test_opt_evidence.py`（§122 全覆盖，7 项） |
-| 2–13 | [ ] | 待实现 |
+| 2 | [x] | `optimization/candidate.py`：`Candidate / CandidateStatus / CandidateReason / PruningConfig / CandidateDetector`（规则式，只输出不改动）；新测试 `tests/unit/test_opt_candidate.py`（§123 三类 + 原因区分，10 项） |
+| 3 | [ ] | 待实现 |
