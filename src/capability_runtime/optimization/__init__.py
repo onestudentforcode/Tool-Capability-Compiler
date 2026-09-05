@@ -1,3 +1,10 @@
+from .candidate import (
+    Candidate,
+    CandidateDetector,
+    CandidateReason,
+    CandidateStatus,
+    PruningConfig,
+)
 from .evidence import (
     EdgeEvidence,
     EvidenceAggregator,
@@ -6,8 +13,13 @@ from .evidence import (
 )
 
 __all__ = [
+    "Candidate",
+    "CandidateDetector",
+    "CandidateReason",
+    "CandidateStatus",
     "EdgeEvidence",
     "EvidenceAggregator",
     "EvidenceReport",
     "NodeEvidence",
+    "PruningConfig",
 ]

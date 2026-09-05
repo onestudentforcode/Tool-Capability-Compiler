@@ -65,10 +65,15 @@ from .fixtures import (
     IsolationMode,
 )
 from .optimization import (
+    Candidate,
+    CandidateDetector,
+    CandidateReason,
+    CandidateStatus,
     EdgeEvidence,
     EvidenceAggregator,
     EvidenceReport,
     NodeEvidence,
+    PruningConfig,
 )
 from .execution import (
     ArtifactValue,
@@ -174,6 +179,10 @@ __all__ = [
     "CapabilityResolver",
     "CapabilityRegistry",
     "CandidateRoute",
+    "Candidate",
+    "CandidateDetector",
+    "CandidateReason",
+    "CandidateStatus",
     "CategoryCoverage",
     "CompositeEvaluator",
     "CoverageAnalyzer",
@@ -238,6 +247,7 @@ __all__ = [
     "ObservedRoute",
     "OptimizationError",
     "RegistrationError",
+    "PruningConfig",
     "RegressionDiff",
     "RouteLayer",
     "RouteObservationStats",
