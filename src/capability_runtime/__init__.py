@@ -96,17 +96,21 @@ from .regression import (
 )
 from .route import RouteLayer, RoutePlan
 from .router import (
+    DEFAULT_BASE_URL,
+    DEFAULT_TIMEOUT_SECONDS,
     EXPLORATION_MODES,
     ExpansionPlan,
     FakeRouter,
-    LayerRouter,
+    LLMRouter,
     RouterConfig,
+    RouterPrompt,
     RoutingAction,
     RoutingContext,
     RoutingDecision,
     ToolSummary,
     TopologyFilter,
     build_expansion_plan,
+    build_router_prompt,
     validate_decision,
 )
 from .scenario import Scenario, ScenarioLoader, ScenarioSuite
@@ -148,6 +152,7 @@ __all__ = [
     "BaselineSaveError",
     "BaselineStore",
     "build_expansion_plan",
+    "build_router_prompt",
     "CapabilityResolution",
     "CapabilityResolutionError",
     "CapabilityResolver",
@@ -216,6 +221,7 @@ __all__ = [
     "RouteSearchError",
     "RouteValidationError",
     "RouterConfig",
+    "RouterPrompt",
     "RoutingAction",
     "RoutingContext",
     "RoutingDecision",
