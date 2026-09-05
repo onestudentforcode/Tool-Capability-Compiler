@@ -1,4 +1,4 @@
-"""Fast Regression command-line interface.
+"""Fast and Slow Regression command-line interface.
 
 Usage::
 
@@ -8,19 +8,51 @@ Usage::
         [--mode gold|discovery] [--topology-version v1] \\
         [--baseline baseline.json] [--save-baseline out.json] \\
         [--base-url URL] [--model MODEL] [--fail-on-regression]
+
+    tool-topology regression slow \\
+        --topology topology.json \\
+        --scenario scenarios/refund.json \\
+        [--trials 10] [--environment sandbox] \\
+        [--max-concurrency 4] [--topology-version v1] \\
+        [--basefast seeds.json] [--out-dir artifacts/slow_regression] \\
+        [--router-config router.json] [--base-url URL --model MODEL] \\
+        [--expected-fact refund.executed=true]
+
+The ``--basefast`` file maps ``scenario_id`` to a CandidateRoute to seed each
+trial's layer expansion::
+
+    {"s1": {"layers": [{"layer": "read", "tools": ["OrderDB", "RAG"]},
+                       {"layer": "analyze", "tools": ["RefundPolicyCheck"]}],
+            "capabilities": ["order.read"]}}
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from collections.abc import Sequence
+from datetime import datetime
+from pathlib import Path
 
 from .capability import OllamaCapabilityResolver
+from .execution.context import ExecutionEnvironment
+from .evaluation.structured import StructuredEvaluator
+from .fixtures.manager import DefaultFixtureManager
 from .regression.baseline import Baseline, BaselineStore, compute_diff
+from .regression.candidate_route import CandidateRoute
 from .regression.coverage import CoverageStatus
 from .regression.report import CoverageReport, FastRegressionRunner
+from .regression.slow.persistence import SlowRegressionWriter
+from .regression.slow.report import (
+    build_slow_regression_report,
+    render_slow_report,
+)
+from .regression.slow.runner import SlowRegressionRunner
+from .regression.slow.stats import build_observation_stats
+from .route.models import RouteLayer
+from .router.llm_router import LLMRouter
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader
 
@@ -33,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     regression = subparsers.add_parser("regression", help="Run regressions")
     fast = regression.add_subparsers(dest="subcommand", required=True)
-    fast_parser = fast.add_parser("fast", help="Run fast (metadata) regression")
 
+    fast_parser = fast.add_parser("fast", help="Run fast (metadata) regression")
     fast_parser.add_argument("--topology", required=True, help="Topology JSON file")
     fast_parser.add_argument("--scenario", required=True, help="Scenario suite JSON file")
     fast_parser.add_argument(
@@ -55,14 +87,53 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit non-zero when any scenario regresses to not-covered",
     )
+
+    slow_parser = fast.add_parser("slow", help="Run slow (real execution) regression")
+    slow_parser.add_argument("--topology", required=True, help="Topology JSON file")
+    slow_parser.add_argument("--scenario", required=True, help="Scenario suite JSON file")
+    slow_parser.add_argument("--trials", type=int, default=5, help="Trials per scenario")
+    slow_parser.add_argument(
+        "--environment",
+        choices=("mock", "sandbox", "staging"),
+        default="sandbox",
+        help="Execution environment for tool calls",
+    )
+    slow_parser.add_argument("--max-concurrency", type=int, default=1)
+    slow_parser.add_argument("--topology-version", default="declared")
+    slow_parser.add_argument(
+        "--basefast",
+        metavar="PATH",
+        help="JSON mapping scenario_id -> CandidateRoute used to seed each trial",
+    )
+    slow_parser.add_argument(
+        "--out-dir",
+        help="Write traces.jsonl / manifest.json / report.json / *_stats.json here",
+    )
+    slow_parser.add_argument(
+        "--router-config",
+        help="JSON with {'base_url': ..., 'model': ...} to route layers via an LLM",
+    )
+    slow_parser.add_argument("--base-url", help="Ollama base URL (LLM routing)")
+    slow_parser.add_argument("--model", help="Ollama model name (LLM routing)")
+    slow_parser.add_argument(
+        "--expected-fact",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="A fact the deterministic evaluator expects in the final state (repeatable)",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command != "regression" or args.subcommand != "fast":
-        build_parser().error(f"Unsupported command: {args.command} {args.subcommand}")
-    return run_fast(args)
+    if args.command != "regression":
+        build_parser().error(f"Unsupported command: {args.command}")
+    if args.subcommand == "fast":
+        return run_fast(args)
+    if args.subcommand == "slow":
+        return run_slow(args)
+    build_parser().error(f"Unsupported subcommand: {args.subcommand}")
 
 
 def run_fast(args: argparse.Namespace) -> int:
@@ -89,6 +160,89 @@ def run_fast(args: argparse.Namespace) -> int:
     print(render_report(report, suite, baseline))
     if args.fail_on_regression and _has_regression(report, baseline):
         return 1
+    return 0
+
+
+def load_seed_routes(path: str) -> dict[str, CandidateRoute]:
+    """Load the ``--basefast`` seed file mapping scenario_id -> CandidateRoute."""
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    seeds: dict[str, CandidateRoute] = {}
+    for scenario_id, route in dict(raw).items():
+        layers = tuple(
+            RouteLayer(str(segment["layer"]), tuple(segment["tools"]))
+            for segment in route["layers"]
+        )
+        seeds[scenario_id] = CandidateRoute(
+            layers=layers,
+            capabilities=frozenset(route.get("capabilities", ())),
+        )
+    return seeds
+
+
+def run_slow(args: argparse.Namespace) -> int:
+    topology = TopologyLoader().load_file(args.topology)
+    suite = ScenarioLoader().load_file(args.scenario)
+
+    seeds = load_seed_routes(args.basefast) if args.basefast else None
+    router = None
+    router_config_id = "basefast" if seeds else "free"
+    if args.router_config:
+        config = json.loads(Path(args.router_config).read_text(encoding="utf-8"))
+        router = LLMRouter(
+            base_url=config.get("base_url", args.base_url),
+            model=config.get("model", args.model),
+        )
+        router_config_id = config.get("config_id", "llm")
+    elif args.base_url and args.model:
+        router = LLMRouter(base_url=args.base_url, model=args.model)
+        router_config_id = "llm"
+
+    expected: dict[str, str] = {}
+    for pair in args.expected_fact:
+        name, _, value = pair.partition("=")
+        expected[name] = value
+
+    runner = SlowRegressionRunner(
+        topology=topology,
+        evaluator=StructuredEvaluator(expected),
+        fixture_manager=DefaultFixtureManager(),
+        seeds=seeds,
+        trials_per_scenario=args.trials,
+        max_concurrency=args.max_concurrency,
+        topology_version=args.topology_version,
+        environment=ExecutionEnvironment(args.environment),
+        router_config_id=router_config_id,
+        router=router,
+    )
+    outcome = asyncio.run(runner.run(suite))
+    obs = build_observation_stats(
+        outcome.results,
+        edges=[(edge.source, edge.target) for edge in topology.edges()],
+    )
+    report = build_slow_regression_report(
+        outcome,
+        obs,
+        suite=suite,
+        topology=topology,
+        topology_version=args.topology_version,
+        router_config_id=router_config_id,
+    )
+
+    if args.out_dir:
+        writer = SlowRegressionWriter(args.out_dir)
+        writer.write(
+            run_id=f"{suite.name}-{datetime.now():%Y%m%d%H%M%S}",
+            suite_name=suite.name,
+            suite_version=suite.version,
+            topology_version=report.topology_version,
+            router_config_id=router_config_id,
+            evaluator=f"structured:{sorted(expected)}",
+            outcome=outcome,
+            report=report,
+            obs=obs,
+        )
+
+    print(render_slow_report(report))
     return 0
 
 
