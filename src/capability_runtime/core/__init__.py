@@ -33,6 +33,8 @@ from .errors import (
     TraceSerializationError,
     CoverageAnalyzerError,
     TopologyFrameworkError,
+    OptimizationError,
+    EvidenceError,
 )
 from .layer import Layer
 from .metrics import TokenUsage
@@ -53,6 +55,8 @@ __all__ = [
     "FixtureResetError",
     "FixtureSetupError",
     "FixtureTeardownError",
+    "EvidenceError",
+    "OptimizationError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",
     "InvalidToolSelectionError",

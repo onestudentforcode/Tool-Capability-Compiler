@@ -128,3 +128,11 @@ class EvaluationError(SlowRegressionError):
 
 class TraceSerializationError(SlowRegressionError):
     pass
+
+
+class OptimizationError(TopologyFrameworkError):
+    pass
+
+
+class EvidenceError(OptimizationError):
+    pass
