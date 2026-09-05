@@ -288,3 +288,66 @@ class SlowValidationGate:
 
         verdict = GateVerdict.PASS if not failures else GateVerdict.REJECTED
         return SlowGateResult(verdict=verdict, failures=tuple(failures))
+
+
+@dataclass(frozen=True, slots=True)
+class DiversityGuardResult:
+    """Verdict from the Route Diversity Guard (Step 10)."""
+
+    verdict: GateVerdict
+    before_families: int
+    after_families: int
+    min_families: int
+    lost_families: tuple[str, ...] = ()
+
+    @property
+    def passed(self) -> bool:
+        return self.verdict is GateVerdict.PASS
+
+
+class RouteDiversityGuard:
+    """Prevent pruning from collapsing the search space into a single route ($129).
+
+    Counts "successful route families": routes that have at least one business
+    success in the slow report. If the after-count falls below
+    ``min_successful_route_families``, the candidate is rejected.
+
+    The guard also tracks which route families were lost so the report can show
+    concrete evidence — the guard never prunes; it only flags a violation.
+    """
+
+    def __init__(self, min_successful_route_families: int = 2) -> None:
+        if isinstance(min_successful_route_families, bool) or min_successful_route_families < 1:
+            raise ValidationGateError(
+                "min_successful_route_families must be a positive integer"
+            )
+        self._min_families = min_successful_route_families
+
+    def evaluate(
+        self,
+        *,
+        before_routes,
+        after_routes,
+    ) -> DiversityGuardResult:
+        before_success = set(
+            route_id
+            for route_id, stat in before_routes.items()
+            if stat.business_success_count > 0
+        )
+        after_success = set(
+            route_id
+            for route_id, stat in after_routes.items()
+            if stat.business_success_count > 0
+        )
+        lost = tuple(sorted(before_success - after_success))
+        if len(after_success) < self._min_families:
+            verdict = GateVerdict.REJECTED
+        else:
+            verdict = GateVerdict.PASS
+        return DiversityGuardResult(
+            verdict=verdict,
+            before_families=len(before_success),
+            after_families=len(after_success),
+            min_families=self._min_families,
+            lost_families=lost,
+        )
