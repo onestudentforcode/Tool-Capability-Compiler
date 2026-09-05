@@ -6,6 +6,7 @@ from .candidate import (
     PruningConfig,
     ProtectionRegistry,
 )
+from .analyzer import DatasetSplit, split_ids, split_suite
 from .batch import BatchCandidateBuilder, CandidateBatch
 from .counterfactual import (
     CounterfactualResult,
@@ -48,6 +49,8 @@ __all__ = [
     "CounterfactualResult",
     "CounterfactualRunner",
     "CounterfactualVerdict",
+    "DatasetSplit",
+    "DiversityGuardResult",
     "EdgeEvidence",
     "EvidenceAggregator",
     "EvidenceReport",
@@ -65,8 +68,9 @@ __all__ = [
     "ScenarioCounterfactual",
     "SlowGateResult",
     "SlowValidationGate",
-    "DiversityGuardResult",
     "build_directed_seed",
     "edge_observed_in_trace",
+    "split_ids",
+    "split_suite",
     "summarize_by_category",
 ]
