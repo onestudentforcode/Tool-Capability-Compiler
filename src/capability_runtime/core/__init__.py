@@ -42,6 +42,7 @@ from .errors import (
     EvidenceError,
     TopologyPatchError,
     ValidationGateError,
+    TopologyVersioningError,
 )
 from .layer import Layer
 from .metrics import TokenUsage
@@ -68,6 +69,7 @@ __all__ = [
     "ProbeError",
     "PruningError",
     "TopologyPatchError",
+    "TopologyVersioningError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

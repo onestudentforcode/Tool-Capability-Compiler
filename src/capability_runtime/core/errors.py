@@ -156,3 +156,7 @@ class PruningError(OptimizationError):
 
 class ValidationGateError(OptimizationError):
     pass
+
+
+class TopologyVersioningError(OptimizationError):
+    pass
