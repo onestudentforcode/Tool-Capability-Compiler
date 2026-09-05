@@ -238,3 +238,4 @@ PROTECTED / ACCEPTED / REJECTED）与剪枝建议，**最终 commit 显式需要
 | 9 | [x] | `optimization/pruning.py` 增 `SlowValidationGate`：成功率（max_success_rate_drop）/ 质量（max_quality_drop，可选）/ 错误率（routing+execution+fixture 增量）三项慢指标校验；`SlowGateResult`；新测试 `tests/unit/test_opt_slow_gate.py`（9 项） |
 | 10 | [x] | `optimization/pruning.py` 增 `RouteDiversityGuard`：保留成功备用路线、禁止把搜索空间压成单一路线（§129）；`DiversityGuardResult` 含 before/after/min/lost_families；新测试 `tests/unit/test_opt_diversity_guard.py`（6 项） |
 | 11 | [x] | `optimization/analyzer.py`：`DatasetSplit` 纯函数切分（hash(scenario_id) 稳定分 Optimization / Validation / Sentinel）；`split_suite` + `split_ids`；**Validation/Sentinel 不参与候选生成**（§128 overfitting guard）；新测试 `tests/unit/test_opt_dataset_split.py`（11 项） |
+| 12 | [x] | `topology/version.py`：`TopologyVersion` 不可变版本快照（declared + active + patch）；`initial_version` / `commit_patch` / `rollback` / `compose_patches`；新增 `TopologyVersioningError`；新测试 `tests/unit/test_topology_version.py`（10 项） |
