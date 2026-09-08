@@ -7,11 +7,12 @@ from capability_runtime import (
     ArtifactValue,
     ExecutionContext,
     ExecutionEnvironment,
-    ExecutionError,
     ExecutionState,
+    SchemaMismatchError,
     ToolExecutionError,
     ToolExecutionStatus,
     ToolExecutor,
+    TrialFailureCategory,
     tool,
 )
 
@@ -89,14 +90,16 @@ def test_failing_tool_records_error_and_writes_no_produces() -> None:
     assert state.get_artifacts("order") == ()
 
 
-def test_missing_required_input_raises_and_writes_nothing() -> None:
+def test_missing_required_input_records_schema_mismatch_and_writes_nothing() -> None:
     @tool(layer="analyze", consumes=[Order])
     async def classifier(order: Order) -> None:
         return None
 
     state = ExecutionState(query="q")  # no Order present
-    with pytest.raises(ExecutionError):
-        asyncio.run(make_executor().execute(classifier, state))
+    execution = asyncio.run(make_executor().execute(classifier, state))
+    assert execution.status is ToolExecutionStatus.ERROR
+    assert isinstance(execution.error, SchemaMismatchError)
+    assert execution.error_category is TrialFailureCategory.SCHEMA_MISMATCH
     assert state.names() == ()
 
 
