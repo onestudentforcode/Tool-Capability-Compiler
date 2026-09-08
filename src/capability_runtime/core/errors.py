@@ -106,6 +106,14 @@ class ToolExecutionError(ExecutionError):
     pass
 
 
+class SchemaMismatchError(ExecutionError):
+    """Tool argument resolution failed (missing / type-mismatched input)."""
+
+
+class TimeoutExecutionError(ExecutionError):
+    """A tool invocation exceeded its configured timeout."""
+
+
 class LayerExecutionError(ExecutionError):
     pass
 
@@ -119,7 +127,9 @@ class InvalidRoutingDecisionError(RoutingError):
 
 
 class InvalidToolSelectionError(RoutingError):
-    pass
+    def __init__(self, message: str, *, unknown_tools: tuple[str, ...] = ()) -> None:
+        super().__init__(message)
+        self.unknown_tools = tuple(unknown_tools)
 
 
 class EvaluationError(SlowRegressionError):

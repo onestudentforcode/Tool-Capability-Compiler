@@ -32,6 +32,8 @@ from .errors import (
     ScenarioLoadError,
     ScenarioValidationError,
     SlowRegressionError,
+    SchemaMismatchError,
+    TimeoutExecutionError,
     ToolExecutionError,
     ToolNotFoundError,
     TopologyBuildError,
@@ -44,6 +46,7 @@ from .errors import (
     ValidationGateError,
     TopologyVersioningError,
 )
+from .failure import TrialFailureCategory
 from .layer import Layer
 from .metrics import TokenUsage
 from .tool import NodeSelector, SelectorInput, ToolNode, ToolSpec
@@ -88,6 +91,8 @@ __all__ = [
     "ScenarioValidationError",
     "SelectorInput",
     "SlowRegressionError",
+    "SchemaMismatchError",
+    "TimeoutExecutionError",
     "TokenUsage",
     "ToolExecutionError",
     "ToolNode",
@@ -96,5 +101,6 @@ __all__ = [
     "TopologyBuildError",
     "TraceSerializationError",
     "TopologyFrameworkError",
+    "TrialFailureCategory",
     "validate_capability_name",
 ]
