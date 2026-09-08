@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ...core.errors import ExecutionError
+from ...core.failure import TrialFailureCategory
 from ...core.metrics import TokenUsage
 from ...evaluation.base import EvaluationResult
 from .route import ObservedRoute
@@ -58,6 +59,7 @@ class TrialResult:
     latency_ms: float
     token_usage: TokenUsage
     cost: float | None
+    failure_category: TrialFailureCategory | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.latency_ms, bool) or self.latency_ms < 0:

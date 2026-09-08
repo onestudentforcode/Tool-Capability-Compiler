@@ -118,7 +118,8 @@ def validate_decision(
     unknown = sorted(set(decision.selected_tools) - known)
     if unknown:
         raise InvalidToolSelectionError(
-            f"selected tools not available: {', '.join(unknown)}"
+            f"selected tools not available: {', '.join(unknown)}",
+            unknown_tools=tuple(unknown),
         )
 
 

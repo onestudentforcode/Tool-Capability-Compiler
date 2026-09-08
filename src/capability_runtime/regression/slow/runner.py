@@ -8,9 +8,12 @@ from datetime import datetime
 from ...core.errors import (
     ExecutionError,
     FixtureError,
+    InvalidRoutingDecisionError,
+    InvalidToolSelectionError,
     LayerExecutionError,
     RoutingError,
 )
+from ...core.failure import TrialFailureCategory
 from ...core.metrics import TokenUsage
 from ...evaluation.base import EvaluationResult, Evaluator, FinalResult
 from ...execution.context import ExecutionContext, ExecutionEnvironment
@@ -72,9 +75,14 @@ class SlowRegressionRunner:
         environment: ExecutionEnvironment = ExecutionEnvironment.SANDBOX,
         router_config_id: str = "basefast",
         router: LayerRouter | None = None,
+        per_tool_timeout_seconds: float | None = None,
     ) -> None:
         if trials_per_scenario < 1:
             raise ExecutionError("trials_per_scenario must be positive")
+        if per_tool_timeout_seconds is not None and (
+            isinstance(per_tool_timeout_seconds, bool) or per_tool_timeout_seconds <= 0
+        ):
+            raise ExecutionError("per_tool_timeout_seconds must be positive or None")
         self._topology = topology
         self._evaluator = evaluator
         self._fixture_manager = fixture_manager
@@ -86,6 +94,7 @@ class SlowRegressionRunner:
         self._environment = environment
         self._router_config_id = router_config_id
         self._router = router
+        self._timeout = per_tool_timeout_seconds
         self._filter = TopologyFilter(topology)
 
     async def run(self, suite: ScenarioSuite) -> SlowRunOutcome:
@@ -116,6 +125,7 @@ class SlowRegressionRunner:
         start_wall = time.perf_counter()
         state = ExecutionState(query=scenario.query)
         status = TrialExecutionStatus.COMPLETED
+        failure_category: TrialFailureCategory | None = None
 
         if self._fixture_manager is not None:
             try:
@@ -126,6 +136,7 @@ class SlowRegressionRunner:
                     TrialExecutionStatus.FIXTURE_ERROR,
                     start_wall,
                     route=None,
+                    failure_category=TrialFailureCategory.FIXTURE_ERROR,
                 )
 
         trace = ExecutionTrace(
@@ -171,6 +182,7 @@ class SlowRegressionRunner:
                     context=ExecutionContext(
                         environment=self._environment,
                         max_concurrency=self._max_concurrency,
+                        per_tool_timeout_seconds=self._timeout,
                     )
                 )
                 tool_executions = await executor.run(
@@ -189,6 +201,12 @@ class SlowRegressionRunner:
                     )
                 )
                 previous_selected = selection
+        except InvalidToolSelectionError as exc:
+            status = TrialExecutionStatus.ROUTING_ERROR
+            failure_category = self._selection_category(exc)
+        except InvalidRoutingDecisionError:
+            status = TrialExecutionStatus.ROUTING_ERROR
+            failure_category = TrialFailureCategory.TOOL_SELECTION_ERROR
         except RoutingError:
             status = TrialExecutionStatus.ROUTING_ERROR
         except LayerExecutionError:
@@ -204,14 +222,37 @@ class SlowRegressionRunner:
             except FixtureError:
                 if status is TrialExecutionStatus.COMPLETED:
                     status = TrialExecutionStatus.FIXTURE_ERROR
+                    failure_category = TrialFailureCategory.FIXTURE_ERROR
 
         evaluation = None
         if status is TrialExecutionStatus.COMPLETED:
-            evaluation = await self._evaluate(scenario, state, trace)
+            try:
+                evaluation = await self._evaluate(scenario, state, trace)
+            except Exception as exc:  # noqa: BLE001 - evaluator failure != business failure
+                status = TrialExecutionStatus.EVALUATION_ERROR
+                failure_category = TrialFailureCategory.EVALUATION_ERROR
+                evaluation = None
+            else:
+                if evaluation is not None and not evaluation.success:
+                    failure_category = evaluation.category
 
         return self._finalize(
-            trial, status, start_wall, trace=trace, route=route, evaluation=evaluation
+            trial,
+            status,
+            start_wall,
+            trace=trace,
+            route=route,
+            evaluation=evaluation,
+            failure_category=failure_category,
         )
+
+    def _selection_category(self, exc: InvalidToolSelectionError) -> TrialFailureCategory:
+        """MISSING_TOOL when a picked tool does not exist; else TOOL_SELECTION_ERROR."""
+        if exc.unknown_tools and not set(exc.unknown_tools).issubset(
+            set(self._topology.nodes())
+        ):
+            return TrialFailureCategory.MISSING_TOOL
+        return TrialFailureCategory.TOOL_SELECTION_ERROR
 
     async def _route_with_router(
         self,
@@ -288,6 +329,7 @@ class SlowRegressionRunner:
         trace: ExecutionTrace | None = None,
         route: ObservedRoute | None = None,
         evaluation: EvaluationResult | None = None,
+        failure_category: TrialFailureCategory | None = None,
     ) -> TrialResult:
         if trace is None:
             trace = ExecutionTrace(
@@ -305,6 +347,7 @@ class SlowRegressionRunner:
             latency_ms=(time.perf_counter() - start_wall) * 1000.0,
             token_usage=self._aggregate_tokens(trace),
             cost=None,
+            failure_category=failure_category,
         )
 
     @staticmethod
