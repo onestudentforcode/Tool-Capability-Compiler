@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..core.errors import EvaluationError
+from ..core.failure import TrialFailureCategory
 from ..scenario.models import Scenario
 from .base import CriterionResult, EvaluationResult, Evaluator, FinalResult
 
@@ -60,6 +61,7 @@ class CompositeEvaluator:
         reasons: list[str] = []
         weighted = 0.0
         overall_success = True
+        first_failure_category: TrialFailureCategory | None = None
         for name, evaluator, weight in self._components:
             sub = await evaluator.evaluate(scenario, result, trace)
             score = sub.quality_score
@@ -68,6 +70,8 @@ class CompositeEvaluator:
             weighted += weight * score
             if not sub.success:
                 overall_success = False
+                if first_failure_category is None:
+                    first_failure_category = sub.category or TrialFailureCategory.ANSWER_ERROR
             criteria.append(
                 CriterionResult(name=name, passed=sub.success, detail=sub)
             )
@@ -78,4 +82,5 @@ class CompositeEvaluator:
             criteria=tuple(criteria),
             quality_score=weighted,
             reason="; ".join(reasons) if reasons else None,
+            category=first_failure_category,
         )

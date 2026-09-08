@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from ..core.failure import TrialFailureCategory
 from ..scenario.models import Scenario
 
 
@@ -29,6 +30,7 @@ class EvaluationResult:
     criteria: tuple[CriterionResult, ...] = ()
     quality_score: float | None = None
     reason: str | None = None
+    category: TrialFailureCategory | None = None
 
     def __post_init__(self) -> None:
         if self.quality_score is not None and not (
