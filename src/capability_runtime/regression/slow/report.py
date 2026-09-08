@@ -48,6 +48,7 @@ class SlowRegressionReport:
     latency_ms_basics: tuple[float | None, float | None, float | None]
     token_usage: TokenUsage
     unused_edges: int
+    failure_by_category: tuple[tuple[str, int], ...] = ()
 
     @property
     def coverage_node_rate(self) -> float:
@@ -128,6 +129,7 @@ def build_slow_regression_report(
         latency_ms_basics=summarize(latencies),
         token_usage=TokenUsage(input_tokens=total_input, output_tokens=total_output),
         unused_edges=unused_edges,
+        failure_by_category=obs.failure_by_category,
     )
 
 
@@ -165,6 +167,12 @@ def render_slow_report(report: SlowRegressionReport) -> str:
     ]
 
     # Facts, not recommendations: pruning is a Phase 4 decision (phase3 §108).
+    if report.failure_by_category:
+        lines.append("")
+        lines.append("Failure Categories:")
+        for name, count in report.failure_by_category:
+            lines.append(f"  {name:<26}{count}")
+
     lines.append("")
     lines.append("(Phase 3 observes only; it makes no pruning recommendation.)")
     return "\n".join(lines)

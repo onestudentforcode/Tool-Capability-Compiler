@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from ...core.failure import TrialFailureCategory
 from .trial import TrialResult, TrialExecutionStatus
 
 
@@ -86,6 +87,7 @@ class ObservationReport:
     selection_events: tuple[SelectionEvent, ...]
     scenario_route_distribution: dict[str, dict[str, int]]
     unique_route_count: int
+    failure_by_category: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,6 +223,15 @@ def build_observation_stats(
         scenario: dict(sorted(routes.items()))
         for scenario, routes in sorted(scenario_route.items())
     }
+    failure_counter: Counter[str] = Counter()
+    for result in results:
+        category = result.failure_category
+        if category is not None and category is not TrialFailureCategory.SUCCESS:
+            failure_counter[category.value] += 1
+    failure_by_category = tuple(
+        (name, failure_counter[name])
+        for name in sorted(failure_counter)
+    )
     return ObservationReport(
         scenario_count=len(scenarios),
         trial_count=len(results),
@@ -230,6 +241,7 @@ def build_observation_stats(
         selection_events=tuple(events),
         scenario_route_distribution=distribution,
         unique_route_count=len(observed_routes),
+        failure_by_category=failure_by_category,
     )
 
 
