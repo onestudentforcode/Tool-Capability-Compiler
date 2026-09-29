@@ -251,7 +251,7 @@ Phase 5 可以直接消费落盘 artifacts 开始实现。
 | 批次 | 状态 | 说明 |
 | --- | --- | --- |
 | A 计量贯通 | [x] | `ToolSpec.cost_per_call`（@tool + TopologyLoader）；`ToolExecution.cost` 按调用尝试计费；`RoutingDecision.token_usage / routing_cost` + `RouterConfig` 定价；LLMRouter 解析 OpenAI 兼容 / Ollama 原生 usage；`EvaluationResult.cost`；`TrialResult.tool_cost / routing_cost / evaluation_cost / cost`（execution 口径，全缺省保持 None）；token 聚合含 router。测试 `tests/unit/test_metering.py`（23 项，端到端贯通 `RouteObservationStats.costs`） |
-| B 可执行绑定 | [ ] | |
+| B 可执行绑定 | [x] | TopologyLoader 支持 `"implementation": "module:attr"` 入口点（单冒号 / identifier 属性 / 可导入 / 必须为 async 函数，失败抛 `TopologyBuildError` 并带工具名与位置）；缺省仍 `_null_handler`（Fast 路径不变）；新增 `unbound_tool_names()`；CLI slow 对未绑定工具 fail-fast（exit 2，报工具清单）。测试 `tests/unit/test_implementation_binding.py`（含端到端真执行断言）+ CLI 拒绝测试 |
 | C Sandbox 工具 | [ ] | |
 | D Fixture 状态化 | [ ] | |
 | E 场景资产 + 实跑 | [ ] | |
