@@ -178,3 +178,15 @@ class ValidationGateError(OptimizationError):
 
 class TopologyVersioningError(OptimizationError):
     pass
+
+
+class RankingError(TopologyFrameworkError):
+    """Phase 5 route ranking failure root (profile / config)."""
+
+
+class RouteProfileError(RankingError):
+    """Trace rows are inconsistent: mixed versions or unreadable payloads."""
+
+
+class RankingConfigError(RankingError):
+    """RankConfig / TierConfig parameters are invalid."""

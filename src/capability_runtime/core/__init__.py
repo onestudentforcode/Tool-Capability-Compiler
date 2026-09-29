@@ -45,6 +45,9 @@ from .errors import (
     TopologyPatchError,
     ValidationGateError,
     TopologyVersioningError,
+    RankingError,
+    RouteProfileError,
+    RankingConfigError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -73,6 +76,9 @@ __all__ = [
     "PruningError",
     "TopologyPatchError",
     "TopologyVersioningError",
+    "RankingError",
+    "RouteProfileError",
+    "RankingConfigError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

@@ -56,6 +56,14 @@ from .router.llm_router import LLMRouter
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
+from .core.errors import RouteProfileError
+from .ranking import (
+    RankConfig,
+    build_ranking_report,
+    render as render_ranking,
+    rows_from_run,
+    to_json as ranking_to_json,
+)
 from .topology.version import initial_version
 
 
@@ -155,6 +163,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--out",
         help="Write the optimization report to this file instead of stdout",
     )
+    rank = subparsers.add_parser(
+        "rank",
+        help="Rank observed routes from a slow-regression run (phase 5)",
+    )
+    rank.add_argument(
+        "--slow-report",
+        required=True,
+        help="Slow regression artifact directory (manifest.json + traces.jsonl)",
+    )
+    rank.add_argument(
+        "--scenario",
+        help="Scenario suite JSON providing the category dimension (optional)",
+    )
+    rank.add_argument(
+        "--min-trials",
+        type=int,
+        default=20,
+        help="Minimum trials for a route to enter ranking (default: 20)",
+    )
+    rank.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text)",
+    )
+    rank.add_argument(
+        "--out",
+        help="Write the ranking report to this file instead of stdout",
+    )
     return parser
 
 
@@ -168,6 +205,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         build_parser().error(f"Unsupported subcommand: {args.subcommand}")
     if args.command == "optimize":
         return run_optimize(args)
+    if args.command == "rank":
+        return run_rank(args)
     build_parser().error(f"Unsupported command: {args.command}")
 
 
@@ -312,6 +351,46 @@ def run_optimize(args: argparse.Namespace) -> int:
     else:
         output = report.summary_text()
 
+    if args.out:
+        Path(args.out).write_text(output, encoding="utf-8")
+    else:
+        print(output)
+    return 0
+
+
+def run_rank(args: argparse.Namespace) -> int:
+    """Rank routes from persisted slow-regression evidence (phase 5).
+
+    Reads only — ranking never executes tools and never modifies topology.
+    """
+    try:
+        rows, meta = rows_from_run(args.slow_report)
+    except RouteProfileError as exc:
+        print(f"cannot rank run: {exc}", file=sys.stderr)
+        return 2
+
+    category_of = None
+    if args.scenario:
+        suite = ScenarioLoader().load_file(args.scenario)
+        category_of = {
+            scenario.id: scenario.category
+            for scenario in suite.scenarios
+            if scenario.category
+        }
+
+    report = build_ranking_report(
+        rows,
+        category_of=category_of,
+        rank_config=RankConfig(min_trials=args.min_trials),
+        suite_name=meta.suite_name or None,
+        suite_version=meta.suite_version or None,
+        source_run=meta.run_id or None,
+    )
+    output = (
+        json.dumps(ranking_to_json(report), indent=2, ensure_ascii=False)
+        if args.format == "json"
+        else render_ranking(report)
+    )
     if args.out:
         Path(args.out).write_text(output, encoding="utf-8")
     else:
