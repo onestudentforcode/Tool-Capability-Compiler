@@ -1,27 +1,32 @@
 {
   "version": "1.0",
   "name": "slow_refund",
-  "description": "Refund-decision scenarios executed end-to-end by Slow Regression",
+  "description": "Refund-decision scenarios executed end-to-end by Slow Regression; each scenario's sandbox variant is declared via metadata.fixture",
   "scenarios": [
     {
       "id": "refund_basic",
-      "query": "Order ORD-123 is eligible, refund it if allowed"
+      "query": "Order ORD-123 is eligible, refund it if allowed",
+      "metadata": {"fixture": "eligible"}
     },
     {
       "id": "refund_verify",
-      "query": "Verify the ERP record before deciding whether to refund ORD-123"
+      "query": "Verify the ERP record before deciding whether to refund ORD-123",
+      "metadata": {"fixture": "eligible"}
     },
     {
       "id": "refund_policy",
-      "query": "Check the refund policy and refund ORD-123"
+      "query": "Check the refund policy and refund ORD-123",
+      "metadata": {"fixture": "eligible"}
     },
     {
       "id": "refund_risk",
-      "query": "Refund ORD-123 after a risk assessment"
+      "query": "Refund ORD-123 after a risk assessment",
+      "metadata": {"fixture": "high_risk"}
     },
     {
       "id": "refund_summary",
-      "query": "Summarize ORD-123 and issue a refund"
+      "query": "Summarize ORD-123 and issue a refund",
+      "metadata": {"fixture": "ineligible"}
     }
   ]
 }

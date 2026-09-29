@@ -112,7 +112,12 @@ async def summarizer(order: Order) -> Digest:
 )
 async def refund_api(order: Order, decision: PolicyDecision) -> RefundResult:
     await asyncio.sleep(0.008)
-    success = decision.decision == "approve"
+    # Idempotency guard: a second refund of the same order fails. This makes
+    # fixture isolation observable — without a per-trial reset, later trials
+    # of the same scenario would start seeing "already refunded".
+    approved = decision.decision == "approve"
+    already = order.order_id in store.STORE.refunded_order_ids
+    success = approved and not already
     if success:
         store.STORE.record_refund(order.order_id)
     return RefundResult(
