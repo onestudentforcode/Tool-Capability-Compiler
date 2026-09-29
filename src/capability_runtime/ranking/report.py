@@ -272,10 +272,12 @@ def to_json(report: RouteRankingReport) -> dict[str, Any]:
 
 
 def _to_json(value: Any) -> Any:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
+    # Enum must be checked before the primitives: a `str, Enum` member is a
+    # str subclass and would otherwise slip through as the enum object.
     if isinstance(value, Enum):
         return value.value
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
     if isinstance(value, Mapping):
         return {str(key): _to_json(item) for key, item in value.items()}
     if isinstance(value, (tuple, list, set, frozenset)):
