@@ -1,13 +1,21 @@
 """Declarative Topology loader for metadata-only Fast Regression.
 
 Fast Regression never executes tools, so a topology can be described purely by
-its layer/tool metadata and loaded without real function implementations. This
-loader builds the same :class:`Topology` the registry path produces, using a
-placeholder async handler that is never invoked (phase2.md section 2).
+its layer/tool metadata and loaded without real function implementations. Tools
+default to a placeholder async handler that is never invoked (phase2.md
+section 2).
+
+For Slow Regression a tool may instead declare
+``"implementation": "module.path:attr"`` to bind a real async handler from an
+importable module (battlefield-hardening batch B). This is an offline
+battlefield assembly mechanism, not an online plugin loader: it only resolves
+an explicit ``module:attr`` entry point inside an already-importable module.
 """
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -34,11 +42,25 @@ _TOOL_FIELDS = {
     "capabilities",
     "description",
     "cost_per_call",
+    "implementation",
 }
 
 
 async def _null_handler(*args: Any, **kwargs: Any) -> None:
     return None
+
+
+def unbound_tool_names(topology: Topology) -> tuple[str, ...]:
+    """Names of tools still carrying the loader's null placeholder handler.
+
+    A slow regression must refuse these: executing the placeholder silently
+    produces None outputs that poison the statistics.
+    """
+    return tuple(
+        name
+        for name in topology.nodes()
+        if topology.node(name).handler is _null_handler
+    )
 
 
 class TopologyLoader:
@@ -72,8 +94,55 @@ class TopologyLoader:
         tools = ToolRegistry()
         for index, item in enumerate(root["tools"]):
             spec = self._tool(item, index, location)
-            tools.register(ToolNode(spec=spec, handler=_null_handler))
+            handler = self._resolve_handler(
+                item.get("implementation"), spec.name, f"{location} tools[{index}]"
+            )
+            tools.register(ToolNode(spec=spec, handler=handler))
         return TopologyBuilder(layers, tools).build()
+
+    @staticmethod
+    def _resolve_handler(
+        reference: object, tool_name: str, location: str
+    ) -> Any:
+        if reference is None:
+            return _null_handler
+        if not isinstance(reference, str) or reference.count(":") != 1:
+            raise TopologyBuildError(
+                f"{location} 'implementation' for tool {tool_name!r} must be "
+                "a 'module:attr' entry point"
+            )
+        module_name, _, attr = reference.partition(":")
+        module_name = module_name.strip()
+        attr = attr.strip()
+        if not module_name or not attr.isidentifier():
+            raise TopologyBuildError(
+                f"{location} 'implementation' {reference!r} for tool "
+                f"{tool_name!r} must be a 'module:attr' entry point"
+            )
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError as exc:
+            raise TopologyBuildError(
+                f"{location} cannot import module {module_name!r} for tool "
+                f"{tool_name!r}: {exc}"
+            ) from exc
+        handler = getattr(module, attr, None)
+        if handler is None:
+            raise TopologyBuildError(
+                f"{location} module {module_name!r} has no attribute "
+                f"{attr!r} for tool {tool_name!r}"
+            )
+        if not callable(handler):
+            raise TopologyBuildError(
+                f"{location} implementation {reference!r} for tool "
+                f"{tool_name!r} is not callable"
+            )
+        if not inspect.iscoroutinefunction(handler):
+            raise TopologyBuildError(
+                f"{location} implementation {reference!r} for tool "
+                f"{tool_name!r} must be an async function"
+            )
+        return handler
 
     @classmethod
     def _layer(cls, data: object, index: int, parent: str) -> tuple[str, int]:

@@ -207,6 +207,7 @@ from .topology import (
     compose_patches,
     initial_version,
     rollback,
+    unbound_tool_names,
 )
 
 __all__ = [
@@ -394,4 +395,5 @@ __all__ = [
     "split_ids",
     "split_suite",
     "summarize_by_category",
+    "unbound_tool_names",
 ]

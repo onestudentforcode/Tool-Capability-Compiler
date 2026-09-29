@@ -1,5 +1,5 @@
 from .builder import TopologyBuilder
-from .loader import TopologyLoader
+from .loader import TopologyLoader, unbound_tool_names
 from .models import ToolEdge, Topology, TopologyValidationWarning
 from .patch import CandidateTopology, TopologyPatch, apply_patch, build_candidate
 from .version import (
@@ -25,4 +25,5 @@ __all__ = [
     "compose_patches",
     "initial_version",
     "rollback",
+    "unbound_tool_names",
 ]

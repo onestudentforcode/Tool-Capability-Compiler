@@ -54,7 +54,7 @@ from .regression.slow.stats import build_observation_stats
 from .route.models import RouteLayer
 from .router.llm_router import LLMRouter
 from .scenario import ScenarioLoader, ScenarioSuite
-from .topology.loader import TopologyLoader
+from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
 from .topology.version import initial_version
 
@@ -216,6 +216,17 @@ def load_seed_routes(path: str) -> dict[str, CandidateRoute]:
 
 def run_slow(args: argparse.Namespace) -> int:
     topology = TopologyLoader().load_file(args.topology)
+    unbound = unbound_tool_names(topology)
+    if unbound:
+        # Executing the null placeholder would silently produce None outputs
+        # and poison the run's statistics (battlefield-hardening batch B).
+        print(
+            "refusing to run slow regression: tools without an executable "
+            f"implementation: {', '.join(unbound)}; declare "
+            '"implementation": "module:attr" for them',
+            file=sys.stderr,
+        )
+        return 2
     suite = ScenarioLoader().load_file(args.scenario)
 
     seeds = load_seed_routes(args.basefast) if args.basefast else None
