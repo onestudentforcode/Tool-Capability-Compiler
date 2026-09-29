@@ -8,32 +8,13 @@
 Declare → Initialize → Explore → Evaluate → Prune → Rank → Route
 ```
 
-当前 Phase 1 只实现 `Declare → Initialize`：
+当前 Phase 1–4 已完成（`Declare → Initialize → Explore → Evaluate → Prune`），Phase 5（`Rank`）验收规格已起草：
 
-- 有序 Layer 与 Tool Registry
-- `provider / worker` 双向白名单
-- 相邻层默认全连接
-- 确定性的 Declared Topology
-- Schema 可执行性告警，不以 Schema 建边
-- 支持一层多个节点的 RoutePlan 及拓扑约束校验
-
-Phase 2 当前已完成 Step 1/2/3/4/5/6/7：
-
-- Tool 可声明一个或多个规范化 Capability
-- CapabilityRegistry 提供 Tool ↔ Capability 多对多索引
-- Scenario / ScenarioSuite 同时支持 Gold 与 Query-only 数据
-- ScenarioLoader 对 JSON Dataset 进行严格校验
-- CoverageAnalyzer 判断 required capabilities 是否被当前 Topology 覆盖（COVERED）
-- 区分 Capability Gap（MISSING_CAPABILITY）与 Topology Gap（TOPOLOGY_DISCONNECTED）
-- RouteSearcher 生成受 Topology 约束的有限 CandidateRoute 集合
-- 支持多 Provider、同层多 Tool、Bridge Tool、禁用节点/边与稳定 route_id
-- CoverageResult 携带 CandidateRoute、confidence 与结构化 FailureReason
-- 支持低解析置信度和能力歧义对应的 UNCERTAIN 状态
-- FastRegressionRunner 聚合 Suite、Category、Capability Gap 与 Topology Gap
-- CoverageReport 绑定 Scenario Suite 版本与 Topology 版本
-- CapabilityResolver 使用结构化 Resolution，并受 available capabilities 约束
-- FakeCapabilityResolver 支持无真实 LLM 的 Discovery Mode 测试
-- Gold Scenario 绕过 Resolver；Query-only Scenario 可进入 Discovery Mode
+- **Phase 1 分层拓扑**：有序 Layer 与 Tool Registry、`provider / worker` 双向白名单、相邻层默认全连接、确定性 Declared Topology、Schema 只验证已声明边不建边、RoutePlan 支持同层多 Tool 与拓扑约束校验
+- **Phase 2 Fast Regression**：Tool Capability 与 CapabilityRegistry、Scenario / ScenarioSuite 严格加载（Gold 与 Query-only）、COVERED / UNCERTAIN / UNCOVERED 覆盖判定、区分 Capability Gap 与 Topology Gap、有界 CandidateRoute 搜索（多 Provider / Bridge / 禁用约束）、Coverage / Category / Gap 报告、Ollama Capability Resolver（Discovery Mode）、Baseline 与 Regression Diff、`regression fast` CLI
+- **Phase 3 Slow Regression**：逐层动态路由（Router 只见当前可达 Tool）、同层多 Tool 并发执行、Trial / ExecutionTrace / ObservedRoute、`available` 与 `selected` 成对观测统计、`free` 与 `basefast`（CandidateRoute seed）两种探索、LLM Router 与 LLM Judge（可 fake 注入）、Fixture 隔离、JSONL / manifest 持久化、`regression slow` CLI
+- **Phase 4 拓扑学习与安全剪枝**：Node / Edge Evidence（opportunity vs observed）、Pruning Candidate 与保护（唯一 Provider / Bridge / Sentinel）、Counterfactual Fast Regression、定向 Probe（basefast seed）、Fast / Slow 验证门与 Route 多样性守卫、TopologyVersion（commit / rollback，不物理删除）、`optimize` CLI
+- **Phase 5（起草中）Route 排名与分级**：Route Profile（success / quality / latency / cost 向量）、Pareto Frontier、Fast / Balanced / Quality Tier，为 Phase 6 在线路由与负载均衡准备数据
 
 ## Quick start
 
@@ -98,12 +79,34 @@ Edge(A, B)
 
 `consumes / produces` 仍可声明，但只验证已允许边的 Schema 是否明显不匹配。业务意图决定拓扑，Schema 负责诊断。
 
+## CLI
+
+```bash
+# Fast Regression（Gold Mode，不依赖 LLM；--fail-on-regression 可用于 CI）
+tool-topology regression fast \
+    --topology examples/topology/refund.json \
+    --scenario examples/scenarios/refund.json
+
+# Slow Regression（free 探索；--basefast seeds.json 以 CandidateRoute 为起点）
+tool-topology regression slow \
+    --topology examples/topology/refund.json \
+    --scenario examples/slow_refund/scenarios.json \
+    --trials 5 --out-dir artifacts/slow_regression
+
+# 拓扑优化报告（Evidence → Candidate → 验证 → 版本）
+tool-topology optimize \
+    --topology examples/topology/refund.json \
+    --scenario examples/scenarios/refund.json
+```
+
 ## Develop
 
 ```bash
 python -m pytest -q
+python -m compileall -q src tests main.py
+git diff --check
 python -m pip install -e .
 python main.py
 ```
 
-项目原则见 [Phase 0](docs/acceptance/phase0.md)，当前 MVP 验收规格见 [Phase 1](docs/acceptance/phase1.md)。
+项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)；当前边界：Phase 1–4 已完成，Phase 5（Route 排名与分级）见 [phase5.md](docs/acceptance/phase5.md)。

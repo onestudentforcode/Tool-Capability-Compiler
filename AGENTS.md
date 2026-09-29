@@ -136,26 +136,34 @@ refactor: remove deprecated artifact planner
 - 如果一个批次验证失败，不得提交该批次；
 - 用户明确要求“提交更改”时，优先按上述职责拆分，而不是创建一个巨型提交。
 
-## 7. Phase 2 Current Boundary
+## 7. Current Boundary
 
-当前 Phase 2 实现进度以 `docs/acceptance/phase2.md` 为准。
+当前实现进度以各 Phase 验收文档（含其 `phaseN-plan.md` 的实现进度表）为准。
 
 已实现：
 
 ```text
-Step 1: Tool capabilities + CapabilityRegistry
-Step 2: Scenario + ScenarioSuite + ScenarioLoader
-Step 3: Gold Mode Coverage Analyzer (COVERED / UNCOVERED)
-Step 4: Candidate Route Search
-Step 5: Coverage Status + complete Failure Reason
-Step 6: Coverage Report + Category / Capability / Topology Gap Reports
-Step 7: CapabilityResolver Protocol + Fake Resolver
+Phase 1  Layered Declared Topology（全部完成）
+Phase 2  Fast Regression（Step 1-10 全部完成：
+             CapabilityRegistry / Scenario / Coverage / Route Search /
+             Reports / Resolver / Ollama Resolver / Baseline Diff / CLI）
+Phase 3  Slow Regression（Step 1-14 全部完成：
+             Execution / Router（free + basefast seed）/ Trace / ObservedRoute /
+             Evaluation（Structured / LLM Judge / Composite）/ Fixtures /
+             Observation Stats / LLMRouter / 持久化 / CLI / 离线 Demo）
+Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
+             Evidence / Candidate / Protection / TopologyPatch /
+             Counterfactual / Probe（basefast 定向 seed）/ Batch /
+             Fast+Slow Validation Gate / Route Diversity Guard /
+             DatasetSplit / TopologyVersion（commit / rollback）/ optimize CLI）
 ```
 
 尚未进入：
 
 ```text
-Step 8+: Real LLM Resolver, Baseline, CLI
+Phase 5  Route 排名与分级（验收规格见 docs/acceptance/phase5.md；
+             动手实现前应先补 phase5-plan.md 命名与目录约定）
+Phase 6  在线路由（Active Topology 服务化 / Route Selection / Load Balancing）
 ```
 
-后续任务必须从当前最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。
+后续任务必须从当前最早未完成 Phase 的最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。
