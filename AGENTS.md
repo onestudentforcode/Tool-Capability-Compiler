@@ -151,6 +151,9 @@ Phase 3  Slow Regression（Step 1-14 全部完成：
              Execution / Router（free + basefast seed）/ Trace / ObservedRoute /
              Evaluation（Structured / LLM Judge / Composite）/ Fixtures /
              Observation Stats / LLMRouter / 持久化 / CLI / 离线 Demo）
+Phase 5  Route 排名与分级（Step 1-9 全部完成：
+             ranking/ 顶包：stats / profile / eligibility / pareto / tier /
+             family / report；`tool-topology rank` CLI 消费 slow artifacts）
 Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
              Evidence / Candidate / Protection / TopologyPatch /
              Counterfactual / Probe（basefast 定向 seed）/ Batch /
@@ -161,10 +164,6 @@ Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
 尚未进入：
 
 ```text
-Phase 5  Route 排名与分级（验收规格见 docs/acceptance/phase5.md；
-             前置 Battlefield Hardening 里程碑已完成
-             （docs/acceptance/battlefield-hardening.md，批次 A-E 全部落地）；
-             动手实现前应先补 phase5-plan.md 命名与目录约定）
 Phase 6  在线路由（Active Topology 服务化 / Route Selection / Load Balancing）
 ```
 
