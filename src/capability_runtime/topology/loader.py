@@ -33,6 +33,7 @@ _TOOL_FIELDS = {
     "workers",
     "capabilities",
     "description",
+    "cost_per_call",
 }
 
 
@@ -106,6 +107,7 @@ class TopologyLoader:
         description = item.get("description", "")
         if not isinstance(description, str):
             raise TopologyBuildError(f"{location} 'description' must be a string")
+        cost_per_call = cls._cost_per_call(item.get("cost_per_call"), location)
         return ToolSpec(
             name=name,
             layer=layer,
@@ -113,7 +115,18 @@ class TopologyLoader:
             workers=workers,
             capabilities=capabilities,
             description=description.strip(),
+            cost_per_call=cost_per_call,
         )
+
+    @staticmethod
+    def _cost_per_call(value: object, location: str) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            raise TopologyBuildError(
+                f"{location} 'cost_per_call' must be a non-negative number"
+            )
+        return float(value)
 
     @staticmethod
     def _selector(value: object, location: str, field: str) -> NodeSelector:

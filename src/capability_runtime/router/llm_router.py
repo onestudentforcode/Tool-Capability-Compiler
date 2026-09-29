@@ -30,6 +30,7 @@ from typing import Any
 
 from ..core.env import env_float, env_string
 from ..core.errors import RoutingError
+from ..core.metrics import TokenUsage
 from .models import (
     RoutingAction,
     RouterConfig,
@@ -114,15 +115,20 @@ class LLMRouter:
                 {"role": "user", "content": prompt.user},
             ],
         }
-        response_text = await asyncio.to_thread(self._complete, payload)
-        return self._parse_decision(response_text, available_names)
+        response_text, usage = await asyncio.to_thread(self._complete, payload)
+        return self._parse_decision(response_text, available_names, usage)
 
-    def _complete(self, payload: dict[str, Any]) -> str:
+    def _complete(self, payload: dict[str, Any]) -> tuple[str, TokenUsage | None]:
         if self._http is not None:
-            return self._http(payload)
+            response = self._http(payload)
+            # Test fakes may return the inner content string directly; a full
+            # response body additionally carries usage for metering.
+            if isinstance(response, str):
+                return response, None
+            return self._extract_content(response), self._extract_usage(response)
         return self._chat(payload)
 
-    def _chat(self, payload: dict[str, Any]) -> str:
+    def _chat(self, payload: dict[str, Any]) -> tuple[str, TokenUsage | None]:
         request = urllib.request.Request(
             f"{self._base_url}/v1/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
@@ -143,6 +149,10 @@ class LLMRouter:
             ) from exc
         except json.JSONDecodeError as exc:
             raise RoutingError(f"Ollama returned non-JSON response: {exc}") from exc
+        return self._extract_content(body), self._extract_usage(body)
+
+    @staticmethod
+    def _extract_content(body: Any) -> str:
         try:
             content = body["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -153,9 +163,47 @@ class LLMRouter:
             raise RoutingError("Ollama message content is not a string")
         return content
 
+    @staticmethod
+    def _extract_usage(body: Any) -> TokenUsage | None:
+        """Read token usage when the endpoint reports it; never fail a decision."""
+        if not isinstance(body, Mapping):
+            return None
+        usage = body.get("usage")
+        if not isinstance(usage, Mapping):
+            return None
+        prompt = usage.get("prompt_tokens", usage.get("prompt_eval_count"))
+        completion = usage.get("completion_tokens", usage.get("eval_count"))
+        if isinstance(prompt, bool) or isinstance(completion, bool):
+            return None
+        if not isinstance(prompt, int) or not isinstance(completion, int):
+            return None
+        return TokenUsage(input_tokens=prompt, output_tokens=completion)
+
+    def _routing_cost(self, usage: TokenUsage | None) -> float | None:
+        if usage is None:
+            return None
+        if (
+            self._config.input_cost_per_1k is None
+            and self._config.output_cost_per_1k is None
+        ):
+            return None
+        per_input = self._config.input_cost_per_1k or 0.0
+        per_output = self._config.output_cost_per_1k or 0.0
+        return (
+            usage.input_tokens / 1000.0 * per_input
+            + usage.output_tokens / 1000.0 * per_output
+        )
+
     def _parse_decision(
-        self, text: str, available_names: tuple[str, ...]
+        self,
+        text: str,
+        available_names: tuple[str, ...],
+        usage: TokenUsage | None = None,
     ) -> RoutingDecision:
+        metering = {
+            "token_usage": usage,
+            "routing_cost": self._routing_cost(usage),
+        }
         text = text.strip()
         if text.startswith("```"):
             text = text.strip("`")
@@ -180,7 +228,9 @@ class LLMRouter:
         )
 
         if action_raw == RoutingAction.FINISH.value:
-            return RoutingDecision(action=RoutingAction.FINISH, reason=reason)
+            return RoutingDecision(
+                action=RoutingAction.FINISH, reason=reason, **metering
+            )
 
         tools_raw = obj.get("selected_tools")
         if not isinstance(tools_raw, Sequence) or isinstance(tools_raw, (str, bytes)):
@@ -194,7 +244,10 @@ class LLMRouter:
             )
         )
         decision = RoutingDecision(
-            action=RoutingAction.EXECUTE, selected_tools=selected, reason=reason
+            action=RoutingAction.EXECUTE,
+            selected_tools=selected,
+            reason=reason,
+            **metering,
         )
         validate_decision(decision, available_names, self._config.max_tools_per_layer)
         return decision

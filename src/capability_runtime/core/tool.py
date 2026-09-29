@@ -41,6 +41,15 @@ class ToolSpec:
     consumes: tuple[type, ...] = ()
     produces: tuple[type, ...] = ()
     description: str = ""
+    cost_per_call: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.cost_per_call is None:
+            return
+        if isinstance(self.cost_per_call, bool) or self.cost_per_call < 0:
+            raise RegistrationError(
+                "ToolSpec cost_per_call must be a non-negative number"
+            )
 
 
 @dataclass(frozen=True, slots=True)

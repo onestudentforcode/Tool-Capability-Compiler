@@ -338,6 +338,17 @@ class SlowRegressionRunner:
                 topology_version=trial.topology_version,
                 started_at=datetime.now(),
             )
+        tool_cost = self._sum_costs(
+            execution.cost for layer in trace.layers for execution in layer.tool_executions
+        )
+        routing_cost = self._sum_costs(
+            layer.routing_decision.routing_cost for layer in trace.layers
+        )
+        # execution cost = tool + routing; judge cost stays separate (phase3 §80)
+        if tool_cost is None and routing_cost is None:
+            execution_cost = None
+        else:
+            execution_cost = (tool_cost or 0.0) + (routing_cost or 0.0)
         return TrialResult(
             trial=trial,
             execution_status=status,
@@ -346,15 +357,28 @@ class SlowRegressionRunner:
             evaluation=evaluation,
             latency_ms=(time.perf_counter() - start_wall) * 1000.0,
             token_usage=self._aggregate_tokens(trace),
-            cost=None,
+            cost=execution_cost,
+            tool_cost=tool_cost,
+            routing_cost=routing_cost,
+            evaluation_cost=evaluation.cost if evaluation is not None else None,
             failure_category=failure_category,
         )
+
+    @staticmethod
+    def _sum_costs(values) -> float | None:
+        """Sum known costs; all-None stays None so absence is never faked as 0."""
+        known = [value for value in values if value is not None]
+        return sum(known) if known else None
 
     @staticmethod
     def _aggregate_tokens(trace: ExecutionTrace) -> TokenUsage:
         total_input = 0
         total_output = 0
         for layer in trace.layers:
+            usage = layer.routing_decision.token_usage
+            if usage is not None:
+                total_input += usage.input_tokens
+                total_output += usage.output_tokens
             for execution in layer.tool_executions:
                 if execution.token_usage is not None:
                     total_input += execution.token_usage.input_tokens

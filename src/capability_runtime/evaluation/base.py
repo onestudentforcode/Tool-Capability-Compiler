@@ -31,12 +31,15 @@ class EvaluationResult:
     quality_score: float | None = None
     reason: str | None = None
     category: TrialFailureCategory | None = None
+    cost: float | None = None
 
     def __post_init__(self) -> None:
         if self.quality_score is not None and not (
             0.0 <= self.quality_score <= 1.0
         ):
             raise ValueError("quality_score must be within [0, 1]")
+        if self.cost is not None and (isinstance(self.cost, bool) or self.cost < 0):
+            raise ValueError("cost must be a non-negative number")
 
 
 class Evaluator(Protocol):

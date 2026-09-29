@@ -59,6 +59,9 @@ class TrialResult:
     latency_ms: float
     token_usage: TokenUsage
     cost: float | None
+    tool_cost: float | None = None
+    routing_cost: float | None = None
+    evaluation_cost: float | None = None
     failure_category: TrialFailureCategory | None = None
 
     def __post_init__(self) -> None:
@@ -66,3 +69,9 @@ class TrialResult:
             raise ExecutionError("TrialResult latency_ms must be non-negative")
         if not isinstance(self.token_usage, TokenUsage):
             raise ExecutionError("TrialResult token_usage must be a TokenUsage")
+        for name in ("cost", "tool_cost", "routing_cost", "evaluation_cost"):
+            value = getattr(self, name)
+            if value is not None and (isinstance(value, bool) or value < 0):
+                raise ExecutionError(
+                    f"TrialResult {name} must be a non-negative number"
+                )

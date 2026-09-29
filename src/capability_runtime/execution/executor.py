@@ -118,6 +118,9 @@ class ToolExecutor:
         if status is ToolExecutionStatus.SUCCESS:
             self._propagate_outputs(tool, result, state)
 
+        # An invocation was attempted, so the declared cost was incurred —
+        # including timeouts and errors. Argument-resolution failures above
+        # never reached the tool and stay uncosted (battlefield-hardening A).
         return ToolExecution(
             tool_name=tool.spec.name,
             layer=tool.spec.layer,
@@ -127,6 +130,7 @@ class ToolExecutor:
             input_summary=args,
             output_summary=result,
             latency_ms=(ended_at - started_at).total_seconds() * 1000.0,
+            cost=tool.spec.cost_per_call,
             error=error,
             error_category=error_category,
         )

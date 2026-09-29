@@ -19,6 +19,7 @@ def tool(
     produces: Iterable[type] = (),
     name: str | None = None,
     description: str = "",
+    cost_per_call: float | None = None,
 ) -> Callable[[Callable[..., Awaitable[Any]]], ToolNode]:
     """Declare a node in the layered tool-routing search space."""
 
@@ -35,6 +36,10 @@ def tool(
         raise RegistrationError("A tool cannot consume the same schema twice")
     if len(set(produce_types)) != len(produce_types):
         raise RegistrationError("A tool cannot produce the same schema twice")
+    if cost_per_call is not None and (
+        isinstance(cost_per_call, bool) or cost_per_call < 0
+    ):
+        raise RegistrationError("Tool cost_per_call must be a non-negative number")
     provider_selector = NodeSelector.parse(providers)
     worker_selector = NodeSelector.parse(workers)
 
@@ -66,6 +71,7 @@ def tool(
                 consumes=consume_types,
                 produces=produce_types,
                 description=description.strip(),
+                cost_per_call=cost_per_call,
             ),
             handler=function,
         )
