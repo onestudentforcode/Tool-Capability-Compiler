@@ -24,15 +24,16 @@ _DEMO = _PROJECT / "examples" / "slow_refund"
 
 def _load_demo():
     sys.path.insert(0, str(_DEMO))
+    import fixtures  # noqa: PLC0415
     import refund  # noqa: PLC0415
     import store  # noqa: PLC0415
 
     store.STORE.reset("eligible")
-    return refund, store
+    return refund, store, fixtures
 
 
 def test_demo_produces_multiple_routes_and_stats(tmp_path) -> None:
-    refund, store = _load_demo()
+    refund, store, fixtures = _load_demo()
     topology, version = refund.build_topology(topology_version="v0.3.1")
     assert len(topology.nodes()) == 10
     assert len(topology.layers()) == 3
@@ -45,7 +46,7 @@ def test_demo_produces_multiple_routes_and_stats(tmp_path) -> None:
     runner = SlowRegressionRunner(
         topology=topology,
         evaluator=refund.build_evaluator(),
-        fixture_manager=DefaultFixtureManager(),
+        fixture_manager=fixtures.SandboxFixtureManager(),
         seeds=seeds,
         trials_per_scenario=4,  # 5 scenarios x 4 = 20 trials
         topology_version=version,
@@ -81,6 +82,20 @@ def test_demo_produces_multiple_routes_and_stats(tmp_path) -> None:
     # the action layer produced refund results -> a meaningful business mix
     assert report.business_success + report.business_failure == 20
     assert 0 < report.business_success < 20
+
+    # per-scenario fixtures drive per-scenario conclusions (batch D): the
+    # high-risk and ineligible variants can never end in a business success,
+    # while the eligible scenarios do succeed.
+    by_scenario: dict[str, list[bool]] = {}
+    for result in outcome.results:
+        evaluation = result.evaluation
+        assert evaluation is not None
+        by_scenario.setdefault(result.trial.scenario_id, []).append(
+            evaluation.success
+        )
+    assert not any(by_scenario["refund_risk"])
+    assert not any(by_scenario["refund_summary"])
+    assert any(by_scenario["refund_basic"])
 
     # persistence hook matches the offline demo contract
     assert report.total_nodes == 10
