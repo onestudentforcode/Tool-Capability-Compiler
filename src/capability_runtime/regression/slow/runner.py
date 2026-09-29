@@ -185,9 +185,25 @@ class SlowRegressionRunner:
                         per_tool_timeout_seconds=self._timeout,
                     )
                 )
-                tool_executions = await executor.run(
-                    [self._topology.node(name) for name in selection], state
-                )
+                try:
+                    tool_executions = await executor.run(
+                        [self._topology.node(name) for name in selection], state
+                    )
+                except LayerExecutionError as exc:
+                    # Whole-layer failure still records what was attempted —
+                    # and billed — before the trial stops (phase3 §42).
+                    trace.add_layer(
+                        LayerExecution(
+                            layer=layer_name,
+                            available_tools=available,
+                            selected_tools=selection,
+                            routing_decision=decision,
+                            tool_executions=exc.executions,
+                            started_at=started_at,
+                            ended_at=datetime.now(),
+                        )
+                    )
+                    raise
                 ended_at = datetime.now()
                 trace.add_layer(
                     LayerExecution(

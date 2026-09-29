@@ -207,6 +207,7 @@ class LayerExecutor:
             execution.status is ToolExecutionStatus.ERROR for execution in results
         ):
             raise LayerExecutionError(
-                f"all {len(results)} selected tools in layer failed"
+                f"all {len(results)} selected tools in layer failed",
+                executions=results,
             )
         return results

@@ -115,7 +115,15 @@ class TimeoutExecutionError(ExecutionError):
 
 
 class LayerExecutionError(ExecutionError):
-    pass
+    """Every selected tool of a layer failed.
+
+    Carries the layer's tool-execution records so the trace still shows — and
+    bills — what was attempted before the trial stopped.
+    """
+
+    def __init__(self, message: str, executions: tuple = ()) -> None:
+        super().__init__(message)
+        self.executions = tuple(executions)
 
 
 class RoutingError(SlowRegressionError):
