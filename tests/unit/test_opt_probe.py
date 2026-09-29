@@ -19,11 +19,11 @@ _DEMO = Path(__file__).resolve().parent.parent.parent / "examples" / "slow_refun
 @pytest.fixture(scope="module")
 def _demo():
     sys.path.insert(0, str(_DEMO))
-    from refund import RefundEvaluator, build_topology
+    from refund import RefundBusinessEvaluator, build_topology
 
     topology, version = build_topology(topology_version="probe-test-v1")
     suite = ScenarioLoader().load_file(str(_DEMO / "scenarios.json"))
-    return topology, suite, RefundEvaluator()
+    return topology, suite, RefundBusinessEvaluator()
 
 
 def _mk_layers(topology, read, analyze, action):

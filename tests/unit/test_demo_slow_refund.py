@@ -25,12 +25,14 @@ _DEMO = _PROJECT / "examples" / "slow_refund"
 def _load_demo():
     sys.path.insert(0, str(_DEMO))
     import refund  # noqa: PLC0415
+    import store  # noqa: PLC0415
 
-    return refund
+    store.STORE.reset("eligible")
+    return refund, store
 
 
 def test_demo_produces_multiple_routes_and_stats(tmp_path) -> None:
-    refund = _load_demo()
+    refund, store = _load_demo()
     topology, version = refund.build_topology(topology_version="v0.3.1")
     assert len(topology.nodes()) == 10
     assert len(topology.layers()) == 3
@@ -42,7 +44,7 @@ def test_demo_produces_multiple_routes_and_stats(tmp_path) -> None:
 
     runner = SlowRegressionRunner(
         topology=topology,
-        evaluator=refund.RefundEvaluator(),
+        evaluator=refund.build_evaluator(),
         fixture_manager=DefaultFixtureManager(),
         seeds=seeds,
         trials_per_scenario=4,  # 5 scenarios x 4 = 20 trials
