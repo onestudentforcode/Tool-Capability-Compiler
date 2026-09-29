@@ -47,7 +47,8 @@ from facts import (
 # ---- layer 1: read --------------------------------------------------------
 
 
-@tool(layer="read", produces=[Order], cost_per_call=0.001)
+@tool(layer="read", produces=[Order], cost_per_call=0.001,
+      capabilities={"order.read", "order.search"})
 async def order_db() -> Order:
     await asyncio.sleep(0.003)
     order = store.STORE.order
@@ -56,7 +57,8 @@ async def order_db() -> Order:
     return order
 
 
-@tool(layer="read", produces=[ErpRecord], cost_per_call=0.003)
+@tool(layer="read", produces=[ErpRecord], cost_per_call=0.003,
+      capabilities={"erp.read"})
 async def erp() -> ErpRecord:
     await asyncio.sleep(0.012)
     if not store.STORE.erp_available:
@@ -67,13 +69,15 @@ async def erp() -> ErpRecord:
     return record
 
 
-@tool(layer="read", produces=[Passage], cost_per_call=0.002)
+@tool(layer="read", produces=[Passage], cost_per_call=0.002,
+      capabilities={"refund.policy.read"})
 async def rag() -> Passage:
     await asyncio.sleep(0.02)
     return Passage(text="Refund policy accepts full refund within 30 days.")
 
 
-@tool(layer="read", produces=[SearchResult], cost_per_call=0.005)
+@tool(layer="read", produces=[SearchResult], cost_per_call=0.005,
+      capabilities={"web.search"})
 async def web_search() -> SearchResult:
     await asyncio.sleep(0.05)
     return SearchResult(query="refund policy", summary="14-day return window applies.")
@@ -82,20 +86,23 @@ async def web_search() -> SearchResult:
 # ---- layer 2: analyze -----------------------------------------------------
 
 
-@tool(layer="analyze", consumes=[Order], produces=[PolicyDecision], cost_per_call=0.001)
+@tool(layer="analyze", consumes=[Order], produces=[PolicyDecision],
+      cost_per_call=0.001, capabilities={"refund.policy.check"})
 async def policy_check(order: Order) -> PolicyDecision:
     await asyncio.sleep(0.002)
     decision = "approve" if order.eligible and order.amount <= 5000.0 else "reject"
     return PolicyDecision(decision=decision)
 
 
-@tool(layer="analyze", consumes=[Order], produces=[RiskReport], cost_per_call=0.001)
+@tool(layer="analyze", consumes=[Order], produces=[RiskReport],
+      cost_per_call=0.001, capabilities={"refund.risk.check"})
 async def risk_check(order: Order) -> RiskReport:
     await asyncio.sleep(0.002)
     return RiskReport(score="low" if order.amount <= 2000.0 else "high")
 
 
-@tool(layer="analyze", consumes=[Order], produces=[Digest], cost_per_call=0.001)
+@tool(layer="analyze", consumes=[Order], produces=[Digest], cost_per_call=0.001,
+      capabilities={"order.summarize"})
 async def summarizer(order: Order) -> Digest:
     await asyncio.sleep(0.004)
     return Digest(text=f"Order {order.order_id} totals {order.amount:.0f} {order.channel}")
@@ -108,7 +115,7 @@ async def summarizer(order: Order) -> Digest:
     layer="action",
     consumes=[Order, PolicyDecision],
     produces=[RefundResult],
-    cost_per_call=0.01,
+    cost_per_call=0.01, capabilities={"refund.execute"},
 )
 async def refund_api(order: Order, decision: PolicyDecision) -> RefundResult:
     await asyncio.sleep(0.008)
@@ -127,13 +134,15 @@ async def refund_api(order: Order, decision: PolicyDecision) -> RefundResult:
     )
 
 
-@tool(layer="action", consumes=[Order], produces=[EmailSent], cost_per_call=0.002)
+@tool(layer="action", consumes=[Order], produces=[EmailSent], cost_per_call=0.002,
+      capabilities={"email.send"})
 async def send_email(order: Order) -> EmailSent:
     await asyncio.sleep(0.003)
     return EmailSent(to="customer@example.com", subject=f"Order {order.order_id}")
 
 
-@tool(layer="action", produces=[Ticket], cost_per_call=0.001)
+@tool(layer="action", produces=[Ticket], cost_per_call=0.001,
+      capabilities={"ticket.create"})
 async def create_ticket() -> Ticket:
     await asyncio.sleep(0.002)
     return Ticket(ticket_id="TCK-9", priority="P2")

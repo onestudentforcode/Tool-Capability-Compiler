@@ -1,0 +1,565 @@
+{
+  "version": "1.0",
+  "name": "customer_service",
+  "description": "Battlefield-hardening batch E fast-regression asset: 60 scenarios, 5 categories, designed 70% covered / 15% uncertain (query-only) / 15% uncovered (capability or topology gap)",
+  "scenarios": [
+    {
+      "id": "refund_001",
+      "query": "订单 200 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ],
+      "metadata": {
+        "sentinel": true,
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "refund_002",
+      "query": "先查退款政策再判断订单 201",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_003",
+      "query": "搜一下订单 202，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_004",
+      "query": "综合订单与政策，处理订单 203 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_005",
+      "query": "订单 204 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_006",
+      "query": "先查退款政策再判断订单 205",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_007",
+      "query": "搜一下订单 206，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_008",
+      "query": "综合订单与政策，处理订单 207 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_009",
+      "query": "订单 208 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_010",
+      "query": "先查退款政策再判断订单 209",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_011",
+      "query": "搜一下订单 210，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_012",
+      "query": "综合订单与政策，处理订单 211 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_013",
+      "query": "订单 212 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_014",
+      "query": "先查退款政策再判断订单 213",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_015",
+      "query": "搜一下订单 214，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_016",
+      "query": "综合订单与政策，处理订单 215 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_017",
+      "query": "订单 216 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_018",
+      "query": "先查退款政策再判断订单 217",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_019",
+      "query": "搜一下订单 218，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_020",
+      "query": "综合订单与政策，处理订单 219 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_021",
+      "query": "订单 220 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_022",
+      "query": "先查退款政策再判断订单 221",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_023",
+      "query": "搜一下订单 222，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_024",
+      "query": "综合订单与政策，处理订单 223 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_025",
+      "query": "订单 224 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_026",
+      "query": "先查退款政策再判断订单 225",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_027",
+      "query": "搜一下订单 226，符合条件就退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_028",
+      "query": "综合订单与政策，处理订单 227 的退款",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_029",
+      "query": "订单 228 能退款吗？符合条件就退",
+      "category": "refund",
+      "expected_capabilities": [
+        "order.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "refund_030",
+      "query": "先查退款政策再判断订单 229",
+      "category": "refund",
+      "expected_capabilities": [
+        "refund.policy.read",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "order_001",
+      "query": "查一下公开政策并总结，关于订单 100",
+      "category": "order",
+      "expected_capabilities": [
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_002",
+      "query": "内部订单 101 结合公开信息给摘要",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_003",
+      "query": "订单 3：读取并搜索记录，符合条件就退款",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "order_004",
+      "query": "查一下公开政策并总结，关于订单 103",
+      "category": "order",
+      "expected_capabilities": [
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_005",
+      "query": "内部订单 104 结合公开信息给摘要",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_006",
+      "query": "订单 6：读取并搜索记录，符合条件就退款",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "order_007",
+      "query": "查一下公开政策并总结，关于订单 106",
+      "category": "order",
+      "expected_capabilities": [
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_008",
+      "query": "内部订单 107 结合公开信息给摘要",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_009",
+      "query": "订单 9：读取并搜索记录，符合条件就退款",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "order_010",
+      "query": "查一下公开政策并总结，关于订单 109",
+      "category": "order",
+      "expected_capabilities": [
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_011",
+      "query": "内部订单 110 结合公开信息给摘要",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "web.search",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "order_012",
+      "query": "订单 12：读取并搜索记录，符合条件就退款",
+      "category": "order",
+      "expected_capabilities": [
+        "order.read",
+        "order.search",
+        "refund.policy.check",
+        "refund.execute"
+      ]
+    },
+    {
+      "id": "user_101",
+      "query": "帮我看下我的账号资料",
+      "category": "user"
+    },
+    {
+      "id": "user_102",
+      "query": "修改我的收货地址",
+      "category": "user"
+    },
+    {
+      "id": "order_101",
+      "query": "我的订单到哪了",
+      "category": "order"
+    },
+    {
+      "id": "order_102",
+      "query": "最近这笔订单什么情况",
+      "category": "order"
+    },
+    {
+      "id": "refund_101",
+      "query": "这个还能退吗",
+      "category": "refund"
+    },
+    {
+      "id": "refund_102",
+      "query": "帮我退了上一单",
+      "category": "refund"
+    },
+    {
+      "id": "email_101",
+      "query": "给客户发一封确认邮件",
+      "category": "email"
+    },
+    {
+      "id": "email_102",
+      "query": "把处理结果邮件通知用户",
+      "category": "email"
+    },
+    {
+      "id": "invoice_101",
+      "query": "把这单开成发票",
+      "category": "invoice"
+    },
+    {
+      "id": "user_201",
+      "query": "查看用户资料",
+      "category": "user",
+      "expected_capabilities": [
+        "user.profile.read"
+      ]
+    },
+    {
+      "id": "user_202",
+      "query": "查订单同时看用户资料",
+      "category": "user",
+      "expected_capabilities": [
+        "order.read",
+        "user.profile.read"
+      ]
+    },
+    {
+      "id": "user_203",
+      "query": "把地址改成上海",
+      "category": "user",
+      "expected_capabilities": [
+        "user.address.update"
+      ]
+    },
+    {
+      "id": "invoice_201",
+      "query": "给客户开发票",
+      "category": "invoice",
+      "expected_capabilities": [
+        "invoice.send"
+      ],
+      "metadata": {
+        "sentinel": true,
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "invoice_202",
+      "query": "按订单开票",
+      "category": "invoice",
+      "expected_capabilities": [
+        "order.read",
+        "invoice.send"
+      ]
+    },
+    {
+      "id": "invoice_203",
+      "query": "审核这张发票",
+      "category": "invoice",
+      "expected_capabilities": [
+        "invoice.audit"
+      ]
+    },
+    {
+      "id": "invoice_204",
+      "query": "开票并总结",
+      "category": "invoice",
+      "expected_capabilities": [
+        "invoice.create",
+        "summary.compose"
+      ]
+    },
+    {
+      "id": "email_201",
+      "query": "查完订单 1 直接发邮件",
+      "category": "email",
+      "expected_capabilities": [
+        "order.read",
+        "email.send"
+      ]
+    },
+    {
+      "id": "email_202",
+      "query": "总结订单 2 并邮件通知",
+      "category": "email",
+      "expected_capabilities": [
+        "order.read",
+        "summary.compose",
+        "email.send"
+      ]
+    }
+  ]
+}
