@@ -254,4 +254,14 @@ Phase 5 可以直接消费落盘 artifacts 开始实现。
 | B 可执行绑定 | [x] | TopologyLoader 支持 `"implementation": "module:attr"` 入口点（单冒号 / identifier 属性 / 可导入 / 必须为 async 函数，失败抛 `TopologyBuildError` 并带工具名与位置）；缺省仍 `_null_handler`（Fast 路径不变）；新增 `unbound_tool_names()`；CLI slow 对未绑定工具 fail-fast（exit 2，报工具清单）。测试 `tests/unit/test_implementation_binding.py`（含端到端真执行断言）+ CLI 拒绝测试 |
 | C Sandbox 工具 | [x] | 新增 `examples/slow_refund/facts.py` + `store.py`（五变体：eligible / ineligible / high_risk / not_found / erp_down，全确定性）；十个工具改为读 sandbox（数据依赖分支、真实失败路径、差异化 `cost_per_call` 与模拟延迟）；`RefundEvaluator` → `build_evaluator()`（Composite：业务 70% + 完整性 30%，quality 连续）；顺带修复整层失败时 `LayerExecutionError` 丢弃已计费 ToolExecution 的计量缺陷（失败层现在入 trace 并计费）。测试 `tests/unit/test_sandbox_tools.py`（13 项：变体行为 / 失败路径 / quality∈(0,1) / 同变体重跑一致） |
 | D Fixture 状态化 | [x] | 新增 `examples/slow_refund/fixtures.py`：`SandboxFixtureManager`（setup 按 `metadata.fixture` 播种 store、reset/teardown 恢复默认）+ 变体全部注册进 `FixtureRegistry`；未知 fixture → `FixtureSetupError`（trial 级，不炸整轮）；`refund_api` 增加幂等守卫（二次退款失败）使隔离效果可观测；scenarios.json 五场景标注变体（eligible ×3 / high_risk / ineligible）；run_demo 切换 SandboxFixtureManager。测试 `tests/unit/test_sandbox_fixtures.py`（11 项：隔离成立 / 无重播种则泄漏 / 变体结论差异 / teardown 恢复） |
-| E 场景资产 + 实跑 | [ ] | |
+| E 场景资产 + 实跑 | [x] | fast 资产 `examples/datasets/customer_service.fast.json`：60 场景 / 5 category / 精确 42 covered + 9 uncertain(query-only) + 9 uncovered（7 MISSING + 2 TOPOLOGY_DISCONNECTED）/ 双 sentinel；规模实跑 `examples/slow_refund/run_scale.py`：50 场景 × 5 trials = 250 trials，41 unique routes，business 160/81，耗时 25.9s，artifacts 全套落盘（traces.jsonl 1.16MB）；optimize 联动：ProtectionRegistry → EvidenceAggregator → CandidateDetector 消费真实 evidence，产出 10 个 PROTECTED 候选（单 provider 拓扑的正确结论：不可剪）；demo 工具补齐 capabilities 声明。测试 `test_fast_dataset.py`（5 项）+ `test_scale_run.py`（2 项） |
+
+## 11. 里程碑结论
+
+五个批次全部完成（2026-09-29，全量 442 tests / compileall / diff-check 通过）。
+
+Phase 3 的 Trace 现在具备真实四维证据：success（变体驱动的真实分布 160/81）、
+quality（连续分布）、latency（64–113ms 真实分化）、cost（工具/路由/评估三段
+可拆）。Phase 4 的 Evidence/Protection/Candidate 在 250-trial 真实数据上运行并
+给出可解释结论。**Phase 5 的前置条件全部满足**，可开始实现（动手前先补
+`phase5-plan.md`）。

@@ -161,12 +161,10 @@ Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
 尚未进入：
 
 ```text
-当前进行中：Battlefield Hardening 靶场强化里程碑
-             （docs/acceptance/battlefield-hardening.md；
-             批次 A 计量 → B 可执行绑定 → C Sandbox 工具 →
-             D Fixture → E 场景资产 + 规模实跑）
 Phase 5  Route 排名与分级（验收规格见 docs/acceptance/phase5.md；
-             硬前置为靶场强化里程碑，动手实现前应先补 phase5-plan.md）
+             前置 Battlefield Hardening 里程碑已完成
+             （docs/acceptance/battlefield-hardening.md，批次 A-E 全部落地）；
+             动手实现前应先补 phase5-plan.md 命名与目录约定）
 Phase 6  在线路由（Active Topology 服务化 / Route Selection / Load Balancing）
 ```
 
