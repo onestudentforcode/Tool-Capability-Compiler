@@ -151,20 +151,21 @@ Phase 3  Slow Regression（Step 1-14 全部完成：
              Execution / Router（free + basefast seed）/ Trace / ObservedRoute /
              Evaluation（Structured / LLM Judge / Composite）/ Fixtures /
              Observation Stats / LLMRouter / 持久化 / CLI / 离线 Demo）
-Phase 5  Route 排名与分级（Step 1-9 全部完成：
-             ranking/ 顶包：stats / profile / eligibility / pareto / tier /
-             family / report；`tool-topology rank` CLI 消费 slow artifacts）
 Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
              Evidence / Candidate / Protection / TopologyPatch /
              Counterfactual / Probe（basefast 定向 seed）/ Batch /
              Fast+Slow Validation Gate / Route Diversity Guard /
              DatasetSplit / TopologyVersion（commit / rollback）/ optimize CLI）
+Phase 5  Route 排名与分级（Step 1-9 全部完成：
+             ranking/ 顶包：stats / profile / eligibility / pareto / tier /
+             family / report；`tool-topology rank` CLI 消费 slow artifacts）
 ```
 
 尚未进入：
 
 ```text
-Phase 6  在线路由（Active Topology 服务化 / Route Selection / Load Balancing）
+Phase 6  在线路由（验收规格已起草：docs/acceptance/phase6.md，
+             待审核通过后实现；实现前按惯例先补 phase6-plan.md）
 ```
 
 后续任务必须从当前最早未完成 Phase 的最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。
