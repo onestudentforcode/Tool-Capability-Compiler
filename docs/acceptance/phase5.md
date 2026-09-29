@@ -56,6 +56,24 @@ RouteRankingReport
 Phase 6 Route Selection / Load Balancing
 ```
 
+## 0.1 前置条件：Battlefield Hardening
+
+Phase 5 消费的数据契约由靶场强化里程碑
+（[battlefield-hardening.md](battlefield-hardening.md)）交付，完成后
+本阶段方可开始实现：
+
+```text
+计量      TrialResult.cost（execution 口径）/ token_usage 真实填充；
+          quality_score 连续化（不再二值）
+工具      sandbox 工具有数据依赖、失败模式与计量差异
+场景      ≥ 50 条带 category 标注的业务场景资产
+证据      一次真实规模 Slow Regression 的落盘 artifacts
+```
+
+在契约未填时实现 Phase 5，只能得到"算法正确但结论为零"的退化排名
+（success 趋同 → 全部 TIE；quality 复制 success；latency 为噪声；
+cost 为 None）。
+
 ---
 
 # 1. Phase 5 核心问题
@@ -205,10 +223,12 @@ execution_cost   = routing_cost + tool_cost      → 排名使用
 evaluation_cost  = judge / evaluator 成本        → 只审计，不进排名
 ```
 
-Phase 3 已分开记录这两类成本。Phase 5 的 RouteProfile 必须基于
-`execution_cost`；`evaluation_cost` 可以随 profile 附带，但绝不参与
-Pareto 与 Tier 计算。原因：LLM Judge 是回归测试成本，不是未来生产
-Route 的执行成本。
+成本双口径的计量由靶场强化里程碑批次 A 交付
+（`TrialResult.tool_cost / routing_cost / evaluation_cost / cost`）；
+在此之前的实现中 `TrialResult.cost` 尚未被填充。Phase 5 的
+RouteProfile 必须基于 `execution_cost`；`evaluation_cost` 可以随
+profile 附带，但绝不参与 Pareto 与 Tier 计算。原因：LLM Judge 是
+回归测试成本，不是未来生产 Route 的执行成本。
 
 ## 6.2 延迟取实测值
 
