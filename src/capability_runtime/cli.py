@@ -56,7 +56,14 @@ from .router.llm_router import LLMRouter
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
-from .core.errors import RouteProfileError
+from .core.errors import RouteCatalogError, RouteProfileError, RouteSelectionError
+from .online import (
+    OnlineConfig,
+    OnlineRequest,
+    RoundRobinBalancer,
+    build_catalog,
+    candidate_groups,
+)
 from .ranking import (
     RankConfig,
     build_ranking_report,
@@ -192,6 +199,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--out",
         help="Write the ranking report to this file instead of stdout",
     )
+    select = subparsers.add_parser(
+        "select",
+        help="Dry-run online route selection from a ranking (phase 6)",
+    )
+    select.add_argument("--topology", required=True, help="Topology JSON file")
+    select.add_argument(
+        "--ranking", required=True, help="Route ranking JSON (phase 5 output)"
+    )
+    select.add_argument(
+        "--topology-version",
+        help="Active topology version gate; default takes the ranking's own",
+    )
+    select.add_argument("--category", help="Filter candidates by category")
+    select.add_argument(
+        "--tier", choices=("fast", "balanced", "quality"), help="Tier preference"
+    )
+    select.add_argument(
+        "--format", choices=("text", "json"), default="text",
+        help="Output format (default: text)",
+    )
     return parser
 
 
@@ -207,6 +234,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_optimize(args)
     if args.command == "rank":
         return run_rank(args)
+    if args.command == "select":
+        return run_select(args)
     build_parser().error(f"Unsupported command: {args.command}")
 
 
@@ -395,6 +424,71 @@ def run_rank(args: argparse.Namespace) -> int:
         Path(args.out).write_text(output, encoding="utf-8")
     else:
         print(output)
+    return 0
+
+
+def run_select(args: argparse.Namespace) -> int:
+    """Dry-run online selection: show candidates and the would-be pick.
+
+    Reads only — no tool is executed (phase6 §16).
+    """
+    topology = TopologyLoader().load_file(args.topology)
+    try:
+        ranking = json.loads(Path(args.ranking).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"cannot read ranking: {exc}", file=sys.stderr)
+        return 2
+    version = args.topology_version or str(ranking.get("topology_version", ""))
+    try:
+        catalog = build_catalog(topology, ranking, topology_version=version)
+        request = OnlineRequest(
+            query="select", category=args.category, tier=args.tier
+        )
+        groups = candidate_groups(catalog, request, OnlineConfig())
+        pick = RoundRobinBalancer().pick(groups[0][1])
+    except (RouteCatalogError, RouteSelectionError) as exc:
+        print(f"selection failed: {exc}", file=sys.stderr)
+        return 2
+
+    if args.format == "json":
+        print(
+            json.dumps(
+                {
+                    "topology_version": catalog.topology_version,
+                    "groups": [
+                        {
+                            "tier": tier,
+                            "candidates": [entry.canonical for entry in entries],
+                        }
+                        for tier, entries in groups
+                    ],
+                    "would_select": {
+                        "route_id": pick.route_id,
+                        "canonical": pick.canonical,
+                        "tiers": list(pick.tiers),
+                    },
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
+    lines = [
+        "Route Selection (dry run)",
+        "",
+        f"Topology: {catalog.topology_version}   "
+        f"Ranked routes: {len(catalog.entries)}",
+        "",
+    ]
+    for tier, entries in groups:
+        lines.append(f"Tier {tier} ({len(entries)} candidates)")
+        for entry in entries:
+            lines.append(f"  {entry.canonical}")
+        lines.append("")
+    lines.append(f"Would select: {pick.canonical}")
+    lines.append("(dry run; no tool is executed)")
+    print("\n".join(lines))
     return 0
 
 

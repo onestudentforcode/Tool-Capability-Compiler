@@ -48,6 +48,9 @@ from .errors import (
     RankingError,
     RouteProfileError,
     RankingConfigError,
+    OnlineRoutingError,
+    RouteCatalogError,
+    RouteSelectionError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -79,6 +82,9 @@ __all__ = [
     "RankingError",
     "RouteProfileError",
     "RankingConfigError",
+    "OnlineRoutingError",
+    "RouteCatalogError",
+    "RouteSelectionError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

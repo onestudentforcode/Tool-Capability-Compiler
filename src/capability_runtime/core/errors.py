@@ -190,3 +190,15 @@ class RouteProfileError(RankingError):
 
 class RankingConfigError(RankingError):
     """RankConfig / TierConfig parameters are invalid."""
+
+
+class OnlineRoutingError(TopologyFrameworkError):
+    """Phase 6 online routing failure root (catalog / selection)."""
+
+
+class RouteCatalogError(OnlineRoutingError):
+    """Ranking/topology mismatch or an un-reconstructable route structure."""
+
+
+class RouteSelectionError(OnlineRoutingError):
+    """No ranked candidate satisfies the request's category/tier preference."""
