@@ -8,12 +8,33 @@ import pytest
 
 from capability_runtime.cli import main, load_seed_routes
 
+_BINDING_TOOLS = "tests.unit._binding_tools"
+
 TOPO = {
     "version": "1.0",
     "layers": [
         {"name": "read", "order": 0},
         {"name": "analyze", "order": 1},
     ],
+    "tools": [
+        {
+            "name": "db",
+            "layer": "read",
+            "capabilities": ["order.read"],
+            "implementation": f"{_BINDING_TOOLS}:fetch",
+        },
+        {
+            "name": "policy",
+            "layer": "analyze",
+            "capabilities": ["refund.policy.check"],
+            "implementation": f"{_BINDING_TOOLS}:analyze",
+        },
+    ],
+}
+
+TOPO_UNBOUND = {
+    "version": "1.0",
+    "layers": TOPO["layers"],
     "tools": [
         {"name": "db", "layer": "read", "capabilities": ["order.read"]},
         {"name": "policy", "layer": "analyze", "capabilities": ["refund.policy.check"]},
@@ -55,6 +76,19 @@ def test_load_seed_routes_parses_candidate_route_objects(files) -> None:
     route = routes["s1"]
     assert [seg.layer for seg in route.layers] == ["read", "analyze"]
     assert route.layers[0].tools == ("db",)
+
+
+def test_cli_slow_refuses_topology_with_unbound_tools(tmp_path, capsys) -> None:
+    topo = tmp_path / "unbound.json"
+    topo.write_text(json.dumps(TOPO_UNBOUND), encoding="utf-8")
+    scen = tmp_path / "scen.json"
+    scen.write_text(json.dumps(SCENARIOS), encoding="utf-8")
+    code = main(["regression", "slow", "--topology", str(topo), "--scenario", str(scen)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "without an executable implementation" in captured.err
+    assert "db" in captured.err and "policy" in captured.err
+    assert "Slow Regression" not in captured.out
 
 
 def test_cli_slow_free_mode_prints_report(files, capsys) -> None:
