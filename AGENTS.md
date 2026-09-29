@@ -159,13 +159,19 @@ Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
 Phase 5  Route 排名与分级（Step 1-9 全部完成：
              ranking/ 顶包：stats / profile / eligibility / pareto / tier /
              family / report；`tool-topology rank` CLI 消费 slow artifacts）
+Phase 6  在线路由（Step 1-9 全部完成：
+             online/ 顶包：catalog / selection / balancer / fallback /
+             runtime / telemetry；`tool-topology select` 干跑 CLI；
+             在线遥测经 online_results_to_trials 回流离线闭环）
 ```
 
-尚未进入：
+Phase 0-6 全部完成，项目主循环（Declare → Fast → Slow → Prune → Rank →
+Route → 回流）闭合。尚未进入：
 
 ```text
-Phase 6  在线路由（验收规格已起草：docs/acceptance/phase6.md，
-             待审核通过后实现；实现前按惯例先补 phase6-plan.md）
+工程化扩展（多租户服务化 / 在线自适应 / 熔断器 / 监控体系等）——
+见 docs/acceptance/phase6.md §23，不属于本框架核心假设验证范围；
+启动前必须先起草新的验收文档。
 ```
 
 后续任务必须从当前最早未完成 Phase 的最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。

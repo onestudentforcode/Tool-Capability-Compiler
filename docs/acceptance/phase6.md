@@ -200,7 +200,10 @@ def candidates(self, *, category: str | None, tier: RouteTier | None) -> tuple[R
   空集 → 交给上层报 `RouteSelectionError`（fail closed，可解释），
   不静默回退到全局（`allow_global_fallback` 配置可显式放开，默认关）；
 - 指定 tier 时：在该 Tier 的路线内筛选；无该 Tier 候选 → 依
-  Tier 优先级链降级到下一 Tier（见 §6）。
+  Tier 优先级链降级到下一 Tier（见 §6）；
+- Tier 链全部为空时，ranked 但未贴 Tier 标签（UNASSIGNED）的路线
+  作为最后一级兜底组——它们同样携带完整证据，不能让有覆盖的
+  category 因标签缺失而不可服务。
 
 ---
 
