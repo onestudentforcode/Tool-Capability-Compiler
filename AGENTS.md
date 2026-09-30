@@ -208,7 +208,7 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      计费基准保持声明值，实测值作证据与漂移信号（drift_findings）。
 
 2. 复合节点（方向二的采纳形态）
-     验收规格已起草：docs/acceptance/phase7.md，待审核。
+     验收规格已起草：docs/acceptance/composite-nodes.md，待审核。
      "最终能力"作为宏节点入图：对外是与 ToolNode 完全同构的工具工厂
      （注册/建边/覆盖/执行/在线零特殊分支），内部是更小的子拓扑 +
      有界循环（stop_when + max_iterations + 持久黑板）；计量内层汇总
