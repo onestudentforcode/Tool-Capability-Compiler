@@ -200,12 +200,12 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
 ```text
 核心内方向（不动严格拓扑约束）：
 
-1. 资源 facade 计量（管道拦截）
-     验收规格已起草：docs/acceptance/resource-metering.md，待审核。
-     框架提供资源句柄（memory / llm / metered 通用包装），工具从管道走则
-     访问计数与 token 自动精确计量（三档 MeteringSource 诚实标注）；
-     计费基准保持声明值不变，实测值作证据与漂移信号。
-     解决"监控不依赖工具上报"，与拓扑模型解耦。
+1. 资源 facade 计量（管道拦截）——已完成
+     docs/acceptance/resource-metering.md（批次 A-E 全部落地）。
+     resources/ 顶包：metered() / InMemoryStore / LLMResource；
+     三档 MeteringSource 诚实标注；access_counts 贯通
+     ToolExecution → TrialResult → route_stats → RouteProfile → 在线遥测；
+     计费基准保持声明值，实测值作证据与漂移信号（drift_findings）。
 
 2. 复合节点（方向二的采纳形态）
      "最终能力"作为宏节点入图：对外暴露 consumes/produces/capabilities/

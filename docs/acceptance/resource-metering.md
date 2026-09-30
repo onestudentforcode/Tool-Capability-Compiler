@@ -299,8 +299,10 @@ RouteProfile → 在线遥测 全链贯通且口径一致？
 
 | 批次 | 状态 | 落点 |
 | --- | --- | --- |
-| A 计量核心 | [ ] | |
-| B 内存句柄 + 靶场迁移 | [ ] | |
-| C LLM 句柄 | [ ] | |
-| D 通用外部句柄 | [ ] | |
-| E 聚合 / 证据 / 漂移 | [ ] | |
+| A 计量核心 | [x] | `resources/metering.py`：MeteringCollector（contextvar 挂载 / 最弱声明原则的三档 source）/ estimate_tokens / drift_findings / metered()；ToolExecution 增 access_counts、measured_cost、metering_source（按尝试收账）；TrialResult.access_counts 透传 |
+| B 内存句柄 + 靶场迁移 | [x] | `resources/memory.py` InMemoryStore（get/put/delete 计量，seed/clear 免计量）；SandboxStore 三句柄化（orders / erp_records / refunds），变体与幂等守卫语义不变，既有业务断言零改动 |
+| C LLM 句柄 | [x] | `resources/llm.py` LLMResource（Ollama 兼容、usage 解析复用 LLMRouter、假 `_http` 注入）；token/measured_cost 精确入账；无 usage 优雅降级 |
+| D 通用外部句柄 | [x] | `metered(name, access, invoke, estimate=...)`（§6 配方即实现）；ESTIMATED 档显式标注；核心包零第三方依赖不变 |
+| E 聚合 / 证据 / 漂移 | [x] | RouteObservationStats / RouteProfile / OnlineRecord 三级 access_counts；rows_from_run 磁盘往返保真；run_scale / serve_demo 输出 access 统计与 drift 事实；计费基准（声明值）不变 |
+
+全量 515 tests / compileall / diff-check 通过；测试 `tests/unit/test_resource_metering.py`（18 项，含并发隔离与最弱声明原则）。
