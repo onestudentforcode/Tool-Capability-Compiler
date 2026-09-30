@@ -216,9 +216,12 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      （深度/自引用构建期拦截），不引入图层面 cycle。
 
 3. 接入辅助（降低接入负担中与拓扑解耦的部分）
+     验收规格已起草：docs/acceptance/onboarding-assist.md，待审核。
      装饰器从类型注解自动推断 consumes/produces（类型不建边，仅免除
-     重复声明）；capabilities 由 LLM 批量提案、人工审阅 diff 确认。
-     目标：框架边际接入成本趋近 OpenAI tool spec 基线。
+     重复声明）；OpenAI specs 批量适配器；capabilities 由 LLM 批量
+     提案、人工审阅 diff 后应用（提案永不直接落盘）；onboard 三段式
+     CLI。目标：框架边际接入成本趋近 OpenAI tool spec 基线
+     （编写负担降幅 >= 80%，semantic 负担 authoring → review）。
 
 4. optimize 三段式编排补全
      analyze / validate / commit 端到端 CLI 编排（Phase 4 组件已齐，
