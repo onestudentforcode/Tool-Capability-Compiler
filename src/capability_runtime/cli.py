@@ -58,11 +58,23 @@ from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
 from .core.errors import (
+    ArtifactLoadError,
+    CommitGateError,
     OnboardingError,
+    OptimizePipelineError,
     ProposalError,
     RouteCatalogError,
     RouteProfileError,
     RouteSelectionError,
+)
+from .optimization.pipeline import (
+    ValidateConfig,
+    analyze as pipeline_analyze,
+    commit as pipeline_commit,
+    load_original_payload,
+    patch_from_payload,
+    rollback as pipeline_rollback,
+    validate as pipeline_validate,
 )
 from .onboarding import (
     apply_capabilities,
@@ -155,34 +167,58 @@ def build_parser() -> argparse.ArgumentParser:
 
     optimize = subparsers.add_parser(
         "optimize",
-        help="Optimize topology by pruning underused edges/nodes",
+        help="Optimize: report / analyze / validate / commit / rollback",
     )
-    optimize.add_argument("--topology", required=True, help="Topology JSON file")
-    optimize.add_argument(
-        "--scenario",
-        required=True,
-        help="Scenario suite JSON file (used for coverage validation)",
+    optimize_sub = optimize.add_subparsers(dest="optimize_command")
+
+    optimize_report = optimize_sub.add_parser(
+        "report", help="Deterministic two-version report (legacy behavior)"
     )
-    optimize.add_argument(
-        "--start-version",
-        default="v1",
-        help="Starting version tag for the active topology (default: v1)",
+    optimize_report.add_argument("--topology", required=True)
+    optimize_report.add_argument("--scenario", required=True)
+    optimize_report.add_argument("--start-version", default="v1")
+    optimize_report.add_argument("--end-version", default="v2")
+    optimize_report.add_argument("--format", choices=("text", "json"), default="text")
+    optimize_report.add_argument("--out")
+
+    optimize_analyze = optimize_sub.add_parser(
+        "analyze", help="Evidence -> candidate proposal (read-only)"
     )
-    optimize.add_argument(
-        "--end-version",
-        default="v2",
-        help="Version tag for the optimized topology (default: v2)",
+    optimize_analyze.add_argument("--topology", required=True)
+    optimize_analyze.add_argument("--scenario", required=True)
+    optimize_analyze.add_argument("--slow-report", required=True)
+    optimize_analyze.add_argument("--min-opportunity", type=int, default=None)
+    optimize_analyze.add_argument("--out", required=True)
+
+    optimize_validate = optimize_sub.add_parser(
+        "validate", help="Candidate patch -> three-gate verdict"
     )
-    optimize.add_argument(
-        "--format",
-        choices=("text", "json"),
-        default="text",
-        help="Output format (default: text)",
+    optimize_validate.add_argument("--topology", required=True)
+    optimize_validate.add_argument("--scenario", required=True)
+    optimize_validate.add_argument("--patch", required=True, help="candidates.json")
+    optimize_validate.add_argument("--trials", type=int, default=3)
+    optimize_validate.add_argument(
+        "--expected-fact", action="append", default=[], metavar="NAME=VALUE"
     )
-    optimize.add_argument(
-        "--out",
-        help="Write the optimization report to this file instead of stdout",
+    optimize_validate.add_argument("--max-concurrency", type=int, default=1)
+    optimize_validate.add_argument("--out", required=True)
+
+    optimize_commit = optimize_sub.add_parser(
+        "commit", help="Commit a validated patch as a new topology version"
     )
+    optimize_commit.add_argument("--topology", required=True)
+    optimize_commit.add_argument("--patch", required=True)
+    optimize_commit.add_argument("--validation", required=True)
+    optimize_commit.add_argument("--version", required=True)
+    optimize_commit.add_argument("--base-version", default="v1")
+    optimize_commit.add_argument("--versions-dir", required=True)
+
+    optimize_rollback = optimize_sub.add_parser(
+        "rollback", help="Record replay to a version (default: declared)"
+    )
+    optimize_rollback.add_argument("--topology", required=True)
+    optimize_rollback.add_argument("--versions-dir", required=True)
+    optimize_rollback.add_argument("--to", default=None, help="Version tag")
     rank = subparsers.add_parser(
         "rank",
         help="Rank observed routes from a slow-regression run (phase 5)",
@@ -282,7 +318,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_slow(args)
         build_parser().error(f"Unsupported subcommand: {args.subcommand}")
     if args.command == "optimize":
-        return run_optimize(args)
+        if args.optimize_command == "report":
+            return run_optimize(args)
+        if args.optimize_command == "analyze":
+            return run_optimize_analyze(args)
+        if args.optimize_command == "validate":
+            return run_optimize_validate(args)
+        if args.optimize_command == "commit":
+            return run_optimize_commit(args)
+        if args.optimize_command == "rollback":
+            return run_optimize_rollback(args)
+        build_parser().error(
+            f"Unsupported optimize command: {args.optimize_command}"
+        )
     if args.command == "rank":
         return run_rank(args)
     if args.command == "select":
@@ -630,6 +678,136 @@ def run_onboard(args: argparse.Namespace) -> int:
 
     build_parser().error(f"Unsupported onboard command: {args.onboard_command}")
     return 2
+
+
+def run_optimize_analyze(args: argparse.Namespace) -> int:
+    """optimize analyze: read-only evidence -> candidates.json (spec 2)."""
+    try:
+        topology = TopologyLoader().load_file(args.topology)
+        suite = ScenarioLoader().load_file(args.scenario)
+        payload = asyncio.run(
+            pipeline_analyze(
+                topology,
+                suite,
+                args.slow_report,
+                min_edge_opportunities=args.min_opportunity,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - hard error, never silent empty
+        print(f"analyze failed: {exc}", file=sys.stderr)
+        return 2
+    Path(args.out).write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    from collections import Counter
+
+    by_status = Counter(item["status"] for item in payload["candidates"])
+    print(f"candidates written to {args.out}")
+    print(
+        f"split: {len(payload['split']['optimization'])} optimization / "
+        f"{len(payload['split']['validation'])} validation / "
+        f"{len(payload['split']['sentinel'])} sentinel"
+    )
+    print(f"candidates by status: {dict(sorted(by_status.items())) or '{}'}")
+    print("(analyze observes only; validate decides, commit writes)")
+    return 0
+
+
+def run_optimize_validate(args: argparse.Namespace) -> int:
+    """optimize validate: three gates; REJECT exits 1 (spec 3)."""
+    topology = TopologyLoader().load_file(args.topology)
+    unbound = unbound_tool_names(topology)
+    if unbound:
+        print(
+            "validate requires an executable topology; tools without "
+            f"implementation: {', '.join(unbound)}",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        suite = ScenarioLoader().load_file(args.scenario)
+        patch_payload = json.loads(Path(args.patch).read_text(encoding="utf-8"))
+        patch = patch_from_payload(patch_payload)
+        expected: dict[str, str] = {}
+        for pair in args.expected_fact:
+            name, _, value = pair.partition("=")
+            expected[name] = value
+        verdict = asyncio.run(
+            pipeline_validate(
+                topology,
+                suite,
+                patch,
+                config=ValidateConfig(
+                    trials=args.trials,
+                    expected_facts=tuple(sorted(expected.items())),
+                    max_concurrency=args.max_concurrency,
+                ),
+            )
+        )
+    except (ArtifactLoadError, OptimizePipelineError) as exc:
+        print(f"validate failed: {exc}", file=sys.stderr)
+        return 2
+    Path(args.out).write_text(
+        json.dumps(verdict, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(f"verdict written to {args.out}")
+    for failure in verdict["failures"]:
+        print(f"  [{failure['domain']}/{failure['key']}] {failure['reason']}")
+    print(f"VERDICT: {verdict['verdict'].upper()}")
+    return 0 if verdict["verdict"] == "accept" else 1
+
+
+def run_optimize_commit(args: argparse.Namespace) -> int:
+    """optimize commit: the only write; ACCEPT record is a hard gate (spec 4)."""
+    try:
+        topology = TopologyLoader().load_file(args.topology)
+        payload = load_original_payload(args.topology)
+        patch = patch_from_payload(
+            json.loads(Path(args.patch).read_text(encoding="utf-8"))
+        )
+        validation = json.loads(Path(args.validation).read_text(encoding="utf-8"))
+        record = pipeline_commit(
+            topology,
+            payload,
+            patch,
+            validation=validation,
+            version=args.version,
+            versions_dir=args.versions_dir,
+            base_version=args.base_version,
+        )
+    except CommitGateError as exc:
+        print(f"commit refused: {exc}", file=sys.stderr)
+        return 2
+    except (OSError, json.JSONDecodeError, OptimizePipelineError) as exc:
+        print(f"commit failed: {exc}", file=sys.stderr)
+        return 2
+    out_dir = Path(args.versions_dir)
+    print(f"version {record['version']} committed:")
+    print(f"  record:   {out_dir / (record['version'] + '.json')}")
+    print(f"  topology: {out_dir / (record['version'] + '.topology.json')}")
+    print("rollback: optimize rollback --to " + record["version"])
+    return 0
+
+
+def run_optimize_rollback(args: argparse.Namespace) -> int:
+    """optimize rollback: record replay, never an inverse patch (spec 4)."""
+    try:
+        topology = TopologyLoader().load_file(args.topology)
+        payload = load_original_payload(args.topology)
+        record = pipeline_rollback(
+            topology, payload, versions_dir=args.versions_dir, to=args.to
+        )
+    except CommitGateError as exc:
+        print(f"rollback refused: {exc}", file=sys.stderr)
+        return 2
+    except (OSError, json.JSONDecodeError, OptimizePipelineError) as exc:
+        print(f"rollback failed: {exc}", file=sys.stderr)
+        return 2
+    print(
+        f"current active topology -> {record['version']} "
+        "(record replay; history untouched)"
+    )
+    return 0
 
 
 def _has_regression(report: CoverageReport, baseline: Baseline | None) -> bool:

@@ -71,6 +71,9 @@ from .core import (
     OnboardingError,
     ProposalError,
     ApplyError,
+    OptimizePipelineError,
+    ArtifactLoadError,
+    CommitGateError,
 )
 from .decorators import tool
 from .evaluation import (
@@ -159,6 +162,21 @@ from .regression import (
     StatusChange,
     TopologyGapEntry,
     compute_diff,
+)
+from .optimization.pipeline import (
+    ValidateConfig,
+    analyze as pipeline_analyze,
+    commit as pipeline_commit,
+    load_original_payload,
+    patch_from_payload,
+    rollback as pipeline_rollback,
+    validate as pipeline_validate,
+)
+from .optimization.artifacts import (
+    declared_fingerprint,
+    export_active_payload,
+    patch_fingerprint,
+    trial_results_from_dir,
 )
 from .onboarding import (
     CapabilityProposal,
@@ -434,9 +452,23 @@ __all__ = [
     "from_openai_specs",
     "propose_capabilities",
     "render_capability_diff",
+    "ValidateConfig",
+    "pipeline_analyze",
+    "pipeline_commit",
+    "pipeline_rollback",
+    "pipeline_validate",
+    "load_original_payload",
+    "patch_from_payload",
+    "declared_fingerprint",
+    "export_active_payload",
+    "patch_fingerprint",
+    "trial_results_from_dir",
     "OnboardingError",
     "ProposalError",
     "ApplyError",
+    "OptimizePipelineError",
+    "ArtifactLoadError",
+    "CommitGateError",
     "CompositeError",
     "CompositeSpecError",
     "CompositeExecutionError",
