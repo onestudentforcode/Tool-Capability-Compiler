@@ -68,6 +68,9 @@ from .core import (
     CompositeError,
     CompositeSpecError,
     CompositeExecutionError,
+    OnboardingError,
+    ProposalError,
+    ApplyError,
 )
 from .decorators import tool
 from .evaluation import (
@@ -156,6 +159,14 @@ from .regression import (
     StatusChange,
     TopologyGapEntry,
     compute_diff,
+)
+from .onboarding import (
+    CapabilityProposal,
+    CapabilityProposalSet,
+    apply_capabilities,
+    from_openai_specs,
+    propose_capabilities,
+    render_capability_diff,
 )
 from .composite import (
     CompositeRuntime,
@@ -417,6 +428,15 @@ __all__ = [
     "MAX_COMPOSITE_DEPTH",
     "build_composite_node",
     "flatten_composite_results",
+    "CapabilityProposal",
+    "CapabilityProposalSet",
+    "apply_capabilities",
+    "from_openai_specs",
+    "propose_capabilities",
+    "render_capability_diff",
+    "OnboardingError",
+    "ProposalError",
+    "ApplyError",
     "CompositeError",
     "CompositeSpecError",
     "CompositeExecutionError",

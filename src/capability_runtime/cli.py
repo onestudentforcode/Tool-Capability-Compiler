@@ -53,10 +53,23 @@ from .regression.slow.runner import SlowRegressionRunner
 from .regression.slow.stats import build_observation_stats
 from .route.models import RouteLayer
 from .router.llm_router import LLMRouter
+from .router.models import ToolSummary
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
-from .core.errors import RouteCatalogError, RouteProfileError, RouteSelectionError
+from .core.errors import (
+    OnboardingError,
+    ProposalError,
+    RouteCatalogError,
+    RouteProfileError,
+    RouteSelectionError,
+)
+from .onboarding import (
+    apply_capabilities,
+    propose_capabilities,
+    render_capability_diff,
+)
+from .onboarding.openai_adapter import skeleton_payload
 from .online import (
     OnlineConfig,
     OnlineRequest,
@@ -219,6 +232,44 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("text", "json"), default="text",
         help="Output format (default: text)",
     )
+    onboard = subparsers.add_parser(
+        "onboard",
+        help="Onboarding assistance: scaffold / propose / apply",
+    )
+    onboard_sub = onboard.add_subparsers(dest="onboard_command", required=True)
+
+    scaffold = onboard_sub.add_parser(
+        "scaffold", help="OpenAI specs -> skeleton topology JSON"
+    )
+    scaffold.add_argument("--specs", required=True, help="OpenAI tools JSON")
+    scaffold.add_argument("--layer", required=True, help="Layer for all tools")
+    scaffold.add_argument(
+        "--dispatch-module",
+        help="Stamp implementation entry points '<module>:<tool>' (async fns)",
+    )
+    scaffold.add_argument("--out", required=True, help="Skeleton output path")
+
+    propose = onboard_sub.add_parser(
+        "propose", help="Batch capability proposals for human review"
+    )
+    propose.add_argument("--topology", required=True, help="Topology JSON")
+    propose.add_argument(
+        "--vocabulary-from",
+        help="Existing topology JSON whose capabilities seed the vocabulary",
+    )
+    propose.add_argument("--base-url", help="Ollama base URL")
+    propose.add_argument("--model", help="Ollama model name")
+    propose.add_argument("--out", required=True, help="Proposals output path")
+
+    apply_cmd = onboard_sub.add_parser(
+        "apply", help="Apply reviewed capabilities into the topology"
+    )
+    apply_cmd.add_argument("--topology", required=True, help="Topology JSON")
+    apply_cmd.add_argument(
+        "--approved", required=True,
+        help='Approved JSON: {"tool": ["cap", ...]}',
+    )
+    apply_cmd.add_argument("--out", required=True, help="Final output path")
     return parser
 
 
@@ -236,6 +287,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_rank(args)
     if args.command == "select":
         return run_select(args)
+    if args.command == "onboard":
+        return run_onboard(args)
     build_parser().error(f"Unsupported command: {args.command}")
 
 
@@ -490,6 +543,93 @@ def run_select(args: argparse.Namespace) -> int:
     lines.append("(dry run; no tool is executed)")
     print("\n".join(lines))
     return 0
+
+
+def run_onboard(args: argparse.Namespace) -> int:
+    """onboard scaffold / propose / apply (onboarding-assist milestone §5).
+
+    Three explicit stages with no implicit chaining: propose never writes a
+    topology, apply only consumes the human-approved mapping.
+    """
+    if args.onboard_command == "scaffold":
+        try:
+            specs = json.loads(Path(args.specs).read_text(encoding="utf-8"))
+            payload = skeleton_payload(
+                specs, layer=args.layer, dispatch_module=args.dispatch_module
+            )
+        except (OSError, json.JSONDecodeError, OnboardingError) as exc:
+            print(f"scaffold failed: {exc}", file=sys.stderr)
+            return 2
+        Path(args.out).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        print(f"skeleton written to {args.out} ({len(payload['tools'])} tools)")
+        return 0
+
+    if args.onboard_command == "propose":
+        topology = TopologyLoader().load_file(args.topology)
+        vocabulary: set[str] = set()
+        if args.vocabulary_from:
+            other = TopologyLoader().load_file(args.vocabulary_from)
+            for name in other.nodes():
+                vocabulary |= set(other.node(name).spec.capabilities)
+        summaries = [
+            ToolSummary.from_tool_node(topology.node(name))
+            for name in topology.nodes()
+        ]
+        try:
+            proposal_set = asyncio.run(
+                propose_capabilities(
+                    summaries,
+                    vocabulary=vocabulary,
+                    base_url=args.base_url,
+                    model=args.model,
+                )
+            )
+        except ProposalError as exc:
+            print(f"propose failed: {exc}", file=sys.stderr)
+            return 2
+        payload = {
+            "proposals": [
+                {
+                    "tool": item.tool,
+                    "capabilities": list(item.capabilities),
+                    "rationale": item.rationale,
+                    "confidence": item.confidence,
+                }
+                for item in proposal_set.proposals
+            ],
+            "invalid_dropped": [
+                {"tool": item.tool, "capability": item.capability}
+                for item in proposal_set.invalid_dropped
+            ],
+        }
+        Path(args.out).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(f"proposals written to {args.out}")
+        print()
+        print(render_capability_diff(proposal_set, vocabulary=vocabulary))
+        return 0
+
+    if args.onboard_command == "apply":
+        try:
+            payload = json.loads(
+                Path(args.topology).read_text(encoding="utf-8")
+            )
+            approved = json.loads(
+                Path(args.approved).read_text(encoding="utf-8")
+            )
+            written = apply_capabilities(payload, approved, out_path=args.out)
+        except (OSError, json.JSONDecodeError, OnboardingError) as exc:
+            print(f"apply failed: {exc}", file=sys.stderr)
+            return 2
+        print(f"topology written to {written}")
+        return 0
+
+    build_parser().error(f"Unsupported onboard command: {args.onboard_command}")
+    return 2
 
 
 def _has_regression(report: CoverageReport, baseline: Baseline | None) -> bool:
