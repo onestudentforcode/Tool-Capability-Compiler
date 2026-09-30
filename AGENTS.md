@@ -215,8 +215,9 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      外层，证据经 flattener 用同一套机器离线处理；外层保持无环
      （深度/自引用构建期拦截），不引入图层面 cycle。
 
-3. 接入辅助（降低接入负担中与拓扑解耦的部分）
-     验收规格已起草：docs/acceptance/onboarding-assist.md，待审核。
+3. 接入辅助（降低接入负担中与拓扑解耦的部分）——已完成
+     docs/acceptance/onboarding-assist.md（+ onboarding-assist-plan.md，
+     批次 A-D 全部落地）。
      装饰器从类型注解自动推断 consumes/produces（类型不建边，仅免除
      重复声明）；OpenAI specs 批量适配器；capabilities 由 LLM 批量
      提案、人工审阅 diff 后应用（提案永不直接落盘）；onboard 三段式
