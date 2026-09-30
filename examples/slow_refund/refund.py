@@ -51,7 +51,7 @@ from facts import (
       capabilities={"order.read", "order.search"})
 async def order_db() -> Order:
     await asyncio.sleep(0.003)
-    order = store.STORE.order
+    order = await store.STORE.orders.get(store.STORE.target_order_id)
     if order is None:
         raise LookupError(f"order not found (variant={store.STORE.variant})")
     return order
@@ -63,7 +63,7 @@ async def erp() -> ErpRecord:
     await asyncio.sleep(0.012)
     if not store.STORE.erp_available:
         raise ConnectionError("ERP backend unavailable")
-    record = store.STORE.erp_record
+    record = await store.STORE.erp_records.get(store.STORE.target_order_id)
     if record is None:
         raise LookupError(f"order not found (variant={store.STORE.variant})")
     return record
@@ -127,6 +127,9 @@ async def refund_api(order: Order, decision: PolicyDecision) -> RefundResult:
     success = approved and not already
     if success:
         store.STORE.record_refund(order.order_id)
+        await store.STORE.refunds.put(
+            order.order_id, {"amount": order.amount, "channel": order.channel}
+        )
     return RefundResult(
         order_id=order.order_id,
         success=success,
