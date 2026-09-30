@@ -19,7 +19,12 @@ from ..core.errors import (
 from ..core.failure import TrialFailureCategory
 from ..core.metrics import TokenUsage
 from ..core.tool import ToolNode
-from ..resources.metering import MeteringSource, mount_collector, unmount_collector
+from ..resources.metering import (
+    MeteringSource,
+    mount_collector,
+    take_detail,
+    unmount_collector,
+)
 from .context import ExecutionContext
 from .state import ArtifactValue, ExecutionState
 
@@ -55,6 +60,9 @@ class ToolExecution:
     access_counts: dict[str, int] | None = None
     measured_cost: float | None = None
     metering_source: MeteringSource = MeteringSource.DECLARED
+    # structured detail attached by the handler via the generic channel
+    # (a composite runtime attaches one LayerExecution tuple per iteration)
+    composite_detail: tuple | None = None
 
 
 def _lookup_by_name(state: ExecutionState, name: str) -> Any:
@@ -148,6 +156,7 @@ class ToolExecutor:
             token_usage=collector.tokens,
             measured_cost=collector.measured_cost,
             metering_source=collector.source,
+            composite_detail=take_detail(),
         )
 
     async def _invoke_with_timeout(self, tool: ToolNode, args: list[Any]) -> Any:

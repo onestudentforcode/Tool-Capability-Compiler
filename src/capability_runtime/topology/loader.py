@@ -44,6 +44,18 @@ _TOOL_FIELDS = {
     "cost_per_call",
     "implementation",
 }
+_COMPOSITE_FIELDS = {
+    "name",
+    "layer",
+    "kind",
+    "inner",
+    "route",
+    "stop_when",
+    "max_iterations",
+    "capabilities",
+    "description",
+    "cost_per_call",
+}
 
 
 async def _null_handler(*args: Any, **kwargs: Any) -> None:
@@ -61,6 +73,10 @@ def unbound_tool_names(topology: Topology) -> tuple[str, ...]:
         for name in topology.nodes()
         if topology.node(name).handler is _null_handler
     )
+
+
+def stop_while_ok(value) -> bool:
+    return all(isinstance(slot, str) and slot.strip() for slot in value)
 
 
 class TopologyLoader:
@@ -93,12 +109,96 @@ class TopologyLoader:
 
         tools = ToolRegistry()
         for index, item in enumerate(root["tools"]):
+            item_location = f"{location} tools[{index}]"
+            if isinstance(item, Mapping) and item.get("kind") == "composite":
+                tools.register(self._composite_node(item, item_location, source))
+                continue
+            if isinstance(item, Mapping) and "kind" in item:
+                raise TopologyBuildError(
+                    f"{item_location} 'kind' must be 'composite' if present"
+                )
             spec = self._tool(item, index, location)
             handler = self._resolve_handler(
-                item.get("implementation"), spec.name, f"{location} tools[{index}]"
+                item.get("implementation"), spec.name, item_location
             )
             tools.register(ToolNode(spec=spec, handler=handler))
         return TopologyBuilder(layers, tools).build()
+
+    def _composite_node(self, item, location: str, source: Path | None):
+        from ..composite.spec import CompositeSpec, build_composite_node
+
+        self._reject_unknown_fields(item, _COMPOSITE_FIELDS, location)
+        self._require_fields(
+            item,
+            {"name", "layer", "inner", "route", "stop_when", "max_iterations"},
+            location,
+        )
+        for unsupported in ("providers", "workers", "consumes", "produces"):
+            if unsupported in item:
+                raise TopologyBuildError(
+                    f"{location} composite entries do not support "
+                    f"{unsupported!r} (outer edges default to all; typed "
+                    "contracts are Python-path only)"
+                )
+        inner_raw = Path(str(item["inner"]))
+        if not inner_raw.is_absolute() and source is not None:
+            inner_raw = source.parent / inner_raw
+        try:
+            inner_topology = self.load_file(inner_raw)
+        except TopologyBuildError as exc:
+            raise TopologyBuildError(
+                f"{location} cannot load inner topology: {exc}"
+            ) from exc
+        unbound = unbound_tool_names(inner_topology)
+        if unbound:
+            raise TopologyBuildError(
+                f"{location} inner topology has tools without an executable "
+                f"implementation: {', '.join(unbound)}"
+            )
+        route_raw = item["route"]
+        if not isinstance(route_raw, list) or not route_raw:
+            raise TopologyBuildError(
+                f"{location} 'route' must be a non-empty list of "
+                "{layer, tools} segments"
+            )
+        route: list[tuple[str, ...]] = []
+        for seg_index, segment in enumerate(route_raw):
+            if (
+                not isinstance(segment, dict)
+                or set(segment) != {"layer", "tools"}
+                or not isinstance(segment["tools"], list)
+                or not segment["tools"]
+            ):
+                raise TopologyBuildError(
+                    f"{location} route[{seg_index}] must be "
+                    "{{'layer': ..., 'tools': [...]}}"
+                )
+            route.append(tuple(str(tool) for tool in segment["tools"]))
+        stop_when = item["stop_when"]
+        if not isinstance(stop_when, list) or not stop_while_ok(stop_when):
+            raise TopologyBuildError(
+                f"{location} 'stop_when' must be a non-empty list of slots"
+            )
+        max_iterations = item["max_iterations"]
+        if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or max_iterations < 1:
+            raise TopologyBuildError(
+                f"{location} 'max_iterations' must be a positive integer"
+            )
+        try:
+            spec = CompositeSpec(
+                name=str(item["name"]),
+                layer=str(item["layer"]),
+                topology=inner_topology,
+                route=tuple(route),
+                stop_when=tuple(str(slot) for slot in stop_when),
+                max_iterations=max_iterations,
+                capabilities=frozenset(str(cap) for cap in item.get("capabilities", [])),
+                cost_per_call=item.get("cost_per_call"),
+                description=str(item.get("description", "")),
+            )
+        except Exception as exc:  # noqa: BLE001 - wrap spec validation uniformly
+            raise TopologyBuildError(f"{location} invalid composite: {exc}") from exc
+        return build_composite_node(spec)
 
     @staticmethod
     def _resolve_handler(

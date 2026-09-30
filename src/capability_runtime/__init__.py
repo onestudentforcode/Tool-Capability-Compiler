@@ -62,6 +62,12 @@ from .core import (
     TrialFailureCategory,
     TopologyFrameworkError,
     ValidationGateError,
+    MeteringError,
+    ResourceHandleError,
+    MeteringContextError,
+    CompositeError,
+    CompositeSpecError,
+    CompositeExecutionError,
 )
 from .decorators import tool
 from .evaluation import (
@@ -150,6 +156,13 @@ from .regression import (
     StatusChange,
     TopologyGapEntry,
     compute_diff,
+)
+from .composite import (
+    CompositeRuntime,
+    CompositeSpec,
+    MAX_COMPOSITE_DEPTH,
+    build_composite_node,
+    flatten_composite_results,
 )
 from .route import RouteLayer, RoutePlan
 from .resources import (
@@ -399,6 +412,14 @@ __all__ = [
     "drift_findings",
     "estimate_tokens",
     "metered",
+    "CompositeRuntime",
+    "CompositeSpec",
+    "MAX_COMPOSITE_DEPTH",
+    "build_composite_node",
+    "flatten_composite_results",
+    "CompositeError",
+    "CompositeSpecError",
+    "CompositeExecutionError",
     "FallbackStep",
     "OnlineConfig",
     "OnlineRecord",
