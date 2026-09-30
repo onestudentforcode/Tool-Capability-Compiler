@@ -110,4 +110,4 @@ python -m pip install -e .
 python main.py
 ```
 
-项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)，入门教程见 [tutorial.md](docs/tutorial.md)。当前边界：Phase 0–6 全部完成（含[靶场强化里程碑](docs/acceptance/battlefield-hardening.md)），主循环 Declare → Fast → Slow → Prune → Rank → Route → 回流 已闭合；工程化扩展需先起草新的验收文档（见 [phase6.md](docs/acceptance/phase6.md) §23）。
+项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)，入门教程见 [tutorial.md](docs/tutorial.md)。当前边界：Phase 0–6 全部完成（含[靶场强化里程碑](docs/acceptance/battlefield-hardening.md)），主循环 Declare → Fast → Slow → Prune → Rank → Route → 回流 已闭合；涌现拓扑（方向一）已评估并暂时废弃，保持严格拓扑约束，可继续开发的方向清单见 [AGENTS.md](AGENTS.md) §7（每项启动前需先起草验收文档）。

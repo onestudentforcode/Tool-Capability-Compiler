@@ -40,6 +40,33 @@ Minimal Dependency DAG
 Provider Priority Planner
 ```
 
+### 2.1 已评估并暂时废弃的方向（2026-09 裁定）
+
+以下方向经过评估，明确**暂不开发**，现有限制保持不变：
+
+```text
+方向一：涌现拓扑 / 薄声明
+  取消严格 layer / provider / worker 声明，让拓扑结构在调用过程中自动产生
+  （含数据流诱导层序、类型提议连接等一切变体）。
+
+方向二原始形态：图层递归 / 真环
+  在拓扑图层面允许 cycle 以表达递归或"最终能力"。
+```
+
+裁定与理由：
+
+- 现阶段**保持严格拓扑约束**：Layer 有序 + provider/worker 双向白名单
+  决定 ToolEdge；`consumes / produces` 只验证已声明边，绝不建边
+  （Phase 0 §6–7 不变）；
+- 涌现拓扑会同时拆掉三面承重墙：Declared/Active 分离（回滚与剪枝安全
+  的来源）、opportunity 统计语义（剪枝证据的根基）、TopologyFilter
+  （在线约束的执行点）；其"降低接入负担"的目标中，clerical 部分可用
+  与拓扑模型解耦的手段达成（见 §7 可开发方向 3），无需改拓扑模型；
+- 图层真环会摧毁 route_id / opportunity / Counterfactual / 在线有界执行
+  的语义；递归需求以"复合节点 + 有界展开"实现（见 §7 可开发方向 2）；
+- 重启条件：任何一项要重启，必须先起草新的 Phase 验收文档，论证如何
+  保住上述语义后再评估。
+
 ## 3. Phase / Step 推进流程
 
 每次实现 Phase 或 Step 时，按以下顺序推进：
@@ -166,12 +193,37 @@ Phase 6  在线路由（Step 1-9 全部完成：
 ```
 
 Phase 0-6 全部完成，项目主循环（Declare → Fast → Slow → Prune → Rank →
-Route → 回流）闭合。尚未进入：
+Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃（见 §2.1），
+严格拓扑约束保持不变。当前可继续开发的方向（每项启动前必须先起草
+新的验收文档；优先级由用户裁定）：
 
 ```text
-工程化扩展（多租户服务化 / 在线自适应 / 熔断器 / 监控体系等）——
-见 docs/acceptance/phase6.md §23，不属于本框架核心假设验证范围；
-启动前必须先起草新的验收文档。
+核心内方向（不动严格拓扑约束）：
+
+1. 资源 facade 计量（管道拦截）
+     框架提供 mysql / redis / LLM 客户端等资源句柄，工具从管道走则
+     访问计数与 token 自动精确计量；辅以 token 估算兜底（标 estimated）。
+     解决"监控不依赖工具上报"，与拓扑模型解耦。
+
+2. 复合节点（方向二的采纳形态）
+     "最终能力"作为宏节点入图：对外暴露 consumes/produces/capabilities/
+     cost 接口，内部是更小的子拓扑（同一套 declare→prune→rank 机制递归
+     适用）；外层保持无环，递归以自相似 + 有界展开实现，不引入图层面
+     cycle。需评估对 route_id / 统计 / 剪枝的分层影响。
+
+3. 接入辅助（降低接入负担中与拓扑解耦的部分）
+     装饰器从类型注解自动推断 consumes/produces（类型不建边，仅免除
+     重复声明）；capabilities 由 LLM 批量提案、人工审阅 diff 确认。
+     目标：框架边际接入成本趋近 OpenAI tool spec 基线。
+
+4. optimize 三段式编排补全
+     analyze / validate / commit 端到端 CLI 编排（Phase 4 组件已齐，
+     目前仅 run_scale.py 演示联动；commit 保持显式人工确认）。
+
+工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
+
+多租户服务化 / 在线自适应 / 熔断器 / 监控体系 / LLMRouter 真实规模实跑
+校验等。
 ```
 
-后续任务必须从当前最早未完成 Phase 的最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。
+后续任务必须从用户裁定的方向起草验收文档开始；未经用户明确调整，不得启动已废弃方向（§2.1）。
