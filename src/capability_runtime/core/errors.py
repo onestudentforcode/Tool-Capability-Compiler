@@ -202,3 +202,15 @@ class RouteCatalogError(OnlineRoutingError):
 
 class RouteSelectionError(OnlineRoutingError):
     """No ranked candidate satisfies the request's category/tier preference."""
+
+
+class MeteringError(TopologyFrameworkError):
+    """Resource-handle metering failure root (resource-metering milestone)."""
+
+
+class ResourceHandleError(MeteringError):
+    """A resource handle was constructed or used incorrectly."""
+
+
+class MeteringContextError(MeteringError):
+    """Metering was recorded outside a tool-call context (no collector)."""

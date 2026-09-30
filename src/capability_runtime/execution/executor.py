@@ -19,6 +19,7 @@ from ..core.errors import (
 from ..core.failure import TrialFailureCategory
 from ..core.metrics import TokenUsage
 from ..core.tool import ToolNode
+from ..resources.metering import MeteringSource, mount_collector, unmount_collector
 from .context import ExecutionContext
 from .state import ArtifactValue, ExecutionState
 
@@ -50,6 +51,10 @@ class ToolExecution:
     cost: float | None = None
     error: ExecutionError | None = None
     error_category: TrialFailureCategory | None = None
+    # resource-handle metering (resource-metering §3); billing stays declared
+    access_counts: dict[str, int] | None = None
+    measured_cost: float | None = None
+    metering_source: MeteringSource = MeteringSource.DECLARED
 
 
 def _lookup_by_name(state: ExecutionState, name: str) -> Any:
@@ -97,22 +102,26 @@ class ToolExecutor:
             )
 
         started_at = datetime.now()
+        collector_token = mount_collector()
         try:
-            result = await self._invoke_with_timeout(tool, args)
-            status = ToolExecutionStatus.SUCCESS
-            error: ExecutionError | None = None
-            error_category: TrialFailureCategory | None = None
-        except TimeoutExecutionError as exc:
-            status = ToolExecutionStatus.ERROR
-            error = exc
-            error_category = TrialFailureCategory.TIMEOUT
-            result = None
-        except Exception as exc:  # noqa: BLE001 - any tool failure -> ERROR, no retry
-            status = ToolExecutionStatus.ERROR
-            error = ToolExecutionError(f"tool '{tool.spec.name}' failed: {exc}")
-            error.__cause__ = exc
-            error_category = TrialFailureCategory.TOOL_EXECUTION_ERROR
-            result = None
+            try:
+                result = await self._invoke_with_timeout(tool, args)
+                status = ToolExecutionStatus.SUCCESS
+                error: ExecutionError | None = None
+                error_category: TrialFailureCategory | None = None
+            except TimeoutExecutionError as exc:
+                status = ToolExecutionStatus.ERROR
+                error = exc
+                error_category = TrialFailureCategory.TIMEOUT
+                result = None
+            except Exception as exc:  # noqa: BLE001 - any tool failure -> ERROR, no retry
+                status = ToolExecutionStatus.ERROR
+                error = ToolExecutionError(f"tool '{tool.spec.name}' failed: {exc}")
+                error.__cause__ = exc
+                error_category = TrialFailureCategory.TOOL_EXECUTION_ERROR
+                result = None
+        finally:
+            collector = unmount_collector(collector_token)
         ended_at = datetime.now()
 
         if status is ToolExecutionStatus.SUCCESS:
@@ -121,6 +130,8 @@ class ToolExecutor:
         # An invocation was attempted, so the declared cost was incurred —
         # including timeouts and errors. Argument-resolution failures above
         # never reached the tool and stay uncosted (battlefield-hardening A).
+        # Handle traffic (access counts / measured tokens) settles here too,
+        # with the attempt — a timed-out call still made its accesses.
         return ToolExecution(
             tool_name=tool.spec.name,
             layer=tool.spec.layer,
@@ -133,6 +144,10 @@ class ToolExecutor:
             cost=tool.spec.cost_per_call,
             error=error,
             error_category=error_category,
+            access_counts=collector.access_counts or None,
+            token_usage=collector.tokens,
+            measured_cost=collector.measured_cost,
+            metering_source=collector.source,
         )
 
     async def _invoke_with_timeout(self, tool: ToolNode, args: list[Any]) -> Any:

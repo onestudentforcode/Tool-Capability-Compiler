@@ -365,6 +365,14 @@ class SlowRegressionRunner:
             execution_cost = None
         else:
             execution_cost = (tool_cost or 0.0) + (routing_cost or 0.0)
+        access_counts: dict[str, int] | None = None
+        for layer in trace.layers:
+            for execution in layer.tool_executions:
+                if execution.access_counts:
+                    if access_counts is None:
+                        access_counts = {}
+                    for key, count in execution.access_counts.items():
+                        access_counts[key] = access_counts.get(key, 0) + count
         return TrialResult(
             trial=trial,
             execution_status=status,
@@ -377,6 +385,7 @@ class SlowRegressionRunner:
             tool_cost=tool_cost,
             routing_cost=routing_cost,
             evaluation_cost=evaluation.cost if evaluation is not None else None,
+            access_counts=access_counts,
             failure_category=failure_category,
         )
 

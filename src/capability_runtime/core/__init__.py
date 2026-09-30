@@ -51,6 +51,9 @@ from .errors import (
     OnlineRoutingError,
     RouteCatalogError,
     RouteSelectionError,
+    MeteringError,
+    ResourceHandleError,
+    MeteringContextError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -85,6 +88,9 @@ __all__ = [
     "OnlineRoutingError",
     "RouteCatalogError",
     "RouteSelectionError",
+    "MeteringError",
+    "ResourceHandleError",
+    "MeteringContextError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

@@ -62,6 +62,7 @@ class TrialResult:
     tool_cost: float | None = None
     routing_cost: float | None = None
     evaluation_cost: float | None = None
+    access_counts: dict[str, int] | None = None
     failure_category: TrialFailureCategory | None = None
 
     def __post_init__(self) -> None:
