@@ -54,6 +54,9 @@ from .errors import (
     MeteringError,
     ResourceHandleError,
     MeteringContextError,
+    CompositeError,
+    CompositeSpecError,
+    CompositeExecutionError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -91,6 +94,9 @@ __all__ = [
     "MeteringError",
     "ResourceHandleError",
     "MeteringContextError",
+    "CompositeError",
+    "CompositeSpecError",
+    "CompositeExecutionError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

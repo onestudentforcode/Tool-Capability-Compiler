@@ -146,6 +146,28 @@ def unmount_collector(token: contextvars.Token) -> MeteringCollector:
     return collector  # type: ignore[return-value]
 
 
+_current_detail: contextvars.ContextVar[tuple | None] = (
+    contextvars.ContextVar("execution_detail", default=None)
+)
+
+
+def attach_detail(detail: tuple) -> None:
+    """Handler-side: attach structured execution detail to this tool call.
+
+    Generic call-boundary channel: any handler (e.g. a composite runtime)
+    may attach per-invocation detail; ToolExecutor forwards it into
+    ToolExecution.composite_detail. Not composite-specific.
+    """
+    _current_detail.set(detail)
+
+
+def take_detail() -> tuple | None:
+    """Executor-side: fetch and reset the detail attached by the handler."""
+    detail = _current_detail.get()
+    _current_detail.set(None)
+    return detail
+
+
 def estimate_tokens(text: str) -> int:
     """Rough char-based token estimate — ESTIMATED tier only."""
     return max(1, len(text) // 4)

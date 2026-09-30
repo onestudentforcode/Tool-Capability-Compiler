@@ -214,3 +214,15 @@ class ResourceHandleError(MeteringError):
 
 class MeteringContextError(MeteringError):
     """Metering was recorded outside a tool-call context (no collector)."""
+
+
+class CompositeError(TopologyFrameworkError):
+    """Composite-node failure root (composite-nodes milestone)."""
+
+
+class CompositeSpecError(CompositeError):
+    """Invalid composite declaration (route/budget/depth/self-reference)."""
+
+
+class CompositeExecutionError(CompositeError):
+    """Runtime failure inside a composite (stop condition unmet, etc.)."""
