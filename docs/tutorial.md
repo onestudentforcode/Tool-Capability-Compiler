@@ -417,6 +417,16 @@ Phase 5  排名：Route Ranking —— 四维证据向量（success/quality/late
                Wilson 区间、Pareto 前沿、Fast/Balanced/Quality Tier、rank CLI。
 Phase 6  在线：Online Routing —— 版本门禁的 RouteCatalog、Tier 偏好选路、
                轮转均衡、路线跟随执行、有界降级、遥测回流离线闭环。
+靶场强化   Battlefield Hardening —— 补齐被"骨架先行"跳过的靶场实质：计量贯通、
+               可执行绑定、Sandbox 工具真实化、场景级 Fixture、场景资产与规模实跑。
+（方向 1） 资源句柄计量 —— 监控不依赖工具上报：句柄管道 + 三档诚实标注 +
+               计量向上汇总（见 §13）。
+（方向 2） 复合节点 —— 最终能力作为宏节点入图：工具工厂 + 有界内层循环 +
+               证据 flattener 递归复用整套机器（见 §14）。
+（方向 3） 接入辅助 —— 类型推断 + OpenAI 批量适配 + capabilities 提案审阅，
+               边际接入成本趋近 OpenAI tool spec 基线（见 §15）。
+（方向 4） 剪枝编排 —— optimize analyze/validate/commit/rollback 三段式，
+               Prune 成为可审计的命令行工作流（见 §16）。
 ```
 
 实现边界（各 `phaseN-plan.md` 进度表全部勾选；里程碑批次 A–E 全部落地）：
@@ -428,13 +438,15 @@ Phase 4  Step 1–13  拓扑优化（Evidence → Candidate → Patch → Counte
                      → Batch → Fast/Slow Gate → Diversity Guard → Dataset Split
                      → Versioning → Report）+ optimize CLI
 里程碑    批次 A–E   计量 / 可执行绑定 / Sandbox 工具 / Fixture / 场景资产+实跑
-Phase 5  Step 1–9   ranking/ 顶包 + rank CLI
-Phase 6  Step 1–9   online/ 顶包 + select CLI + 服务 Demo + 闭环
+方向 1   批次 A–E   resources/ 顶包：metering / memory / llm / 通用包装
+方向 2   Step 1–8   composite/ 顶包 + JSON kind=composite + Demo
+方向 3   批次 A–D   decorators 推断 + onboarding/ 顶包 + onboard CLI
+方向 4   Step 1–6   optimization/artifacts + pipeline + 五子命令 CLI
 ```
 
-测试规模：全量 **497 个测试通过**（Python 3.14），且所有测试都不依赖真实
+测试规模：全量 **555 个测试通过**（Python 3.14），且所有测试都不依赖真实
 LLM / 网络 / HTTP（LLM 相关统一注入假 HTTP；执行用确定性 sandbox 工具；
-优化/排名/在线全部离线可复现）。
+优化/排名/在线/剪枝编排全部离线可复现）。
 
 ***
 
@@ -621,13 +633,249 @@ TrialResult 喂进 Phase 4 的 EvidenceAggregator（8 nodes / 21 edges）——
 
 ***
 
-## 13. 六个阶段一卷串起来看这份"中间语言"
+## 13. 资源句柄计量 —— 监控不依赖工具上报（方向 1）
+
+> 一句话：工具的 token 消耗、读写来源与次数，不必依赖工具"返回参数"——框架发放资源句柄，计量发生在句柄内部与调用边界，工具函数体零计量代码。
+
+### 13.1 三档诚实标注
+
+```text
+MeteringSource
+    DECLARED    未走管道：计费按声明的 cost_per_call（现状语义，不变）
+    MEASURED    走了句柄管道：token / 访问 / 实测成本为精确值
+    ESTIMATED   显式估算（estimate_tokens），绝不冒充实测
+```
+
+最弱声明原则：一次调用里同时出现估算与实测时，如实标注为 ESTIMATED 一档——
+混合数据永不冒充全实测（延续批次 A 的 `None != 0` 纪律）。
+
+### 13.2 机制：调用边界收账
+
+```text
+ToolExecutor.execute(tool)
+  ├─ contextvar 挂载本次调用的 MeteringCollector
+  ├─ await tool.invoke()
+  │     └─ await handle.get(...)          ← 工具只写业务代码
+  │          └─ 句柄内部：真实资源调用 + collector.record(...)
+  └─ 收账进 ToolExecution：access_counts / token_usage /
+     measured_cost / metering_source（按尝试计费：超时/异常同样已产生访问）
+```
+
+contextvars 按 async task 隔离——同层并发工具各记各账，互不串。
+
+### 13.3 三类句柄
+
+```python
+from capability_runtime.resources import InMemoryStore, LLMResource, metered
+
+# ① 内存句柄（靶场/测试）：get/put/delete 计量，seed/clear 免计量
+orders = InMemoryStore("orders")
+await orders.get("ORD-1")            # -> orders[read] +1
+
+# ② LLM 句柄：精确 token + 实测成本（复用 LLMRouter 的 usage 解析）
+llm = LLMResource(model="qwen3:1.7b", input_cost_per_1k=0.5, output_cost_per_1k=1.0)
+resp = await llm.complete("总结这个订单")   # token/cost 自动入账
+
+# ③ 通用包装：任何既有 async 客户端 + 一行包装即获得计量（应用注入客户端，核心零依赖）
+ext = metered("mysql.orders", access="read", invoke=my_existing_async_get)
+await ext("ORD-1")
+```
+
+### 13.4 计量维度贯通与漂移信号
+
+access_counts 从 `ToolExecution → TrialResult → route_stats →
+RouteProfile → 在线遥测` 全链贯通（磁盘往返保真）。计费基准**保持声明值**
+（回归可复现性优先）；实测值走 `drift_findings` 输出
+`metadata_review_candidate` 事实——提醒"声明价已失真"，修正仍由人工改声明。
+
+实测（250-trial 规模跑）：`sandbox_orders[read]:60 / sandbox_refunds[write]:38 /
+sandbox_erp[read]:22`。
+
+***
+
+## 14. 复合节点 —— 最终能力入图（方向 2）
+
+> 一句话："处理退款全流程"作为一个节点参与外层拓扑：对外是与 ToolNode 完全同构的工具工厂，对内是更小的子拓扑 + 有界循环；图层面永不成环。
+
+```python
+from capability_runtime import CompositeSpec, build_composite_node
+
+spec = CompositeSpec(
+    name="refund_handler", layer="act",
+    topology=inner_topology,               # 内层子拓扑（自相似的世界）
+    route=(("verify",), ("holdover", "issue_refund")),
+    stop_when=("refund_result",),           # 槽位齐备即停（ALL 语义）
+    max_iterations=3,                       # 硬预算，无默认魔法数
+    consumes=(Order, PolicyDecision), produces=(RefundResult,),
+    capabilities={"refund.handle"}, cost_per_call=0.02,
+)
+refund_handler = build_composite_node(spec)   # -> 标准 ToolNode，注册即用
+```
+
+三个关键裁定：
+
+1. **工具工厂，不是新节点类型**——注册/建边/覆盖/执行/排名/在线全部零特殊分支；
+2. **循环 = 同一路线 + 持久黑板 + stop_when + 预算**——无隐藏控制流；整层失败立即
+   失败（不内嵌重试，重试归外层 Phase 6 降级）；预算耗尽可解释失败
+   （`stop condition unmet`）；
+3. **剪枝 containment**——内层边永不进入外层统计（明细存 `composite_detail`）；
+   `flatten_composite_results` 把每轮执行摊平成内层伪 Trial，同一套
+   Evidence/Candidate/Gate 机器在内层拓扑上原样运转。
+
+嵌套深度 ≤2、自引用构建期拦死（类型层面的环也不许）。Demo
+（`examples/composite_refund`）用"双重确认计数器"（门信号存在**计量句柄**上，
+跨轮生效）实现稳定的二轮 refine：第 1 轮 `issue_refund` 因确认数不足失败、
+`holdover` 兄弟保层；第 2 轮计数达标放行——外层账单完整包含内层回放
+（`composite_confirm[read]:4 / [write]:2 / sandbox_refunds[write]:1`）。
+
+***
+
+## 15. 接入辅助 —— 边际成本趋近 OpenAI 基线（方向 3）
+
+> 一句话：只消除与拓扑模型解耦的 clerical 负担（类型推断、批量适配），把 semantic 负担从"逐工具编写"压成"一次性批量审阅"（capabilities 提案 → 人审 diff）。
+
+| 项目 | 之前 | 现在 |
+| --- | --- | --- |
+| async 适配 | 3 行/工具 | 0（`from_openai_specs` 批量） |
+| consumes/produces | 2–4 行/工具 | 0（类型注解自动推断） |
+| capabilities | 逐工具编写 | **审阅 diff**（LLM 批量提案 → 人工确认） |
+| layer 归类 | 人工 | 仍人工（方向一废弃的残留） |
+
+宪法红线保持：**类型只填执行契约字段，绝不建边**；提案永不直接落盘，
+`apply_capabilities` 只接受人工确认的 approved 映射。
+
+### 15.1 接入示例：OpenAI 风格工具完整走一遍
+
+以下流程全部离线可复现（资产在 `examples/onboarding_demo/`，
+`propose` 一步需要本地 Ollama，可跳过直接手写 approved）。
+
+**第 ① 步：准备 OpenAI specs**（`openai_specs.json`，裸数组）：
+
+```json
+[
+  {"type": "function", "function": {
+    "name": "get_order",
+    "description": "Fetch one order by id, returns amount, status and channel",
+    "parameters": {"type": "object",
+      "properties": {"order_id": {"type": "string"}},
+      "required": ["order_id"]}}}
+  , ...check_refund_policy / issue_refund 同形态...
+]
+```
+
+**第 ② 步：scaffold 生成骨架拓扑**（人工触点 1：layer 归类）：
+
+```bash
+python -m capability_runtime.cli onboard scaffold \
+    --specs examples/onboarding_demo/openai_specs.json \
+    --layer read \
+    --out artifacts/skeleton.json
+# 实测输出：skeleton written to artifacts/skeleton.json (3 tools)
+```
+
+骨架是合法拓扑 JSON（schema 要点已并入 description，capabilities 留空）。
+单层世界一条命令即可；多层拓扑按层各跑一次 scaffold 再手工合并，或直接
+编辑骨架的 layer 字段。
+
+**第 ③ 步：propose 批量提案**（需要本地 Ollama；离线可跳过手写 approved）：
+
+```bash
+python -m capability_runtime.cli onboard propose \
+    --topology artifacts/skeleton.json \
+    --out artifacts/proposals.json
+```
+
+输出是人审 diff——`[vocab]` 标注复用了既有能力词表、`[new]` 是新提案、
+非法名被丢弃并如实列出。**审阅这一份 diff 就是第 2 个人工触点**。
+
+**第 ④ 步：手写 approved（审阅产物，不是提案的复制）**：
+
+```json
+{"get_order": ["order.read"],
+ "check_refund_policy": ["refund.policy.check"],
+ "issue_refund": ["refund.execute"]}
+```
+
+**第 ⑤ 步：apply 落盘**（审阅门禁：approved 里出现拓扑没有的工具直接拒绝）：
+
+```bash
+python -m capability_runtime.cli onboard apply \
+    --topology artifacts/skeleton.json \
+    --approved examples/onboarding_demo/approved.json \
+    --out artifacts/topology.json
+# 实测输出：topology written to artifacts/topology.json
+```
+
+**第 ⑥ 步：立即可跑 Fast Regression**：
+
+```bash
+python -m capability_runtime.cli regression fast \
+    --topology artifacts/topology.json \
+    --scenario examples/onboarding_demo/scenarios.json
+```
+
+实测输出（正确区分覆盖与缺口）：
+
+```text
+Total:      2        Covered:    1        Uncovered:  1
+Coverage: 50.00%
+Missing Capabilities:
+1. invoice.send                   1     ← 系统里没有开票工具，如实暴露
+```
+
+**边界说明**：到此为止是"元数据接入"——Fast Regression 不执行工具。要进
+Slow Regression / 在线路由，还需给工具绑 `"implementation": "module:attr"`
+入口点（或走 Python 注册路径）。**跨层类型链是 Python 路径**：声明轻量
+dataclass 作契约，让 `@tool` 的注解推断自动填 consumes/produces（约 5 行/
+工具），批量适配产出的入口工具无类型契约（末端/入口节点语义）。
+
+***
+
+## 16. 剪枝编排 —— Prune 成为命令行工作流（方向 4）
+
+> 一句话：Phase 4 的全部组件（Evidence/Candidate/双门/守卫/版本）本来只能在测试里调用，现在装上了方向盘：三段显式、文件为媒介、可审计。
+
+```bash
+# ① analyze（只读）：慢回归落盘证据 -> 候选提案
+tool-topology optimize analyze \
+    --topology t.json --scenario suite.json \
+    --slow-report artifacts/slow_regression/run_xxx \
+    --out artifacts/candidates.json
+
+# ② validate（不动任何东西）：三关判定；REJECT 退出码 1
+tool-topology optimize validate \
+    --topology t.json --scenario suite.json \
+    --patch artifacts/candidates.json --trials 3 \
+    --out artifacts/verdict.json
+
+# ③ commit（唯一写操作）：ACCEPT 记录 + 补丁/声明双指纹是硬门槛
+tool-topology optimize commit \
+    --topology t.json --patch artifacts/candidates.json \
+    --validation artifacts/verdict.json \
+    --version v2 --versions-dir artifacts/versions
+
+# ④ rollback：记录重放（非反向补丁；声明指纹不一致拒绝）
+tool-topology optimize rollback \
+    --topology t.json --versions-dir artifacts/versions [--to v2]
+```
+
+| 阶段 | 语义 | 关键裁定 |
+| --- | --- | --- |
+| analyze | 只读提案 | 只看 Optimization 集（防过拟合）；反事实 Fast 预检进候选记录 |
+| validate | 三关判定 | Fast 拦截则跳 Slow（省最贵一步）；sentinel 门 = hash 桶 ∪ metadata；多样性下限自适应（稀疏世界零误杀） |
+| commit | 唯一写 | 缺 ACCEPT / REJECT / 指纹不匹配三类硬拒；版本不可变 |
+| rollback | 记录重放 | 补丁只减不增 → 反向补丁不存在；重放锚点是声明拓扑，指纹校验 |
+
+退出码：validate ACCEPT→0 / REJECT→1（CI 友好）；参数与门禁错误→2。
+
+***
+## 17. 八个阶段一卷串起来看这份"中间语言"
 
 把 Project 定位那句再读一遍：
 
 > A layered tool-routing and topology optimization framework for AI agents.
 
-六个阶段各干各的、又首尾相接：
+主循环六阶段 + 四个加固方向，各干各的、又首尾相接：
 
 ```text
 Phase 1   建空间：   layer/provider/worker 声明出 Graph（搜索空间）
@@ -637,6 +885,10 @@ Phase 3   跑真执行： 执行侧回答"我做成功了吗"（证据：成功�
 Phase 4   收敛空间：  用证据把从未被验证的边安全摘除（候选→验证→版本化）
 Phase 5   排名路线：  四维向量 + Pareto + Tier，不裁决唯一冠军
 Phase 6   在线服务：  执行学到的路线，遥测回流下一轮——闭环
+方向 1    计量加固：  句柄管道让监控零侵入，实测回流为漂移证据
+方向 2    结构扩展：  复合节点让"最终能力"入图，机制自相似递归适用
+方向 3    接入降本：  边际成本趋近 OpenAI 基线，语义负担 authoring→review
+方向 4    运维成型：  Prune 三段式编排，拓扑进化可审计、可回滚
 ```
 
 一处更底层的东西贯穿始终：**Capability 是中间语言**。Tool 用 capability
@@ -695,6 +947,23 @@ python -m capability_runtime.cli rank \
     --min-trials 4 --format text
 # 也可把结果存成 JSON，供 Phase 6 的 Catalog 消费：
 #   ... --format json --out artifacts/ranking.json
+
+# ---- 接入辅助：OpenAI specs -> 拓扑资产（全程离线，propose 除外）----
+# ① 骨架（人工触点 1：layer 归类）
+python -m capability_runtime.cli onboard scaffold     --specs examples/onboarding_demo/openai_specs.json     --layer read --out artifacts/skeleton.json
+# ② 提案（需本地 Ollama；人工触点 2：审 diff 后手写 approved.json）
+python -m capability_runtime.cli onboard propose     --topology artifacts/skeleton.json --out artifacts/proposals.json
+# ③ 应用（审阅门禁：只接受显式 approved）
+python -m capability_runtime.cli onboard apply     --topology artifacts/skeleton.json     --approved examples/onboarding_demo/approved.json     --out artifacts/topology.json
+# ④ 立即验证覆盖
+python -m capability_runtime.cli regression fast     --topology artifacts/topology.json     --scenario examples/onboarding_demo/scenarios.json
+
+# ---- 剪枝编排：三段式（对慢回归落盘产物；拓扑需可执行绑定）----
+python -m capability_runtime.cli optimize analyze     --topology artifacts/topology.json     --scenario examples/datasets/customer_service.fast.json     --slow-report "$(ls -d examples/slow_refund/artifacts/scale_* | tail -1)"     --out artifacts/candidates.json
+python -m capability_runtime.cli optimize validate     --topology artifacts/topology.json     --scenario examples/datasets/customer_service.fast.json     --patch artifacts/candidates.json --trials 2 --out artifacts/verdict.json
+echo "exit=$?"    # ACCEPT=0 / REJECT=1
+python -m capability_runtime.cli optimize commit     --topology artifacts/topology.json --patch artifacts/candidates.json     --validation artifacts/verdict.json     --version v2 --versions-dir artifacts/versions
+python -m capability_runtime.cli optimize rollback     --topology artifacts/topology.json --versions-dir artifacts/versions --to v2
 
 # ---- Phase 6：在线路由 ----
 # 干跑选路（只选不执行）

@@ -608,7 +608,9 @@ def run_onboard(args: argparse.Namespace) -> int:
         except (OSError, json.JSONDecodeError, OnboardingError) as exc:
             print(f"scaffold failed: {exc}", file=sys.stderr)
             return 2
-        Path(args.out).write_text(
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         print(f"skeleton written to {args.out} ({len(payload['tools'])} tools)")
@@ -652,7 +654,9 @@ def run_onboard(args: argparse.Namespace) -> int:
                 for item in proposal_set.invalid_dropped
             ],
         }
-        Path(args.out).write_text(
+        proposals_path = Path(args.out)
+        proposals_path.parent.mkdir(parents=True, exist_ok=True)
+        proposals_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )

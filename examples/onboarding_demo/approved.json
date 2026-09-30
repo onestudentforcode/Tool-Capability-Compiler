@@ -1,0 +1,1 @@
+{"get_order": ["order.read"], "check_refund_policy": ["refund.policy.check"], "issue_refund": ["refund.execute"]}

@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "layers": [
+    {
+      "name": "read",
+      "order": 0
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_order",
+      "layer": "read",
+      "description": "Fetch one order by id, returns amount, status and channel\nParameters: {\"type\": \"object\", \"properties\": {\"order_id\": {\"type\": \"string\", \"description\": \"The order identifier\"}}, \"required\": [\"order_id\"]}",
+      "capabilities": [
+        "order.read"
+      ]
+    },
+    {
+      "name": "check_refund_policy",
+      "layer": "read",
+      "description": "Decide whether an order satisfies the refund policy\nParameters: {\"type\": \"object\", \"properties\": {\"order_id\": {\"type\": \"string\"}}, \"required\": [\"order_id\"]}",
+      "capabilities": [
+        "refund.policy.check"
+      ]
+    },
+    {
+      "name": "issue_refund",
+      "layer": "read",
+      "description": "Execute the refund for an approved order\nParameters: {\"type\": \"object\", \"properties\": {\"order_id\": {\"type\": \"string\"}, \"amount\": {\"type\": \"number\"}}, \"required\": [\"order_id\", \"amount\"]}",
+      "capabilities": [
+        "refund.execute"
+      ]
+    }
+  ]
+}
