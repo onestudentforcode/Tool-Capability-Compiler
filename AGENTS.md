@@ -224,8 +224,8 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      CLI。目标：框架边际接入成本趋近 OpenAI tool spec 基线
      （编写负担降幅 >= 80%，semantic 负担 authoring → review）。
 
-4. optimize 三段式编排补全
-     验收规格已起草：docs/acceptance/optimize-pipeline.md，待审核。
+4. optimize 三段式编排补全——已完成
+     docs/acceptance/optimize-pipeline.md（Step 1-6 全部落地）。
      analyze（证据→候选提案，只读）/ validate（快慢双门+多样性三关判定，
      REJECT 退出码 1）/ commit（唯一写操作，ACCEPT 验证记录 + 补丁指纹
      一致是硬门槛）+ rollback；三段零隐式串联，probe 保持显式，

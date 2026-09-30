@@ -255,9 +255,11 @@ commit    → v2 版本文件 + v2 可执行拓扑；无 verdict / REJECT verdic
 
 | Step | 状态 | 落点 |
 | --- | --- | --- |
-| 1 | [ ] | |
-| 2 | [ ] | |
-| 3 | [ ] | |
-| 4 | [ ] | |
-| 5 | [ ] | |
-| 6 | [ ] | |
+| 1 | [x] | `optimization/artifacts.py`：trial_results_from_dir（含 LayerExecution 最小重建——有损点在 tool_executions 置空，统计所需 available/selected 完整保留）+ observation_report_from_dir + declared/patch 指纹 + export_active_payload；版本矛盾拒绝 |
+| 2 | [x] | `pipeline.analyze`：optimization 集隔离过滤 → Protection/Evidence/Detector/Counterfactual 预检/Batch 分组 → candidates.json（split/指纹/patch 全量） |
+| 3 | [x] | `pipeline.validate`：三关顺序（Fast 拦截则跳 Slow）；sentinel 门 = hash 桶 ∪ metadata.sentinel；多样性下限自适应 min(2, before_families)（稀疏世界零误杀）；REJECT 退出码 1 |
+| 4 | [x] | `pipeline.commit/rollback`：ACCEPT+双指纹门禁三类拒绝；版本不可变；导出可执行 active JSON；rollback 记录重放 + 声明指纹校验 |
+| 5 | [x] | CLI 五子命令（report/analyze/validate/commit/rollback）；validate 前置 executable 检查 |
+| 6 | [x] | 集成 `tests/unit/test_optimize_pipeline.py`（11 项）：真实落盘产物端到端三段流 + sentinel 拒绝定位 + 指纹篡改拒绝 + 记录重放；CLI e2e 用无参数工具世界（JSON 可执行路径无类型契约——文档边界如实兑现） |
+
+全量 555 tests / compileall / diff-check 通过。
