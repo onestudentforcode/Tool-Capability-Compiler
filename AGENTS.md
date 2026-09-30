@@ -201,8 +201,10 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
 核心内方向（不动严格拓扑约束）：
 
 1. 资源 facade 计量（管道拦截）
-     框架提供 mysql / redis / LLM 客户端等资源句柄，工具从管道走则
-     访问计数与 token 自动精确计量；辅以 token 估算兜底（标 estimated）。
+     验收规格已起草：docs/acceptance/resource-metering.md，待审核。
+     框架提供资源句柄（memory / llm / metered 通用包装），工具从管道走则
+     访问计数与 token 自动精确计量（三档 MeteringSource 诚实标注）；
+     计费基准保持声明值不变，实测值作证据与漂移信号。
      解决"监控不依赖工具上报"，与拓扑模型解耦。
 
 2. 复合节点（方向二的采纳形态）
