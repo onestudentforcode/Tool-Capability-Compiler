@@ -89,11 +89,10 @@ tool-topology regression fast \
     --topology examples/topology/refund.json \
     --scenario examples/scenarios/refund.json
 
-# Slow Regression（free 探索；--basefast seeds.json 以 CandidateRoute 为起点）
-tool-topology regression slow \
-    --topology examples/topology/refund.json \
-    --scenario examples/slow_refund/scenarios.json \
-    --trials 5 --out-dir artifacts/slow_regression
+# Slow Regression（进程内 Demo：sandbox 工具 + 场景级 Fixture，脱网可跑）
+python examples/slow_refund/run_demo.py --trials 25 --out-dir artifacts/slow_regression
+# CLI 路径要求 JSON 拓扑为工具声明 "implementation": "module:attr" 绑定，
+# 未绑定的拓扑会被直接拒绝（exit 2），避免空跑污染统计
 
 # 拓扑优化报告（Evidence → Candidate → 验证 → 版本）
 tool-topology optimize \
@@ -111,4 +110,4 @@ python -m pip install -e .
 python main.py
 ```
 
-项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)；当前边界：Phase 1–4 已完成，Phase 5（Route 排名与分级）见 [phase5.md](docs/acceptance/phase5.md)。
+项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)，入门教程见 [tutorial.md](docs/tutorial.md)。当前边界：Phase 0–6 全部完成（含[靶场强化里程碑](docs/acceptance/battlefield-hardening.md)），主循环 Declare → Fast → Slow → Prune → Rank → Route → 回流 已闭合；工程化扩展需先起草新的验收文档（见 [phase6.md](docs/acceptance/phase6.md) §23）。

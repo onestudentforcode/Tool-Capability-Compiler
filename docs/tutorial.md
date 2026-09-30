@@ -1,6 +1,6 @@
 # 项目教程：Tool-Capability-Compiler 到目前为止做了什么
 
-> 面向读者：刚接触本仓库的开发者 / Agent。目标：让你在 30 分钟内理解这个框架"为什么存在、解决什么问题、已经做完了什么（Phase 0–4）"。
+> 面向读者：刚接触本仓库的开发者 / Agent。目标：让你在 45 分钟内理解这个框架"为什么存在、解决什么问题、已经做完了什么（Phase 0–6 全部完成，含靶场强化里程碑，主循环已闭合）"。
 
 ***
 
@@ -257,7 +257,11 @@ tool-topology regression fast \
     --fail-on-regression          # 有回退就退出码 1（CI 友好）
 ```
 
-配套的还有 `TopologyLoader`（Step 10 引入）：**Fast Regression 不执行 Tool**，所以拓扑可以只用 JSON 描述声明，用一个永远不会被调用的占位 handler 构建，无需真实函数实现——这让"纯元数据的快速回归"跑在配置文件上都能成立。
+配套的还有 `TopologyLoader`（Step 10 引入）：**Fast Regression 不执行 Tool**，所以拓扑可以只用 JSON 描述声明，无需真实函数实现——这让"纯元数据的快速回归"跑在配置文件上都能成立。
+
+> 后续演进（靶场强化批次 B）：JSON 工具可选声明 `"implementation": "module:attr"`
+> 入口点绑定真实 async 实现；CLI slow 对未绑定工具**直接拒绝执行**（exit 2），
+> 杜绝"空操作执行污染统计"——见 §10。
 
 实测输出（本地 Ollama）：
 
@@ -354,20 +358,23 @@ node_stats.json / edge_stats.json / route_stats.json
 
 ```bash
 tool-topology regression slow \
-    --topology examples/topology/refund.json \
-    --scenario examples/scenarios/refund.json \
+    --topology topology.json \      # 工具需带 "implementation": "module:attr" 绑定
+    --scenario scenarios/refund.json \
     --trials 100 --environment sandbox \
     --basefast seeds.json          # 可选：用 Fast 的 CandidateRoute 做 seed
-    --out-dir artifacts/run_0001   # 可选：写上面六个文件
+    --out-dir artifacts/run_0001   # 可选：写六个产物文件
 ```
 
-配套离线示例 `examples/slow_refund/`：**10 个 Tool / 3 层**（read 4 + analyze 3 + action 3）的退款域，纯内存假实现可脱网跑：
+> 批次 B 之后，拓扑 JSON 必须给工具绑定可执行实现，否则 CLI 拒绝执行。
+> 最快上手用进程内 Demo（§10 批次 C/D 的 sandbox 工具与场景级 Fixture）：
+
+配套离线示例 `examples/slow_refund/`：**10 个 Tool / 3 层**（read 4 + analyze 3 + action 3）的退款域。注意：这批工具在"靶场强化里程碑"（§10）里已经从"返回常量"升级为读取确定性内存订单库——行为随场景数据变化、有真实失败路径、带差异化成本与延迟，所以下面的数字会随场景变体组合浮动（这正是差分要看的）：
 
 ```bash
-python examples/slow_refund/run_demo.py --trials 100 --out-dir artifacts
+python examples/slow_refund/run_demo.py --trials 25 --out-dir artifacts
 ```
 
-一次实测输出：**100 个 Trial → 30 个唯一 route_id；业务成功 74 / 失败 26；10/10 节点、21/21 条边都被观察到；产物全部落盘**。（数字随 run 浮动，属正常——这正是差分要看的。）
+一次实测输出：**25 个 Trial → 15 个唯一 route_id；业务成功 19 / 失败 6；10/10 节点、21/21 条边都被观察到；延迟在 64–113ms 间真实分化；产物全部落盘**。
 
 ### 7.9 Phase 3 的 14 个 Step
 
@@ -390,7 +397,7 @@ Step 14  持久化（JSONL/manifest/stats）+ `regression slow` CLI + 离线 Dem
 
 ***
 
-## 8. 到现在为止：Phase 0–4 一句话回顾
+## 8. 到现在为止：Phase 0–6 一句话回顾
 
 ```text
 Phase 0  立宪：Graph 是搜索空间，不是答案；声明拓扑与活跃拓扑分离。
@@ -404,10 +411,15 @@ Phase 3  探索：Slow Regression —— 真正执行 Tool、逐层传播状态�
 Phase 4  优化：Topology Optimization —— 消费 Phase 3 证据，规则式识别剪枝候选、
                虚拟补丁反事实验证、探针补证、快/慢双门 + 多样性命门校验，
                版本化提交/回滚 + 优化报告 + optimize CLI，把活跃拓扑逐步收敛。
+靶场强化   Battlefield Hardening —— 补齐被"骨架先行"跳过的靶场实质：计量贯通、
+               可执行绑定、Sandbox 工具真实化、场景级 Fixture、场景资产与规模实跑。
+Phase 5  排名：Route Ranking —— 四维证据向量（success/quality/latency/cost）、
+               Wilson 区间、Pareto 前沿、Fast/Balanced/Quality Tier、rank CLI。
+Phase 6  在线：Online Routing —— 版本门禁的 RouteCatalog、Tier 偏好选路、
+               轮转均衡、路线跟随执行、有界降级、遥测回流离线闭环。
 ```
 
-实现边界（`phase2.md` §68 全部标记 COMPLETE；`phase3-plan.md` §9 全部勾选 `[x]`；
-`phase4-plan.md` §6 的 13 个 Step 全部勾选 `[x]`）：
+实现边界（各 `phaseN-plan.md` 进度表全部勾选；里程碑批次 A–E 全部落地）：
 
 ```text
 Phase 2  Step 1–10  能力覆盖验证（CapabilityRegistry → … → Fast Regression CLI）
@@ -415,9 +427,14 @@ Phase 3  Step 1–14  执行探索（ExecutionState → … → 持久化 + slow
 Phase 4  Step 1–13  拓扑优化（Evidence → Candidate → Patch → Counterfactual → Probe
                      → Batch → Fast/Slow Gate → Diversity Guard → Dataset Split
                      → Versioning → Report）+ optimize CLI
+里程碑    批次 A–E   计量 / 可执行绑定 / Sandbox 工具 / Fixture / 场景资产+实跑
+Phase 5  Step 1–9   ranking/ 顶包 + rank CLI
+Phase 6  Step 1–9   online/ 顶包 + select CLI + 服务 Demo + 闭环
 ```
 
-测试规模：全量 **354 个测试通过**（Python 3.14），且 **Phase 2 / Phase 3 / Phase 4 测试都不依赖真实 LLM / 网络 / HTTP**（LLM 相关统一注入假 HTTP；CLI 的 slow 模式用 JSON 描述的可执行占位工具；Phase 4 的探针/反事实全部走 fake 执行路径）。
+测试规模：全量 **497 个测试通过**（Python 3.14），且所有测试都不依赖真实
+LLM / 网络 / HTTP（LLM 相关统一注入假 HTTP；执行用确定性 sandbox 工具；
+优化/排名/在线全部离线可复现）。
 
 ***
 
@@ -479,60 +496,213 @@ tool-topology optimize \
     --out report.json
 ```
 
-> 注意：Phase 4 把"证据 → 候选 → 验证 → 版本化"的**组件**全部落地；但完整的 `analyze / validate / commit` 三段式端到端编排（`optimize analyze|validate|commit`）属后续 Step，最终 commit 始终显式需人工/脚本确认。
+> 注意：Phase 4 把"证据 → 候选 → 验证 → 版本化"的**组件**全部落地；但完整的 `analyze / validate / commit` 三段式端到端编排（`optimize analyze|validate|commit`）属后续 Step，最终 commit 始终显式需人工/脚本确认。真实证据的消费示例见 §10 批次 E 的 `run_scale.py`（ProtectionRegistry → EvidenceAggregator → CandidateDetector 联动）。
 
 ***
 
-## 10. 前三阶段一卷串起来看这份"中间语言"
+## 10. 靶场强化里程碑 —— 把"骨架"补成"靶场"
+
+> 一句话：Phase 3/4 的管道在纸面上完备，但喂给它们的数据是空心的——这个里程碑在进入 Phase 5 之前把靶场（Battlefield）做实。
+
+### 10.1 为什么要停一下
+
+2026-09 的一次代码盘点发现三层缺口：
+
+```text
+计量层   TrialResult.cost 硬编码 None；ToolExecution 的 cost/token 字段从不填充；
+         LLMRouter 不记账；quality_score 只有二值 1.0/0.0
+工具层   demo 工具返回硬编码常量（与场景无关）；JSON 拓扑绑 _null_handler，
+         CLI slow 实际执行的是空操作
+数据层   场景资产 2+5 条且无 category；Fixture 只做深拷贝不准备任何后端状态；
+         验收规模的端到端实跑从未发生
+```
+
+在这样的地基上直接做 Phase 5 排名，四维里有二维是死的（cost=None、
+quality=success 的复制），另外二维没有区分度（success 趋同、latency 是
+微秒噪声）——Pareto 全员互不支配，报告技术上正确、信息量为零。
+详见 `docs/acceptance/battlefield-hardening.md` §0 的完整推演。
+
+### 10.2 五个批次各补了什么
+
+| 批次 | 交付 | 关键语义 |
+| ---- | ---- | ---- |
+| A 计量贯通 | `cost_per_call` 声明、`RoutingDecision.token_usage/routing_cost`、`TrialResult.tool_cost/routing_cost/evaluation_cost` | **按调用尝试计费**（超时/异常也算钱）；全缺省保持 `None` 不臆造 0；execution 与 evaluation 成本分离 |
+| B 可执行绑定 | JSON 工具 `"implementation": "module:attr"` 入口点 + `unbound_tool_names` | CLI slow 对未绑定拓扑 fail-fast（exit 2），拒绝静默空跑 |
+| C Sandbox 工具 | `store.py` 五变体（eligible/ineligible/high_risk/not_found/erp_down）+ Composite 评估器 | 工具行为随数据分支、有失败路径、延迟 3–50ms 成本 $0.001–0.01 真实分化；quality 进入 (0,1) 连续区间 |
+| D Fixture 状态化 | `SandboxFixtureManager`（`metadata.fixture` 播种）+ `refund_api` 幂等守卫 | 每 trial 重置沙箱；守卫让"隔离失效会泄漏"变得**可观测** |
+| E 资产+实跑 | 60 场景 5 类精确 70/15/15 分布 + `run_scale.py` | 50 场景×5 trials=250 trials：41 路线、业务 160/81、25.9s、artifacts 全落盘 |
+
+批次 E 还顺手暴露了两个**真实拓扑边界**：`summarizer` 是死路（workers=[]）、
+`send_email` 不可达（providers=[]）——设计里"应该 covered"的场景实测
+TOPOLOGY_DISCONNECTED，这正是 Fast Regression 该揭示的东西。
+
+***
+
+## 11. Phase 5 —— Route Ranking（把证据变成多维排名）
+
+> 一句话：Phase 4 回答"哪些搜索空间可以删"，Phase 5 回答"剩下的路线里，哪些快、哪些便宜、哪些质量高"。
+
+### 11.1 核心纪律：四维向量不降维
+
+Phase 0 §11 立下的原则在这里兑现——排名保持
+`success / quality / latency / cost` 四维，**禁止压缩成单一综合分数**：
+
+- success 附带 **Wilson 置信区间**（n=10 全成功 → [72.2%, 100%]，样本少区间就宽）；
+- 两个区间重叠 → **STATISTICAL_TIE**，并列展示，不强行排出先后；
+- 样本不足 `min_trials`（默认 20）→ **INSUFFICIENT_EVIDENCE**，只列清单注明差多少，不进排名；
+- 某维数据全缺省 → 保持 `None`，退出支配判定并标记，绝不臆造 0。
+
+### 11.2 Pareto 与 Tier
+
+- **Pareto 前沿**：四目标支配判定（success↑ quality↑ latency↓ cost↓），
+  被支配路线带"被谁支配"的归因；
+- **Tier**：FAST / BALANCED / QUALITY 独立判定（可多标签、可 UNASSIGNED），
+  规则全部是"相对最优 + 容差"的不等式，阈值集中在 `TierConfig`，
+  每个分配带指标快照与命中规则文本——**禁止黑盒分级**；
+- **category 维度**：逐类别排名，best 只在类内取值（同一路线全局被支配、
+  类内可能在前沿）。
+
+### 11.3 CLI 与真实数据
+
+```bash
+tool-topology rank --slow-report artifacts/slow_regression/run_xxx \
+    [--scenario suite.json] [--min-trials 20] [--format text|json]
+```
+
+只读落盘 artifacts（manifest + traces.jsonl），版本混杂直接拒绝。对批次 E
+的 250-trial 实跑（min-trials=4）：**18/41 条路线入选**，Wilson 区间真实
+收窄、成本 $0.001–0.023 分化、QUALITY tier 命中带完整摘要链的路线、
+失败的 partial 路线全部 UNASSIGNED 留在向量表中。
+
+***
+
+## 12. Phase 6 —— Online Routing（执行学到的路线，闭环完成）
+
+> 一句话：在线阶段不再探索——路线由离线证据决定，在线只做"选路、均衡、有界降级、记账回流"。
+
+### 12.1 全项目的收敛点
+
+```text
+Phase 3 在线 = 自由探索（每层 Agent 选择）
+Phase 6 在线 = 路线跟随（执行离线选定的路线）
+```
+
+在线的全部自由度只有三处且全部有界：Tier 偏好（请求级覆盖配置起点）、
+同级轮转均衡（RoundRobin，确定性）、有界降级（`max_fallbacks`，同一请求
+永不重复已失败路线）。在线不做业务评估（Judge 属离线），降级只由
+**执行失败**触发。
+
+### 12.2 关键机制
+
+| 机制 | 落点 | 一句话 |
+| ---- | ---- | ---- |
+| **版本门禁** | `RouteCatalog` | ranking 的 topology_version 必须与 Active Topology 一致，否则拒绝服务（fail closed）；路线结构由 canonical 确定性重建并逐一对照拓扑 |
+| **选路** | `candidate_groups` | Tier 优先链（默认 fast>balanced>quality）；ranked 未贴标签的路线作链末兜底，有覆盖的 category 不因缺标签不可服务 |
+| **执行** | `OnlineRuntime` | 复用 Phase 3 LayerExecutor；同层部分失败继续、整层失败降级；失败尝试同样计费 |
+| **可解释** | `OnlineResult` | 每次结果带选择原因 + 完整降级链（从哪条到哪条、什么原因），可回放 |
+| **闭环** | `online_results_to_trials` | 在线观测转回 TrialResult，直接作为下一轮 Phase 3/4/5 的 evidence 输入——在线零变更，遥测只回流 |
+
+### 12.3 Demo 与干跑 CLI
+
+```bash
+# 干跑：只选路不执行（列各 Tier 候选 + 将选中谁 + 原因）
+tool-topology select --topology t.json --ranking r.json \
+    [--category refund] [--tier fast] [--format json]
+
+# 进程内服务 Demo：学习 → 服务（含注入失败）→ 遥测 → 闭环，全程离线
+python examples/online_refund/serve_demo.py
+```
+
+Demo 实测：fast 偏好命中 62ms 路线、quality 偏好命中 155ms 路线、同级轮转
+可见；注入 `not_found` 后降级链完整回放（read 失败 → analyze 失败 → 有界
+耗尽 ROUTE_FAILED）；注入 `erp_down` 后部分失败继续服务；8 条在线观测转成
+TrialResult 喂进 Phase 4 的 EvidenceAggregator（8 nodes / 21 edges）——
+**项目主循环正式闭合**。
+
+***
+
+## 13. 六个阶段一卷串起来看这份"中间语言"
 
 把 Project 定位那句再读一遍：
 
 > A layered tool-routing and topology optimization framework for AI agents.
 
-三个阶段各干各的、又首尾相接：
+六个阶段各干各的、又首尾相接：
 
 ```text
-Phase 1 建空间：   layer/provider/worker 声明出 Graph（搜索空间）
-Phase 2 验覆盖：   元数据侧回答"我有能力吗"（COVERED / UNCERTAIN / UNCOVERED）
-Phase 3 跑真执行： 执行侧回答"我做成功了吗"（证据：成功路线 / unused edges）
-Phase 4 收敛空间：  用证据把从未被验证的边安全摘除（候选→验证→版本化）
+Phase 1   建空间：   layer/provider/worker 声明出 Graph（搜索空间）
+Phase 2   验覆盖：   元数据侧回答"我有能力吗"（COVERED / UNCERTAIN / UNCOVERED）
+Phase 3   跑真执行： 执行侧回答"我做成功了吗"（证据：成功路线 / unused edges）
+靶场强化   夯地基：   计量、可执行、数据真实化——让证据有信息量
+Phase 4   收敛空间：  用证据把从未被验证的边安全摘除（候选→验证→版本化）
+Phase 5   排名路线：  四维向量 + Pareto + Tier，不裁决唯一冠军
+Phase 6   在线服务：  执行学到的路线，遥测回流下一轮——闭环
 ```
 
-一处更底层的东西贯穿始终：**Capability 是中间语言**。Tool 用 capability 声明能力，Scenario 用 expected capability 描述需求，Layer 通过 capability 校验边是否合法，拓扑缺口（Topology Gap）与能力缺口（Capability Gap）都用 capability 对齐——这就是 `Tool-Capability-Compiler` 这个名字的由来。
+一处更底层的东西贯穿始终：**Capability 是中间语言**。Tool 用 capability
+声明能力，Scenario 用 expected capability 描述需求，Fast Regression 用
+capability 判覆盖，拓扑缺口（Topology Gap）与能力缺口（Capability Gap）
+都用 capability 对齐，Phase 4 的保护规则（唯一 Provider / sentinel 锁）也
+建立在 capability 之上——这就是 `Tool-Capability-Compiler` 这个名字的由来。
 
 ***
 
 ## 附录：快速上手指令
 
+先安装（或给下面所有 `python -m` 命令加 `PYTHONPATH=src` 前缀）：
+
 ```bash
-# Python 版本需 >= 3.12（若默认 python 是 3.10，用系统的 3.14）
-C:\Python314\python.exe -m pytest -q
+python -m pip install -e .        # 注册 tool-topology 终端命令
+```
 
-# 跑一次 Gold 模式快回归（不看执行）
-C:\Python314\python.exe -m capability_runtime.cli regression fast \
+```bash
+# 全量验证（Python >= 3.12；Windows 下若无默认 python 可用 C:\Python314\python.exe）
+python -m pytest -q
+python -m compileall -q src tests main.py
+git diff --check
+
+# ---- Phase 2：Fast Regression ----
+# Gold 模式（确定性、零 LLM）。数据集刻意含 15% 未覆盖场景，
+# CI 用法可加 --fail-on-regression（出现回退则退出码 1）
+python -m capability_runtime.cli regression fast \
     --topology examples/topology/refund.json \
-    --scenario examples/scenarios/refund.json
+    --scenario examples/datasets/customer_service.fast.json
 
-# 跑一次 Discovery（接本地 Ollama，需先 ollama pull qwen3:1.7b 且已启动）
-C:\Python314\python.exe -m capability_runtime.cli regression fast \
+# Discovery 模式（接本地 Ollama，需先 ollama pull qwen3:1.7b 并启动）
+python -m capability_runtime.cli regression fast \
     --topology examples/topology/refund.json \
     --scenario examples/scenarios/refund.json \
     --mode discovery
 
-# 跑一次慢回归（真实执行 100 个 Trial，落盘证据）
-C:\Python314\python.exe -m capability_runtime.cli regression slow \
-    --topology examples/topology/refund.json \
-    --scenario examples/scenarios/refund.json \
-    --trials 100 --out-dir artifacts/run_0001
+# ---- Phase 3：Slow Regression ----
+# 离线退款 Demo（10 工具 / 3 层 / 场景级 Fixture，脱网可跑）
+python examples/slow_refund/run_demo.py --trials 25 --out-dir artifacts
 
-# 跑离线退款 Demo（10 Tool / 3 Layer，脱网可跑）
-C:\Python314\python.exe examples\slow_refund\run_demo.py --trials 100 --out-dir artifacts
+# ---- 靶场强化：规模实跑 + optimize 联动 ----
+# 50 场景 × 5 trials：250 trials 实跑落盘，真实证据喂给
+# ProtectionRegistry → EvidenceAggregator → CandidateDetector
+python examples/slow_refund/run_scale.py --scenarios 50 --trials 5
 
-# 跑一次拓扑优化报告（Phase 4，确定性输出，可存 JSON）
-C:\Python314\python.exe -m capability_runtime.cli optimize \
+# ---- Phase 4：优化报告 ----
+python -m capability_runtime.cli optimize \
     --topology examples/topology/refund.json \
-    --scenario examples/scenarios/refund.json \
-    --start-version v1 --end-version v2 \
-    --format text
+    --scenario examples/datasets/customer_service.fast.json \
+    --start-version v1 --end-version v2 --format text
+
+# ---- Phase 5：Route 排名（消费 slow artifacts）----
+python -m capability_runtime.cli rank \
+    --slow-report "$(ls -d examples/slow_refund/artifacts/scale_* | tail -1)" \
+    --min-trials 4 --format text
+# 也可把结果存成 JSON，供 Phase 6 的 Catalog 消费：
+#   ... --format json --out artifacts/ranking.json
+
+# ---- Phase 6：在线路由 ----
+# 干跑选路（只选不执行）
+python -m capability_runtime.cli select \
+    --topology examples/topology/refund.json \
+    --ranking artifacts/ranking.json --category refund --tier fast
+
+# 进程内服务 Demo（学习 → 服务 → 注入失败降级 → 遥测 → 闭环）
+python examples/online_refund/serve_demo.py --out-dir artifacts
 ```
 
