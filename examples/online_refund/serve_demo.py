@@ -151,6 +151,14 @@ async def main(argv: list[str] | None = None) -> int:
             f"served={stat.served_count:<3} failed={stat.failed_count:<3} "
             f"latency_median={stat.latency_median:.0f}ms"
         )
+    access_total: dict[str, int] = {}
+    for record in telemetry.records:
+        for key, count in (record.access_counts or {}).items():
+            access_total[key] = access_total.get(key, 0) + count
+    if access_total:
+        print("Resource access (metered handles):")
+        for key, count in sorted(access_total.items()):
+            print(f"  {key:<28}{count}")
     if args.out_dir:
         out = Path(args.out_dir)
         out.mkdir(parents=True, exist_ok=True)

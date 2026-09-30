@@ -46,6 +46,7 @@ class OnlineRecord:
     input_tokens: int
     output_tokens: int
     fallback_depth: int
+    access_counts: dict[str, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,7 @@ def record_of(result: OnlineResult) -> OnlineRecord:
         input_tokens=result.token_usage.input_tokens,
         output_tokens=result.token_usage.output_tokens,
         fallback_depth=result.fallback_depth,
+        access_counts=_access_of(result),
     )
 
 
@@ -175,6 +177,22 @@ def online_results_to_trials(
     return tuple(converted)
 
 
+def _access_of(result: OnlineResult) -> dict[str, int] | None:
+    merged: dict[str, int] | None = None
+    trace = result.trace
+    if trace is None:
+        return None
+    for layer in trace.layers:
+        for execution in layer.tool_executions:
+            if not execution.access_counts:
+                continue
+            if merged is None:
+                merged = {}
+            for key, count in execution.access_counts.items():
+                merged[key] = merged.get(key, 0) + count
+    return merged
+
+
 def _route_of(result: OnlineResult) -> ObservedRoute | None:
     trace = result.trace
     if trace is None:
@@ -199,6 +217,7 @@ def _to_json(value: Any) -> Any:
                 "request_id", "timestamp", "category", "tier_preference",
                 "selected_route_id", "status", "latency_ms", "cost",
                 "input_tokens", "output_tokens", "fallback_depth",
+                "access_counts",
             )
         }
     raise OnlineRoutingError(f"cannot serialize telemetry record {type(value)!r}")

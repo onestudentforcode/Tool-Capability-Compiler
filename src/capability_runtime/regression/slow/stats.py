@@ -63,6 +63,7 @@ class RouteObservationStats:
     latencies: tuple[float, ...] = ()
     costs: tuple[float, ...] = ()
     quality_scores: tuple[float, ...] = ()
+    access_counts: dict[str, int] | None = None
 
     @property
     def latency_basics(self) -> tuple[float | None, float | None, float | None]:
@@ -206,6 +207,14 @@ def build_observation_stats(
             opportunity_count=edge_opportunity[(source, target)],
         )
 
+    route_access: dict[str, dict[str, int]] = defaultdict(dict)
+    for result in results:
+        if result.route is None or not result.access_counts:
+            continue
+        bucket = route_access[result.route.route_id]
+        for key, count in result.access_counts.items():
+            bucket[key] = bucket.get(key, 0) + count
+
     route_stats: dict[str, RouteObservationStats] = {}
     for route_id in sorted(observed_routes):
         route_stats[route_id] = RouteObservationStats(
@@ -217,6 +226,8 @@ def build_observation_stats(
             latencies=tuple(sorted(route_lat[route_id])),
             costs=tuple(sorted(route_cost[route_id])),
             quality_scores=tuple(sorted(route_quality[route_id])),
+            access_counts=dict(sorted(route_access[route_id].items()))
+            or None,
         )
 
     distribution = {

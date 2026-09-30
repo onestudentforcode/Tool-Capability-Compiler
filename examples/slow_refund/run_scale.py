@@ -37,6 +37,7 @@ from capability_runtime import (  # noqa: E402
     SlowRegressionWriter,
     build_observation_stats,
     build_slow_regression_report,
+    drift_findings,
 )
 from fixtures import SandboxFixtureManager  # noqa: E402
 from refund import build_evaluator, build_topology  # noqa: E402
@@ -159,6 +160,31 @@ def optimize_linkage(topology, suite, outcome, obs) -> dict:
     }
 
 
+def metering_linkage(topology, results) -> dict:
+    """Aggregate resource access + declared-vs-measured drift (facts only)."""
+    access: dict[str, int] = {}
+    measured: dict[str, tuple[float, int]] = {}
+    for result in results:
+        for key, count in (result.access_counts or {}).items():
+            access[key] = access.get(key, 0) + count
+        for layer in result.trace.layers:
+            for execution in layer.tool_executions:
+                if execution.measured_cost is not None:
+                    total, n = measured.get(execution.tool_name, (0.0, 0))
+                    measured[execution.tool_name] = (total + execution.measured_cost, n + 1)
+    measured_mean = {tool: (total / n, n) for tool, (total, n) in measured.items()}
+    declared = {
+        name: topology.node(name).spec.cost_per_call
+        for name in topology.nodes()
+        if topology.node(name).spec.cost_per_call is not None
+    }
+    findings = drift_findings(measured_mean, declared)
+    return {
+        "access_counts": dict(sorted(access.items())),
+        "drift": [finding.summary for finding in findings],
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scale slow-regression run")
     parser.add_argument("--scenarios", type=int, default=50)
@@ -195,6 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     summary = optimize_linkage(topology, suite, outcome, obs)
+    summary["metering"] = metering_linkage(topology, outcome.results)
     summary["run"] = {
         "scenarios": args.scenarios,
         "trials_per_scenario": args.trials,
@@ -237,6 +264,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {name:<26}{size:>10} bytes")
     print("Optimization linkage (observation only):")
     print(f"  candidates by status: {summary['candidates_by_status']}")
+    access = summary["metering"]["access_counts"]
+    if access:
+        print("Resource access (metered handles):")
+        for key, count in access.items():
+            print(f"  {key:<28}{count}")
+    for line in summary["metering"]["drift"]:
+        print(f"  {line}")
     return 0
 
 

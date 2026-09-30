@@ -37,6 +37,7 @@ class TrialRow:
     segment_tool_counts: tuple[int, ...]
     topology_version: str
     router_config_id: str
+    access_counts: dict[str, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +71,19 @@ class RouteProfile:
     layer_count: int
     topology_version: str
     router_config_id: str
+    access_counts: dict[str, int] | None = None
+
+
+def _merge_access(rows) -> dict[str, int] | None:
+    merged: dict[str, int] | None = None
+    for row in rows:
+        if not row.access_counts:
+            continue
+        if merged is None:
+            merged = {}
+        for key, count in row.access_counts.items():
+            merged[key] = merged.get(key, 0) + count
+    return merged
 
 
 def rows_from_results(results: Sequence[TrialResult]) -> tuple[TrialRow, ...]:
@@ -108,6 +122,9 @@ def rows_from_results(results: Sequence[TrialResult]) -> tuple[TrialRow, ...]:
                 ),
                 topology_version=result.trial.topology_version,
                 router_config_id=result.trial.router_config_id,
+                access_counts=dict(result.access_counts)
+                if result.access_counts
+                else None,
             )
         )
     return tuple(rows)
@@ -209,6 +226,7 @@ def build_profiles(
                     input_tokens=sum(row.input_tokens for row in with_route),
                     output_tokens=sum(row.output_tokens for row in with_route),
                 ),
+                access_counts=_merge_access(with_route),
                 tool_count=sum(segment_tool_counts),
                 layer_count=len(segment_tool_counts),
                 topology_version=topology_version,

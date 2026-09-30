@@ -260,6 +260,9 @@ def _row_from_json(payload: Mapping[str, Any]) -> TrialRow:
         ),
         topology_version=str(trial["topology_version"]),
         router_config_id=str(trial["router_config_id"]),
+        access_counts=dict(payload["access_counts"])
+        if payload.get("access_counts")
+        else None,
     )
 
 

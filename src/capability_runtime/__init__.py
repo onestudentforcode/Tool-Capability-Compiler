@@ -152,6 +152,17 @@ from .regression import (
     compute_diff,
 )
 from .route import RouteLayer, RoutePlan
+from .resources import (
+    DriftFinding,
+    InMemoryStore,
+    LLMResource,
+    LLMResponse,
+    MeteringCollector,
+    MeteringSource,
+    drift_findings,
+    estimate_tokens,
+    metered,
+)
 from .ranking import (
     CategoryRanking,
     EligibilityStatus,
@@ -379,6 +390,15 @@ __all__ = [
     "wilson_interval",
     "z_score",
     "Objective",
+    "DriftFinding",
+    "InMemoryStore",
+    "LLMResource",
+    "LLMResponse",
+    "MeteringCollector",
+    "MeteringSource",
+    "drift_findings",
+    "estimate_tokens",
+    "metered",
     "FallbackStep",
     "OnlineConfig",
     "OnlineRecord",
