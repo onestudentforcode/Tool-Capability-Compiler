@@ -57,6 +57,9 @@ from .errors import (
     CompositeError,
     CompositeSpecError,
     CompositeExecutionError,
+    OnboardingError,
+    ProposalError,
+    ApplyError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -97,6 +100,9 @@ __all__ = [
     "CompositeError",
     "CompositeSpecError",
     "CompositeExecutionError",
+    "OnboardingError",
+    "ProposalError",
+    "ApplyError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

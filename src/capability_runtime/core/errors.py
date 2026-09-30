@@ -226,3 +226,15 @@ class CompositeSpecError(CompositeError):
 
 class CompositeExecutionError(CompositeError):
     """Runtime failure inside a composite (stop condition unmet, etc.)."""
+
+
+class OnboardingError(TopologyFrameworkError):
+    """Onboarding-assist failure root (onboarding-assist milestone)."""
+
+
+class ProposalError(OnboardingError):
+    """Capability-proposal transport/parse failure."""
+
+
+class ApplyError(OnboardingError):
+    """Review-gate rejection or failed validation on apply."""
