@@ -32,8 +32,8 @@ tool-topology optimize commit \
     --validation verdict.json \
     --versions-dir artifacts/versions
 
-# ④ rollback（可选）：回到声明拓扑
-tool-topology optimize rollback --versions-dir artifacts/versions --to v1
+# ④ rollback：记录重放（缺省 = 全量回声明拓扑；--to vN = 重放该版本记录）
+tool-topology optimize rollback     --topology t.json --versions-dir artifacts/versions [--to v2]
 ```
 
 三段之间**零隐式串联**（同 onboarding-assist 的审阅门禁哲学）：
@@ -131,8 +131,26 @@ optimize commit --version v2 --patch candidates.json \
   同时导出该版本的**可执行拓扑 JSON**（补丁已应用）供 Rank/Online 消费；
 - 人工确认 = 审阅 candidates/verdict + 亲自执行 commit 命令，与
   phase4-plan §5 的"commit 显式人工确认"一致；
-- `rollback`：按 §0 形式回到指定版本（沿用现成 `rollback()`），
-  版本历史不可变（§101）。
+- `rollback`：**记录重放（restore-by-record），非反向补丁**。
+  依赖三条，缺一即拒绝（退出码 2）：
+
+  1. **版本记录文件**（commit 产出）：记录含版本标签、base、composed
+     patch、来源验证记录、**声明拓扑指纹**；
+  2. **声明拓扑一致**：重放的锚点是声明拓扑——重放时校验当前
+     `--topology` 的指纹与记录内的声明指纹一致；声明已变则该记录
+     不可重放（提示重新走 analyze → validate），绝不静默拼装；
+  3. **只减不增的补丁模型**：`TopologyPatch` 仅含 disabled 集合，
+     不存在反向补丁——任何"回退"只能是重放某版本自己的补丁记录，
+     git revert 式撤销在本模型上不存在。
+
+  语义：
+  - 缺省 `--to`：全量回声明拓扑（现成 `rollback()` 语义——
+    active = declared、patch 清空）；
+  - `--to vN`：加载 vN 记录 → `apply_patch(declared, vN.patch)` 重放
+    → 写出新的当前版本记录；历史不可变（§101），只移当前指针，
+    不删不改旧记录；
+  - 逐批次的细粒度回退仍属 BatchCandidateBuilder 的 bisect 流程，
+    rollback 不越权。
 
 ---
 
@@ -169,7 +187,7 @@ PROBE_REQUIRED 自动补证 —— probe 保持显式（未来可另立 optimize
 | 1 | `optimization/artifacts.py` + errors | 两类适配器往返正确；版本矛盾拒绝；离线 |
 | 2 | `optimization/pipeline.py::analyze` | Optimization 集隔离；保护/反事实预检进候选记录；candidates.json 可序列化往返 |
 | 3 | `pipeline.py::validate` | 三关顺序（Fast 不过不跑 Slow）；verdict 完整可定位；退出码三档 |
-| 4 | `pipeline.py::commit/rollback` | 验证记录门禁三类拒绝；版本文件落盘；导出可执行拓扑 JSON |
+| 4 | `pipeline.py::commit/rollback` | 验证记录门禁三类拒绝；版本文件落盘（含声明指纹）；导出可执行拓扑 JSON；rollback 缺省全量回声明 / `--to` 记录重放 + 声明指纹校验 |
 | 5 | CLI 接线（optimize analyze/validate/commit/rollback + 旧命令转 report） | 三段命令离线可跑；教程/README 更新 |
 | 6 | 端到端集成 | run_scale 产物 → analyze → validate → commit v2 → rank 消费 v2 拓扑 |
 
@@ -201,7 +219,8 @@ PROBE_REQUIRED 自动补证 —— probe 保持显式（未来可另立 optimize
 
 * [ ] ACCEPT 记录 + 指纹一致是硬门槛
 * [ ] 版本文件 + 可执行拓扑 JSON 导出；历史不可变
-* [ ] rollback 可回退
+* [ ] rollback：缺省全量回声明；`--to` 记录重放；声明指纹不一致拒绝
+* [ ] 无反向补丁路径（模型层面不存在）
 
 ## 边界
 
@@ -226,7 +245,8 @@ validate  → 对构造的可安全补丁（禁用一条确无使用的边）跑
 commit    → v2 版本文件 + v2 可执行拓扑；无 verdict / REJECT verdict /
             指纹不匹配三类拒绝全部触发
 
-回环      → v2 拓扑可被 rank 消费；rollback 可退回 v1
+回环      → v2 拓扑可被 rank 消费；rollback --to v1 记录重放成功；
+            篡改声明拓扑后重放 → 指纹不一致拒绝
 ```
 
 ---
