@@ -24,6 +24,21 @@ from capability_runtime import (
     FakeRouter,
 )
 
+def _invoke_direct(tool_node, *args):
+    """Invoke a tool outside the executor, with a metering context attached.
+
+    Sandbox tools access metered resource handles, which require a collector
+    context; direct invocation in tests must mount one explicitly.
+    """
+    from capability_runtime.resources import mount_collector, unmount_collector
+
+    token = mount_collector()
+    try:
+        return asyncio.run(tool_node.invoke(*args))
+    finally:
+        unmount_collector(token)
+
+
 _PROJECT = Path(__file__).resolve().parents[2]
 _DEMO = _PROJECT / "examples" / "slow_refund"
 sys.path.insert(0, str(_DEMO))
@@ -75,7 +90,7 @@ def test_store_reset_clears_refunded_history() -> None:
 def test_order_db_fails_when_order_missing() -> None:
     store.STORE.reset("not_found")
     with pytest.raises(LookupError):
-        asyncio.run(refund.order_db.invoke())
+        _invoke_direct(refund.order_db)
 
 
 def test_erp_fails_when_backend_down() -> None:
@@ -98,14 +113,15 @@ def test_policy_branches_on_order_data() -> None:
 def test_refund_api_records_successful_refund() -> None:
     store.STORE.reset("eligible")
     order = store.STORE.order
-    result = asyncio.run(
-        refund.refund_api.invoke(order, facts.PolicyDecision("approve"))
+    result = _invoke_direct(
+        refund.refund_api, order, facts.PolicyDecision("approve")
     )
     assert result.success
     assert store.STORE.refunded_order_ids == frozenset({order.order_id})
+    assert store.STORE.refunds.snapshot()[order.order_id]["amount"] == order.amount
 
-    rejected = asyncio.run(
-        refund.refund_api.invoke(order, facts.PolicyDecision("reject"))
+    rejected = _invoke_direct(
+        refund.refund_api, order, facts.PolicyDecision("reject")
     )
     assert not rejected.success
     assert rejected.refunded_amount == 0.0
