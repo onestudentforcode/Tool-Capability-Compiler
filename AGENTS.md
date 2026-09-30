@@ -225,8 +225,11 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      （编写负担降幅 >= 80%，semantic 负担 authoring → review）。
 
 4. optimize 三段式编排补全
-     analyze / validate / commit 端到端 CLI 编排（Phase 4 组件已齐，
-     目前仅 run_scale.py 演示联动；commit 保持显式人工确认）。
+     验收规格已起草：docs/acceptance/optimize-pipeline.md，待审核。
+     analyze（证据→候选提案，只读）/ validate（快慢双门+多样性三关判定，
+     REJECT 退出码 1）/ commit（唯一写操作，ACCEPT 验证记录 + 补丁指纹
+     一致是硬门槛）+ rollback；三段零隐式串联，probe 保持显式，
+     旧版两版本报告保留为 optimize report。
 
 工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
 
