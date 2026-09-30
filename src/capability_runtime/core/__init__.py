@@ -60,6 +60,9 @@ from .errors import (
     OnboardingError,
     ProposalError,
     ApplyError,
+    OptimizePipelineError,
+    ArtifactLoadError,
+    CommitGateError,
 )
 from .failure import TrialFailureCategory
 from .layer import Layer
@@ -103,6 +106,9 @@ __all__ = [
     "OnboardingError",
     "ProposalError",
     "ApplyError",
+    "OptimizePipelineError",
+    "ArtifactLoadError",
+    "CommitGateError",
     "ValidationGateError",
     "InvalidCapabilityError",
     "InvalidRoutingDecisionError",

@@ -238,3 +238,15 @@ class ProposalError(OnboardingError):
 
 class ApplyError(OnboardingError):
     """Review-gate rejection or failed validation on apply."""
+
+
+class OptimizePipelineError(TopologyFrameworkError):
+    """Optimize-pipeline orchestration failure root (optimize-pipeline milestone)."""
+
+
+class ArtifactLoadError(OptimizePipelineError):
+    """Slow-run artifacts missing, version-contradictory or unparseable."""
+
+
+class CommitGateError(OptimizePipelineError):
+    """Commit refused: no ACCEPT record, fingerprint mismatch, version clash."""
