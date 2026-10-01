@@ -1,31 +1,936 @@
 {
-  "name": "office_smoke",
-  "version": "0.1.0",
-  "description": "Office battlefield batch A smoke suite: one scenario per L0 read path",
+  "name": "office_battlefield",
+  "version": "1.0.0",
+  "description": "Office battlefield full suite (docs/acceptance/office-battlefield.md §6): 60 scenarios across four families; metadata.fixture seeds the corpus state, metadata.discovery marks uncertain-routing scenarios, sentinel marks critical documents whose edges are immune to pruning.",
   "scenarios": [
     {
-      "id": "smoke_doc_parse",
-      "query": "Read and parse the weekly report corpus document.",
+      "id": "weekly_report_fact_brief",
+      "query": "根据本周项目周报语料写一份含事实要点的调研报告",
       "category": "doc_report",
-      "expected_capabilities": ["doc.parse"]
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "sentinel": true,
+        "priority": "critical"
+      }
     },
     {
-      "id": "smoke_fs_read",
-      "query": "Pull the raw text of the weekly report file.",
+      "id": "customer_feedback_analysis_report",
+      "query": "汇总本季度客户反馈语料，起草一份带事实引用的分析报告",
       "category": "doc_report",
-      "expected_capabilities": ["fs.read"]
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "sentinel": true,
+        "priority": "critical"
+      }
     },
     {
-      "id": "smoke_table_parse",
-      "query": "Load the sales csv for analysis.",
-      "category": "sheet_analysis",
-      "expected_capabilities": ["table.parse"]
+      "id": "exec_briefing_from_minutes",
+      "query": "基于会议纪要语料生成一份高管汇报用的调研简报",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "sentinel": true,
+        "priority": "critical"
+      }
     },
     {
-      "id": "smoke_deck_parse",
-      "query": "Read the Q3 review deck.",
+      "id": "user_interview_insight_report",
+      "query": "根据用户访谈记录写一份含关键事实的需求调研报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.translate",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "competitor_crosscheck_report",
+      "query": "两份竞品调研材料说法不一，请交叉核对事实后成稿一份竞品分析报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "service_quality_conflict_report",
+      "query": "线上客服记录与门店反馈两份语料互相矛盾，核对事实后写一份客服质量调研报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "monthly_notes_summary_report",
+      "query": "把本月的零散工作笔记整理成一篇结构完整的月度总结报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.translate",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "vague_research_materials_report",
+      "query": "帮我把这批零散的调研材料整理成一份报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "sparse",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "loose_industry_digest_report",
+      "query": "看看最近的行业动态，弄一份像样的汇总报告出来",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "gapped_archive_retro_report",
+      "query": "依据缺了几段的旧周报存档写一份季度回顾报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "sparse",
+        "discovery": "low_confidence"
+      }
+    },
+    {
+      "id": "archive_retrospective_report",
+      "query": "读取归档目录里的项目复盘原始文档，提炼事实并撰写一份符合字数要求的复盘报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "fs.read",
+        "fact.extract",
+        "section.draft",
+        "doc.length",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "acceptance_conflict_report",
+      "query": "原始文件里存着两版互相矛盾的验收记录，读取后核对事实并成稿一份验收报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "fs.read",
+        "fact.extract",
+        "section.draft",
+        "doc.length",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "training_transcript_report",
+      "query": "从共享盘拉取培训讲座的原始文稿，提取要点后写一篇培训纪要报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "fs.read",
+        "fact.extract",
+        "section.draft",
+        "doc.length",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "contract_clause_review_report",
+      "query": "读取历史合同文本，提取关键条款事实并成稿一份合同审查报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "fs.read",
+        "fact.extract",
+        "section.draft",
+        "doc.length",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "messy_minutes_style_report",
+      "query": "这份排版混乱的会议纪要先做总结，再仿照公司范文风格润色成稿",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "text.summarize",
+        "style.profile",
+        "text.polish",
+        "style.check",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "review_record_polish_report",
+      "query": "把冗长的产品评审记录总结后，按团队既有文风润色成一份评审结论报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "text.summarize",
+        "style.profile",
+        "text.polish",
+        "style.check",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "csat_style_check_report",
+      "query": "总结客户满意度回访语料，对照品牌口径检查文风后输出一份回访分析报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "text.summarize",
+        "style.profile",
+        "text.polish",
+        "style.check",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "merge_team_fragments_report",
+      "query": "把三个小组各自撰写的调研片段解析后合并成一份完整的调研报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "doc.merge"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "pdf_export_quarterly_report",
+      "query": "解析本季度运营周报语料写成调研报告，并导出为 PDF 版本",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "pdf.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "mail_send_investigation_report",
+      "query": "根据投诉工单语料写一份调查报告，写完直接邮件发送给合规组",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "section.draft",
+        "quality.judge",
+        "mail.send"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "quarterly_conflict_deck",
+      "query": "把两份数据互相矛盾的季度汇报材料核对事实后转成汇报 PPT",
       "category": "slide_deck",
-      "expected_capabilities": ["ppt.parse"]
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "launch_conflict_deck",
+      "query": "产品发布材料里三处来源说法冲突，核实后改写成发布宣讲 PPT",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "annual_summary_deck",
+      "query": "把这份年度总结报告转成十五页以内的管理层汇报 PPT",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "project_closing_deck",
+      "query": "根据项目结项材料生成一份结项答辩用的幻灯片",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "onboarding_training_deck",
+      "query": "把新员工培训讲义转成带每页文案的入门培训 PPT",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "marketing_retro_conflict_deck",
+      "query": "营销数据与财务口径对不上，核对后生成年度营销复盘 PPT",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "survey_conflict_deck",
+      "query": "把互相冲突的用户调研结论核实后整理成调研分享幻灯片",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "architecture_review_deck",
+      "query": "依据技术方案文档产出一套架构评审用的幻灯片",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "deck_rework_quarterly",
+      "query": "读取这份旧版季度汇报幻灯片，改编成本季度的更新版",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "ppt.parse",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "messy_deck_retype",
+      "query": "读取一份页面元素错乱的原始幻灯语料，重新组织每页文案并排版输出",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "ppt.parse",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "vague_materials_pitch_deck",
+      "query": "帮我把这些残缺的材料弄成能上台讲的 PPT",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "sparse",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "minutes_to_deck_quick",
+      "query": "把这堆会议纪要快速变成汇报片子",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "incomplete_report_deck",
+      "query": "依据一份不完整的旧报告起草汇报 PPT 的初稿",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "outline.slides",
+        "slide.copy",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "discovery": "low_confidence"
+      }
+    },
+    {
+      "id": "pdf_export_review_deck",
+      "query": "解析季度总结报告并把成稿汇报导出为 PDF 幻灯片",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "pdf.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "deck_image_illustration",
+      "query": "解析产品介绍材料并为宣讲 PPT 挑配合适的产品配图",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "image.find"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "sales_dirty_aggregate",
+      "query": "这份销售表表头错位还有脏数据，先修整再按区域汇总并生成汇总公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "inventory_category_rollup",
+      "query": "分析这份格式混乱的库存表，按品类汇总并写好安全库存计算公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "attendance_dept_summary",
+      "query": "处理这份含空行脏值的考勤表，按部门聚合并生成出勤统计公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "ads_channel_metrics",
+      "query": "解析这份排版很乱的广告投放表，分渠道汇总投放数据并配好计算公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "expense_monthly_reconcile",
+      "query": "把这份乱糟糟的报销明细表清理后按月份汇总，并生成核对用公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "headcount_sparse_summary",
+      "query": "这张人力表缺了几列关键字段，尽量按在编状态汇总人数并生成公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "sparse"
+      }
+    },
+    {
+      "id": "sales_region_chart_pipeline",
+      "query": "修复脏乱的销售流水表，按大区汇总、生成环比公式并配上对比图表",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "table.repair",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "chart.prepare",
+        "chart.select",
+        "chart.check",
+        "chart.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "inventory_ledger_chart_pipeline",
+      "query": "这份库存台账表头损坏数据脏，修复后聚合分析并输出库存趋势图表",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "table.repair",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "chart.prepare",
+        "chart.select",
+        "chart.check",
+        "chart.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "finance_quarter_chart_pipeline",
+      "query": "清理混乱的财务科目表，做季度汇总、写好公式并生成支出占比饼图",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "table.repair",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "chart.prepare",
+        "chart.select",
+        "chart.check",
+        "chart.render"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "membership_retention_chart_pipeline",
+      "query": "会员表缺失部分字段，修复补全后按等级聚合并产出留存曲线图表",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "table.repair",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "chart.prepare",
+        "chart.select",
+        "chart.check",
+        "chart.render"
+      ],
+      "metadata": {
+        "fixture": "sparse"
+      }
+    },
+    {
+      "id": "vague_sheet_quick_stats",
+      "query": "看看这张缺东少西的表，先汇总一下再出几个公式",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "sparse",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "sheet_as_you_wish_stats",
+      "query": "这张表你看着办，整出汇总结果和相应公式就行",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "data.aggregate",
+        "formula.generate",
+        "formula.check",
+        "table.render"
+      ],
+      "metadata": {
+        "fixture": "sparse",
+        "discovery": "low_confidence"
+      }
+    },
+    {
+      "id": "rota_auto_schedule",
+      "query": "解析这份排班表，根据产能缺口直接把下周排班写进日程",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "calendar.schedule"
+      ],
+      "metadata": {
+        "fixture": "sparse"
+      }
+    },
+    {
+      "id": "writeback_sales_formulas",
+      "query": "解析销售汇总表并把生成的公式直接写回 Excel 文件",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "xlsx.write_formula"
+      ],
+      "metadata": {
+        "fixture": "sparse"
+      }
+    },
+    {
+      "id": "web_price_enrichment",
+      "query": "解析竞品价格表，再联网检索补充最新市场报价",
+      "category": "sheet_analysis",
+      "expected_capabilities": [
+        "table.parse",
+        "web.search"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "complaint_conflict_reply",
+      "query": "客户投诉里两处描述互相矛盾，核实事实后起草一封得体的回复邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "inquiry_professional_reply",
+      "query": "根据客户咨询邮件的内容要点，起草一封专业的答复邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "invitation_response_draft",
+      "query": "读完这封合作邀约函，提炼关键信息后起草一封应答邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "messy_letter_reply",
+      "query": "这封客户来信格式混乱还有错字，理解大意后起草一封礼貌的回复",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "messy"
+      }
+    },
+    {
+      "id": "delay_apology_mail",
+      "query": "依据项目延期情况说明，起草一封发给客户的进度致歉邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "room_conflict_notice",
+      "query": "根据会议室预订调整的说明，起草一封发给全员的内部通知邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "sparse_supplier_chaser",
+      "query": "供应商来信缺了交付日期等关键信息，基于现有内容起草一封催办回复",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "sparse"
+      }
+    },
+    {
+      "id": "teamday_notice_mail",
+      "query": "把团建活动的安排要点整理成一封轻松的全员通知邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "vague_complaint_reply",
+      "query": "有客户投诉了我们，帮我看一下情况写封回复邮件",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "text.summarize",
+        "mail.draft",
+        "text.grammar"
+      ],
+      "metadata": {
+        "fixture": "clean",
+        "discovery": "ambiguous"
+      }
+    },
+    {
+      "id": "invite_reply_calendar",
+      "query": "解析这封会议邀请函，总结议题后起草回复邮件并顺手把会议写进日历",
+      "category": "mail_comms",
+      "expected_capabilities": [
+        "doc.parse",
+        "text.summarize",
+        "mail.draft",
+        "calendar.schedule"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
     }
   ]
 }
