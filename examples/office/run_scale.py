@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import sys
 import time
@@ -91,19 +92,43 @@ _CAPABILITY_TOOLS = {
 }
 
 
+# Redundant capabilities whose canonical seed rotates deterministically per
+# scenario (stable id hash): every variant anchors its own routes, so route
+# profiles and rank tiers can actually differentiate the variants (§5).
+_VARIANT_ROTATION = {
+    "section.draft": (
+        "draft_section_fast",
+        "draft_section_steady",
+        "draft_section_verbose",
+    ),
+    "mail.draft": ("draft_email_concise", "draft_email_detailed"),
+}
+
+
+def _rotated_tool(scenario_id: str, capability: str) -> str | None:
+    rotation = _VARIANT_ROTATION.get(capability)
+    if rotation is None:
+        return None
+    digest = hashlib.sha256(scenario_id.encode("utf-8")).hexdigest()
+    return rotation[int(digest, 16) % len(rotation)]
+
+
 def build_seeds(suite, topology) -> dict[str, CandidateRoute]:
     """One feasible seed route per scenario, derived from its expected caps.
 
     Deferred (uncovered) capabilities have no provider and are honestly
     absent from the route; the run records the shortfall as business failure
-    evidence instead of inventing tools.
+    evidence instead of inventing tools. Redundant capabilities rotate their
+    canonical variant per scenario id (see ``_VARIANT_ROTATION``).
     """
     layer_order = {layer.name: layer.order for layer in topology.layers()}
     seeds: dict[str, CandidateRoute] = {}
     for scenario in suite.scenarios:
         by_order: dict[int, tuple[str, set[str]]] = {}
         for capability in scenario.expected_capabilities:
-            tool = _CAPABILITY_TOOLS.get(capability)
+            tool = _rotated_tool(scenario.id, capability) or _CAPABILITY_TOOLS.get(
+                capability
+            )
             if tool is None or tool not in topology.nodes():
                 continue
             spec = topology.node(tool).spec
@@ -217,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             trials_per_scenario=args.trials,
             topology_version=version,
             router_config_id="basefast-office",
-            per_tool_timeout_seconds=0.08,
+            per_tool_timeout_seconds=0.15,
         ).run(suite)
     )
     elapsed = time.perf_counter() - started

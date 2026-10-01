@@ -109,36 +109,67 @@ def _balanced_object(text: str, start: int) -> str | None:
 
 # ---- offline fake (batch D scale runs; zero network) ------------------------
 
+# Variant-visible content sizes: the fake's identity of a variant is the
+# length/shape of its reply, so measured tokens and judge scores actually
+# differentiate fast/steady/verbose (office-battlefield.md §5).
+_FAKE_BODY = {
+    "short": "Revenue grew 8%.",
+    "medium": (
+        "Revenue grew 8% quarter over quarter while churn stayed steady at "
+        "2.1%. The auth migration remains the main delivery risk."
+    ),
+    "long": (
+        "Revenue grew 8% quarter over quarter. Churn stayed steady at 2.1%. "
+        "The auth migration remains the main delivery risk. "
+    )
+    * 10,
+}
 
-def _fake_fill(prompt: str) -> str:
+
+def _fake_size(system: str) -> str:
+    """Reply size implied by the variant's system prompt (its identity)."""
+    if "minimal" in system or "terse" in system:
+        return "short"
+    if "elaborate" in system or "complete" in system:
+        return "long"
+    return "medium"
+
+
+def _fake_fill(prompt: str, system: str = "") -> str:
     """Deterministic content for one prompt, honoring its JSON shape hint.
 
     Office prompts all embed ``Reply only with JSON: {shape}.`` — the fake
-    fills exactly that shape with plausible office values, so the lenient
-    parser and every downstream coercion see honest data offline.
+    fills exactly that shape with plausible office values, sized by the
+    variant style, so the lenient parser and every downstream coercion see
+    honest data offline. Review shapes score by prompt length: longer input
+    (a verbose draft) reads as higher judged quality.
     """
+    size = _fake_size(system)
     values = {
         "facts": ["revenue grew 8% quarter over quarter", "churn steady at 2.1%"],
-        "text": "Revenue grew 8% quarter over quarter while churn stayed at 2.1%.",
+        "text": _FAKE_BODY[size],
         "title": "Office Report",
-        "body": "Revenue grew 8% quarter over quarter. Churn stayed steady at 2.1%.",
+        "body": _FAKE_BODY[size],
         "tone": "formal",
         "max_sentence_words": 22,
         "columns": ["region", "month", "units", "revenue"],
         "slides": [
-            {"title": "Overview", "points": ["Revenue up 8%", "Churn steady"]},
+            {"title": "Overview", "points": ["Revenue up 8%"]},
             {"title": "Risks", "points": ["Auth migration may slip"]},
-        ],
+            {"title": "Outlook", "points": ["Q4 budget ask", "Two hires"]},
+        ][: 1 if size == "short" else 2 if size == "medium" else 3],
         "to": "team@example.com",
         "subject": "Office update",
         "column": "revenue",
         "formula": "=SUM(D2:D13)",
         "explanation": "Sums the revenue column across all data rows.",
         "kind": "bar",
-        "passed": True,
-        "issues": ["tone drifts informal in the closing paragraph"],
-        "score": 0.72,
     }
+    if "score" in prompt:
+        score = 0.5 + 0.45 * min(len(prompt), 1500) / 1500
+        values["score"] = round(score, 2)
+        values["passed"] = score >= 0.5
+        values["issues"] = ["closing paragraph drifts informal"] if score < 0.7 else []
     shape_match = re.search(r"Reply only with JSON: (\{.*\})\.?", prompt)
     shape = shape_match.group(1) if shape_match else "{}"
     filled = {}
@@ -167,7 +198,7 @@ def install_offline_fake() -> None:
         prompt = payload["messages"][-1]["content"]
         system = payload["messages"][0]["content"] if len(payload["messages"]) > 1 else ""
         draw = store.STORE.rng.random()
-        content = "total garbage not json" if draw < 0.04 else _fake_fill(prompt)
+        content = "total garbage not json" if draw < 0.04 else _fake_fill(prompt, system)
         usage = TokenUsage(
             input_tokens=8 + len(prompt) // 16 + len(system) // 8,
             output_tokens=4 + len(content) // 8,

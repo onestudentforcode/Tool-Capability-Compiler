@@ -295,7 +295,7 @@ def test_draft_section_variants_differentiate_on_four_dimensions() -> None:
 
     # (c) configured latency: three distinct values in the variant table
     latencies = [config["latency"] for config in tools_llm.DRAFT_SECTION_VARIANTS]
-    assert latencies == [0.006, 0.025, 0.015]
+    assert latencies == [0.006, 0.1, 0.05]
 
     # (d) output length: the fake content scales with style, drafts differ
     bodies = {name: result.body for name, (result, _) in outcomes.items()}

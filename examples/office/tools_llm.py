@@ -196,7 +196,7 @@ async def draft_email_concise(narrative: Narrative) -> EmailDraft:
     description="LLM detailed mail draft (never sent — §10)",
 )
 async def draft_email_detailed(narrative: Narrative) -> EmailDraft:
-    await asyncio.sleep(0.02)
+    await asyncio.sleep(0.06)
     shape = 'Reply only with JSON: {"to": str, "subject": str, "body": str}.'
     prompt = f"Draft a detailed reply email about: {narrative.text} {shape}"
     payload = await office_llm.complete_json(prompt, system=style_system("detailed"))
@@ -243,7 +243,7 @@ async def text_polish_conservative(
     description="LLM aggressive polish (rewrites freely for impact)",
 )
 async def text_polish_aggressive(narrative: Narrative, style_spec: StyleSpec) -> Draft:
-    await asyncio.sleep(0.012)
+    await asyncio.sleep(0.05)
     return await _polish(narrative, style_spec, style_system("aggressive"))
 
 
@@ -424,7 +424,7 @@ SUMMARIZE_VARIANTS = (
     },
     {
         "name": "text_summarize_steady",
-        "latency": 0.025,
+        "latency": 0.1,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "Cover every section in detail.",
@@ -445,7 +445,7 @@ TRANSLATE_VARIANTS = (
     },
     {
         "name": "text_translate_steady",
-        "latency": 0.02,
+        "latency": 0.07,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "Translate carefully, preserving nuance.",
@@ -465,7 +465,7 @@ OUTLINE_DOC_VARIANTS = (
     },
     {
         "name": "outline_doc_gen_steady",
-        "latency": 0.025,
+        "latency": 0.1,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "Plan every section carefully.",
@@ -485,14 +485,14 @@ DRAFT_SECTION_VARIANTS = (
     },
     {
         "name": "draft_section_steady",
-        "latency": 0.025,
+        "latency": 0.1,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "A complete, careful section.",
     },
     {
         "name": "draft_section_verbose",
-        "latency": 0.015,
+        "latency": 0.05,
         "cost": 0.02,
         "style": "verbose",
         "prompt_hint": "Write as much as possible.",
@@ -512,7 +512,7 @@ FORMULA_GEN_VARIANTS = (
     },
     {
         "name": "formula_gen_steady",
-        "latency": 0.02,
+        "latency": 0.07,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "Explain the formula fully.",
@@ -532,7 +532,7 @@ SLIDE_COPY_VARIANTS = (
     },
     {
         "name": "slide_copy_steady",
-        "latency": 0.02,
+        "latency": 0.07,
         "cost": 0.01,
         "style": "steady",
         "prompt_hint": "Full speaker-ready copy.",
