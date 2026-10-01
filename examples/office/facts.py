@@ -83,6 +83,42 @@ class StyleSpec:
 
     tone: str
     max_sentence_words: int
+    palette: str = ""
+
+
+@dataclass(frozen=True)
+class TableProfile:
+    """Column-level profile of a corpus table: types, null rates, anomalies."""
+
+    table_id: str
+    column_types: tuple[tuple[str, str], ...]
+    null_rates: tuple[tuple[str, float], ...]
+    anomalies: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TextSegments:
+    """A source document cut into sequential chunks for downstream LLM tools."""
+
+    doc_id: str
+    chunks: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FormulaAudit:
+    """Audit findings for formula-looking cells already present in a table."""
+
+    table_id: str
+    findings: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AggregateResult:
+    """Grouped aggregation of one numeric metric over a corpus table."""
+
+    table_id: str
+    metric: str
+    groups: tuple[tuple[str, float], ...]
 
 
 @dataclass(frozen=True)

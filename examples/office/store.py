@@ -16,6 +16,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -56,13 +57,23 @@ class OfficeStore:
     docs: InMemoryStore = field(default_factory=lambda: InMemoryStore("office_docs"))
     tables: InMemoryStore = field(default_factory=lambda: InMemoryStore("office_tables"))
     decks: InMemoryStore = field(default_factory=lambda: InMemoryStore("office_decks"))
+    rng: random.Random = field(default_factory=random.Random)
 
-    def reset(self, variant: str = DEFAULT_VARIANT) -> None:
+    def reset(
+        self,
+        variant: str = DEFAULT_VARIANT,
+        *,
+        scenario_id: str = "",
+        trial_index: int = 0,
+    ) -> None:
         if variant not in VARIANTS:
             raise ValueError(
                 f"unknown office corpus variant {variant!r}; expected one of {VARIANTS}"
             )
         self.variant = variant
+        # Deterministic randomness: jitter / flaky-failure draws derive from
+        # the (scenario_id, trial_index) seed (office-battlefield.md §1).
+        self.rng = random.Random(f"{scenario_id}#{trial_index}")
         for handle in (self.docs, self.tables, self.decks):
             handle.clear()
         self.docs.seed(_load_raw("docs", ".md"))
