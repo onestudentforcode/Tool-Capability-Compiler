@@ -199,6 +199,13 @@ class RouteSearch:
         layer, tools = groups[index]
         for size in range(1, len(tools) + 1):
             for subset in itertools.combinations(tools, size):
+                # The budget must bound every subset examination, screened or
+                # not: on wide maximal chains the failing-subset scan alone is
+                # exponential while recursion-only counting never sees it.
+                # Feasibility does not depend on this budget (witness below).
+                expansions[0] += 1
+                if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+                    return
                 if selected and not self._interconnected(selected[-1][1], subset):
                     continue
                 new_covered = covered.union(

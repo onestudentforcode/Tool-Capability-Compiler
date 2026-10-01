@@ -42,6 +42,9 @@ class Topology:
         for edge in self._edges:
             self._incoming[edge.target].append(edge)
             self._outgoing[edge.source].append(edge)
+        # O(1) membership index; route search probes has_edge millions of
+        # times on battlefield-sized topologies.
+        self._edge_index = frozenset(self._edges)
 
     def layers(self) -> tuple[Layer, ...]:
         return self._layers
@@ -75,4 +78,4 @@ class Topology:
         return tuple(sorted(edge.target for edge in self._outgoing[tool_name]))
 
     def has_edge(self, source: str, target: str) -> bool:
-        return ToolEdge(source, target) in self._edges
+        return ToolEdge(source, target) in self._edge_index

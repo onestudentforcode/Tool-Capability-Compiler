@@ -74,12 +74,15 @@ def assign_tiers(
         return ()
 
     items = sorted(profiles, key=lambda item: item.route_id)
-    best_success = max(profile.business_success_rate for profile in items)
-    best_latency = _best(
-        profiles, lambda item: item.latency_median, minimum=True
-    )
-    best_quality = _best(profiles, lambda item: item.quality_mean, minimum=False)
-    best_cost = _best(profiles, lambda item: item.cost_mean, minimum=True)
+    # Reference bars come from routes that actually delivered the service at
+    # least once: a route with zero successful evaluations is not a service
+    # option, and letting its (often tiny) latency/cost set the "best" bars
+    # makes FAST/BALANCED unreachable in any domain with failure traffic.
+    measured = [item for item in items if item.business_success_count > 0] or items
+    best_success = max(item.business_success_rate for item in measured)
+    best_latency = _best(measured, lambda item: item.latency_median, minimum=True)
+    best_quality = _best(measured, lambda item: item.quality_mean, minimum=False)
+    best_cost = _best(measured, lambda item: item.cost_mean, minimum=True)
 
     assignments: list[RouteTierAssignment] = []
     for profile in items:

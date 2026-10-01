@@ -123,7 +123,8 @@ async def analyze(
     identified_edges = [
         candidate.source + "->" + candidate.target
         for candidate in candidates
-        if candidate.status is CandidateStatus.IDENTIFIED and candidate.source
+        if candidate.status is CandidateStatus.IDENTIFIED
+        and candidate.kind == "edge"
     ]
     counterfactual_summary: dict[str, Any] = {"verdict": "skipped"}
     if identified_edges:
@@ -134,9 +135,7 @@ async def analyze(
         counterfactual_summary = {
             "verdict": counterfactual.verdict.value,
             "regressed_scenarios": [
-                item.scenario_id
-                for item in counterfactual.scenarios
-                if getattr(item, "regressed", False)
+                item.scenario_id for item in counterfactual.regressed_scenarios
             ],
         }
 
@@ -190,7 +189,7 @@ async def analyze(
                 candidate.subject
                 for candidate in candidates
                 if candidate.status is CandidateStatus.IDENTIFIED
-                and not candidate.source
+                and candidate.kind == "node"
             ),
         },
     }
