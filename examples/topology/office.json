@@ -1,0 +1,67 @@
+{
+  "version": "office-v0",
+  "layers": [
+    {
+      "name": "context",
+      "order": 0
+    },
+    {
+      "name": "extract",
+      "order": 1
+    },
+    {
+      "name": "compose",
+      "order": 2
+    },
+    {
+      "name": "verify",
+      "order": 3
+    },
+    {
+      "name": "render",
+      "order": 4
+    }
+  ],
+  "tools": [
+    {
+      "name": "deck_parse",
+      "layer": "context",
+      "implementation": "examples.office.tools_l0:deck_parse",
+      "capabilities": [
+        "ppt.parse"
+      ],
+      "description": "Parse the json corpus deck into a SlideDigest",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "doc_parse",
+      "layer": "context",
+      "implementation": "examples.office.tools_l0:doc_parse",
+      "capabilities": [
+        "doc.parse"
+      ],
+      "description": "Parse the restricted-markdown corpus document",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "fs_read",
+      "layer": "context",
+      "implementation": "examples.office.tools_l0:fs_read",
+      "capabilities": [
+        "fs.read"
+      ],
+      "description": "Raw-read the target corpus document as plain text",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "table_parse",
+      "layer": "context",
+      "implementation": "examples.office.tools_l0:table_parse",
+      "capabilities": [
+        "table.parse"
+      ],
+      "description": "Parse the csv corpus table into a DataTable",
+      "cost_per_call": 0.002
+    }
+  ]
+}

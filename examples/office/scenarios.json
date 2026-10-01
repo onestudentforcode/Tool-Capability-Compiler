@@ -1,0 +1,31 @@
+{
+  "name": "office_smoke",
+  "version": "0.1.0",
+  "description": "Office battlefield batch A smoke suite: one scenario per L0 read path",
+  "scenarios": [
+    {
+      "id": "smoke_doc_parse",
+      "query": "Read and parse the weekly report corpus document.",
+      "category": "doc_report",
+      "expected_capabilities": ["doc.parse"]
+    },
+    {
+      "id": "smoke_fs_read",
+      "query": "Pull the raw text of the weekly report file.",
+      "category": "doc_report",
+      "expected_capabilities": ["fs.read"]
+    },
+    {
+      "id": "smoke_table_parse",
+      "query": "Load the sales csv for analysis.",
+      "category": "sheet_analysis",
+      "expected_capabilities": ["table.parse"]
+    },
+    {
+      "id": "smoke_deck_parse",
+      "query": "Read the Q3 review deck.",
+      "category": "slide_deck",
+      "expected_capabilities": ["ppt.parse"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "deck_id": "q3_review",
+  "slides": [
+    {
+      "title": "Q3 Review",
+      "bullets": ["Revenue up 8% quarter over quarter", "Churn steady at 2.1%"]
+    },
+    {
+      "title": "Risks",
+      "bullets": ["Auth migration may slip one sprint", "Hiring on hold"]
+    },
+    {
+      "title": "Asks",
+      "bullets": ["Approve Q4 tooling budget", "Two backend hires"]
+    }
+  ]
+}
