@@ -250,6 +250,25 @@ def main(argv: list[str] | None = None) -> int:
     summary_path.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    # Persist the exact suite used by this run so downstream CLI steps
+    # (optimize analyze/validate) split the very same scenario IDs.
+    suite_payload = {
+        "name": suite.name,
+        "version": suite.version,
+        "description": suite.description,
+        "scenarios": [
+            {
+                "id": scenario.id,
+                "query": scenario.query,
+                "category": scenario.category,
+                "metadata": dict(scenario.metadata),
+            }
+            for scenario in suite.scenarios
+        ],
+    }
+    (run_dir / "scenarios.json").write_text(
+        json.dumps(suite_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     sizes = {path.name: path.stat().st_size for path in sorted(run_dir.iterdir())}
     print(f"Scale run: {args.scenarios} scenarios x {args.trials} trials")

@@ -8,7 +8,10 @@ identical sandbox state and refund mutations never leak across trials.
 
 from __future__ import annotations
 
-import store
+try:  # package import (python -m from project root) vs direct script import
+    from . import store
+except ImportError:
+    import store
 from capability_runtime import FixtureRegistry, FixtureSetupError
 from capability_runtime.core.errors import RegistrationError
 

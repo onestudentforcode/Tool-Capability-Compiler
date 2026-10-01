@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 
 from capability_runtime.resources import InMemoryStore
 
-from facts import ErpRecord, Order
+try:  # package import (python -m from project root) vs direct script import
+    from .facts import ErpRecord, Order
+except ImportError:
+    from facts import ErpRecord, Order
 
 VARIANTS = ("eligible", "ineligible", "high_risk", "not_found", "erp_down")
 

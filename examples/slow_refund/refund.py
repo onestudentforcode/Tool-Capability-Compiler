@@ -30,19 +30,34 @@ from capability_runtime import (
     tool,
 )
 
-import store
-from facts import (
-    Digest,
-    EmailSent,
-    ErpRecord,
-    Order,
-    Passage,
-    PolicyDecision,
-    RefundResult,
-    RiskReport,
-    SearchResult,
-    Ticket,
-)
+try:  # package import (python -m from project root) vs direct script import
+    from . import store
+    from .facts import (
+        Digest,
+        EmailSent,
+        ErpRecord,
+        Order,
+        Passage,
+        PolicyDecision,
+        RefundResult,
+        RiskReport,
+        SearchResult,
+        Ticket,
+    )
+except ImportError:
+    import store
+    from facts import (
+        Digest,
+        EmailSent,
+        ErpRecord,
+        Order,
+        Passage,
+        PolicyDecision,
+        RefundResult,
+        RiskReport,
+        SearchResult,
+        Ticket,
+    )
 
 # ---- layer 1: read --------------------------------------------------------
 
