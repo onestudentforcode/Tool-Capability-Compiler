@@ -444,7 +444,7 @@ Phase 4  Step 1–13  拓扑优化（Evidence → Candidate → Patch → Counte
 方向 4   Step 1–6   optimization/artifacts + pipeline + 五子命令 CLI
 ```
 
-测试规模：全量 **555 个测试通过**（Python 3.14），且所有测试都不依赖真实
+测试规模：全量 **558 个测试通过**（Python 3.14），且所有测试都不依赖真实
 LLM / 网络 / HTTP（LLM 相关统一注入假 HTTP；执行用确定性 sandbox 工具；
 优化/排名/在线/剪枝编排全部离线可复现）。
 
@@ -901,6 +901,9 @@ capability 判覆盖，拓扑缺口（Topology Gap）与能力缺口（Capabilit
 
 ## 附录：快速上手指令
 
+> 想要一条带实测输出的线性入门路径，见 [quickstart.md](quickstart.md)；
+> 本附录是全命令速查表。
+
 先安装（或给下面所有 `python -m` 命令加 `PYTHONPATH=src` 前缀）：
 
 ```bash
@@ -942,11 +945,15 @@ python -m capability_runtime.cli optimize \
     --start-version v1 --end-version v2 --format text
 
 # ---- Phase 5：Route 排名（消费 slow artifacts）----
+# 最新规模实跑产物目录（run_scale.py 同时落盘本次场景集 scenarios.json）
+SCALE=$(ls -d examples/slow_refund/artifacts/scale/scale_* | tail -1)
 python -m capability_runtime.cli rank \
-    --slow-report "$(ls -d examples/slow_refund/artifacts/scale_* | tail -1)" \
+    --slow-report "$SCALE" --scenario "$SCALE/scenarios.json" \
     --min-trials 4 --format text
-# 也可把结果存成 JSON，供 Phase 6 的 Catalog 消费：
-#   ... --format json --out artifacts/ranking.json
+# 存成 JSON 供 Phase 6 的 Catalog 消费（--scenario 提供类目映射，勿省）：
+python -m capability_runtime.cli rank \
+    --slow-report "$SCALE" --scenario "$SCALE/scenarios.json" \
+    --min-trials 4 --format json --out artifacts/ranking.json
 
 # ---- 接入辅助：OpenAI specs -> 拓扑资产（全程离线，propose 除外）----
 # ① 骨架（人工触点 1：layer 归类）
@@ -959,16 +966,19 @@ python -m capability_runtime.cli onboard apply     --topology artifacts/skeleton
 python -m capability_runtime.cli regression fast     --topology artifacts/topology.json     --scenario examples/onboarding_demo/scenarios.json
 
 # ---- 剪枝编排：三段式（对慢回归落盘产物；拓扑需可执行绑定）----
-python -m capability_runtime.cli optimize analyze     --topology artifacts/topology.json     --scenario examples/datasets/customer_service.fast.json     --slow-report "$(ls -d examples/slow_refund/artifacts/scale_* | tail -1)"     --out artifacts/candidates.json
-python -m capability_runtime.cli optimize validate     --topology artifacts/topology.json     --scenario examples/datasets/customer_service.fast.json     --patch artifacts/candidates.json --trials 2 --out artifacts/verdict.json
+# 可执行拓扑由导出器生成（以 Python 声明为唯一事实源）；场景集必须与
+# 证据同源——用产物目录里自带的 scenarios.json
+python examples/slow_refund/export_topology.py
+python -m capability_runtime.cli optimize analyze     --topology examples/topology/refund_sandbox.json     --scenario "$SCALE/scenarios.json"     --slow-report "$SCALE"     --out artifacts/candidates.json
+python -m capability_runtime.cli optimize validate     --topology examples/topology/refund_sandbox.json     --scenario "$SCALE/scenarios.json"     --patch artifacts/candidates.json --trials 2 --out artifacts/verdict.json
 echo "exit=$?"    # ACCEPT=0 / REJECT=1
-python -m capability_runtime.cli optimize commit     --topology artifacts/topology.json --patch artifacts/candidates.json     --validation artifacts/verdict.json     --version v2 --versions-dir artifacts/versions
-python -m capability_runtime.cli optimize rollback     --topology artifacts/topology.json --versions-dir artifacts/versions --to v2
+python -m capability_runtime.cli optimize commit     --topology examples/topology/refund_sandbox.json --patch artifacts/candidates.json     --validation artifacts/verdict.json     --version v2 --versions-dir artifacts/versions
+python -m capability_runtime.cli optimize rollback     --topology examples/topology/refund_sandbox.json --versions-dir artifacts/versions --to v2
 
 # ---- Phase 6：在线路由 ----
-# 干跑选路（只选不执行）
+# 干跑选路（只选不执行；ranking 的 topology_version 须与拓扑一致，fail closed）
 python -m capability_runtime.cli select \
-    --topology examples/topology/refund.json \
+    --topology examples/topology/refund_sandbox.json \
     --ranking artifacts/ranking.json --category refund --tier fast
 
 # 进程内服务 Demo（学习 → 服务 → 注入失败降级 → 遥测 → 闭环）

@@ -24,6 +24,10 @@ Declare → Initialize → Explore → Evaluate → Prune → Rank → Route
 
 ## Quick start
 
+想直接跑起来，请按 [docs/quickstart.md](docs/quickstart.md) 的线性路径操作
+（约 30 分钟，从零走通 Declare → Fast → Slow → Prune → Rank → Route 全循环，
+全程离线，每步附实测输出）。以下是框架 API 的最小示例：
+
 ```python
 from capability_runtime import (
     LayerRegistry, RoutePlan, ToolRegistry, TopologyBuilder, tool,
@@ -96,7 +100,12 @@ tool-topology regression fast \
 # Slow Regression（进程内 Demo：sandbox 工具 + 场景级 Fixture，脱网可跑）
 python examples/slow_refund/run_demo.py --trials 25 --out-dir artifacts/slow_regression
 # CLI 路径要求 JSON 拓扑为工具声明 "implementation": "module:attr" 绑定，
-# 未绑定的拓扑会被直接拒绝（exit 2），避免空跑污染统计
+# 未绑定的拓扑会被直接拒绝（exit 2），避免空跑污染统计；
+# 沙盒世界的可执行拓扑由导出器生成（以 Python 声明为唯一事实源）：
+python examples/slow_refund/export_topology.py
+python -m capability_runtime.cli regression slow \
+    --topology examples/topology/refund_sandbox.json \
+    --scenario examples/scenarios/refund.json --trials 2
 
 # 拓扑优化报告（Evidence → Candidate → 验证 → 版本）
 tool-topology optimize \
@@ -114,4 +123,4 @@ python -m pip install -e .
 python main.py
 ```
 
-项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)，入门教程见 [tutorial.md](docs/tutorial.md)。当前边界：Phase 0–6 全部完成（含[靶场强化里程碑](docs/acceptance/battlefield-hardening.md)），主循环 Declare → Fast → Slow → Prune → Rank → Route → 回流 已闭合；涌现拓扑（方向一）已评估并暂时废弃，保持严格拓扑约束，可继续开发的方向清单见 [AGENTS.md](AGENTS.md) §7（每项启动前需先起草验收文档）。
+项目原则见 [Phase 0](docs/acceptance/phase0.md)，各阶段验收规格见 [docs/acceptance/](docs/acceptance/)，快速上手见 [quickstart.md](docs/quickstart.md)，入门教程见 [tutorial.md](docs/tutorial.md)。当前边界：Phase 0–6 全部完成（含[靶场强化里程碑](docs/acceptance/battlefield-hardening.md)），主循环 Declare → Fast → Slow → Prune → Rank → Route → 回流 已闭合；涌现拓扑（方向一）已评估并暂时废弃，保持严格拓扑约束，可继续开发的方向清单见 [AGENTS.md](AGENTS.md) §7（每项启动前需先起草验收文档）。
