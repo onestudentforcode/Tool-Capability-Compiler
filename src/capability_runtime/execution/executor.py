@@ -84,8 +84,9 @@ class ToolExecutor:
 
     Inputs are resolved deterministically: parameter name first (snake-cased
     slot), then the parameter's declared type. Outputs are written into the
-    state under the snake-cased name of each declared produces type, so a later
-    layer can consume them.
+    state under the snake-cased name of each declared produces type (or the
+    handler's return annotation when the spec declares none, e.g. for
+    JSON-bound tools), so a later layer can consume them.
     """
 
     context: ExecutionContext
@@ -192,7 +193,16 @@ class ToolExecutor:
     def _propagate_outputs(
         self, tool: ToolNode, result: Any, state: ExecutionState
     ) -> None:
-        for produced in tool.spec.produces:
+        produced_types = tool.spec.produces
+        if not produced_types:
+            # JSON-bound tools carry no declared contracts; fall back to the
+            # handler's real return annotation so cross-layer chaining still
+            # works. Types fill the execution contract only — they never
+            # build edges (same rule as @tool annotation inference).
+            annotation = inspect.signature(tool.handler).return_annotation
+            if isinstance(annotation, type):
+                produced_types = (annotation,)
+        for produced in produced_types:
             state.add_artifact(
                 _snake(produced.__name__ if isinstance(produced, type) else str(produced)),
                 ArtifactValue(

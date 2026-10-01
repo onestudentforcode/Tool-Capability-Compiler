@@ -58,6 +58,18 @@ def test_binds_declared_implementation() -> None:
     assert unbound_tool_names(topology) == ()
 
 
+def test_binds_tool_node_attribute_by_unwrapping() -> None:
+    # a ``@tool``-decorated module attribute is a ToolNode, not a function;
+    # the loader unwraps it to the real handler instead of rejecting it
+    topology = TopologyLoader().load_data(
+        _suite_doc(_tool("db", "read", f"{_BINDING_TOOLS}:decorated_fetch"))
+    )
+    from tests.unit import _binding_tools
+
+    assert topology.node("db").handler is _binding_tools.decorated_fetch.handler
+    assert unbound_tool_names(topology) == ()
+
+
 def test_default_stays_on_null_placeholder() -> None:
     topology = TopologyLoader().load_data(
         _suite_doc(_tool("db", "read", None), _tool("x", "analyze", None))

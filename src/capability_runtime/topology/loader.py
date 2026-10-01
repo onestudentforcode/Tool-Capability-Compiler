@@ -227,6 +227,9 @@ class TopologyLoader:
                 f"{tool_name!r}: {exc}"
             ) from exc
         handler = getattr(module, attr, None)
+        if isinstance(handler, ToolNode):
+            # a ``@tool``-decorated attribute exposes its raw async function
+            handler = handler.handler
         if handler is None:
             raise TopologyBuildError(
                 f"{location} module {module_name!r} has no attribute "

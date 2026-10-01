@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from capability_runtime import tool
+
 
 @dataclass(frozen=True)
 class Note:
@@ -23,3 +25,10 @@ async def fetch() -> Note:
 
 async def analyze() -> Note:
     return Note(text="analyzed:eligible")
+
+
+# a ``@tool``-decorated attribute: JSON ``implementation`` may point at it —
+# the loader unwraps ``ToolNode.handler`` instead of rejecting it
+@tool(layer="read", produces=[Note])
+async def decorated_fetch() -> Note:
+    return Note(text="decorated:ORD-1")
