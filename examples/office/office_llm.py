@@ -21,6 +21,7 @@ contract).
 import json
 import re
 
+from capability_runtime import TokenUsage
 from capability_runtime.resources import LLMResource, LLMResponse
 
 # Real semantics: local Ollama. Constructing the handle opens no connection,
@@ -104,3 +105,84 @@ def _balanced_object(text: str, start: int) -> str | None:
             if depth == 0:
                 return text[start : index + 1]
     return None
+
+
+# ---- offline fake (batch D scale runs; zero network) ------------------------
+
+
+def _fake_fill(prompt: str) -> str:
+    """Deterministic content for one prompt, honoring its JSON shape hint.
+
+    Office prompts all embed ``Reply only with JSON: {shape}.`` — the fake
+    fills exactly that shape with plausible office values, so the lenient
+    parser and every downstream coercion see honest data offline.
+    """
+    values = {
+        "facts": ["revenue grew 8% quarter over quarter", "churn steady at 2.1%"],
+        "text": "Revenue grew 8% quarter over quarter while churn stayed at 2.1%.",
+        "title": "Office Report",
+        "body": "Revenue grew 8% quarter over quarter. Churn stayed steady at 2.1%.",
+        "tone": "formal",
+        "max_sentence_words": 22,
+        "columns": ["region", "month", "units", "revenue"],
+        "slides": [
+            {"title": "Overview", "points": ["Revenue up 8%", "Churn steady"]},
+            {"title": "Risks", "points": ["Auth migration may slip"]},
+        ],
+        "to": "team@example.com",
+        "subject": "Office update",
+        "column": "revenue",
+        "formula": "=SUM(D2:D13)",
+        "explanation": "Sums the revenue column across all data rows.",
+        "kind": "bar",
+        "passed": True,
+        "issues": ["tone drifts informal in the closing paragraph"],
+        "score": 0.72,
+    }
+    shape_match = re.search(r"Reply only with JSON: (\{.*\})\.?", prompt)
+    shape = shape_match.group(1) if shape_match else "{}"
+    filled = {}
+    for key in re.findall(r'"([a-z_]+)"\s*:', shape):
+        if key in values:
+            filled[key] = values[key]
+    return json.dumps(filled, ensure_ascii=False)
+
+
+def install_offline_fake() -> None:
+    """Route all office LLM calls through a deterministic offline fake.
+
+    The fake fills each prompt's declared JSON shape and scales its usage
+    tokens with the prompt/system length, so measured metering still
+    differentiates variants (fast/steady/verbose). A seeded wobble (~4% of
+    calls, drawn from the trial-seeded rng) returns total garbage,
+    exercising the malformed-output -> TOOL_EXECUTION_ERROR path
+    reproducibly. (Timeouts come from the translate factory's cancellable
+    stall — a sync sleep here would block the event loop and break
+    asyncio.wait_for.)
+    """
+
+    def fake_http(payload) -> dict:
+        from . import store
+
+        prompt = payload["messages"][-1]["content"]
+        system = payload["messages"][0]["content"] if len(payload["messages"]) > 1 else ""
+        draw = store.STORE.rng.random()
+        content = "total garbage not json" if draw < 0.04 else _fake_fill(prompt)
+        usage = TokenUsage(
+            input_tokens=8 + len(prompt) // 16 + len(system) // 8,
+            output_tokens=4 + len(content) // 8,
+        )
+        return {
+            "choices": [{"message": {"content": content}}],
+            "usage": {
+                "prompt_tokens": usage.input_tokens,
+                "completion_tokens": usage.output_tokens,
+            },
+        }
+
+    set_resource(
+        LLMResource(
+            model="office-fake", input_cost_per_1k=0.5, output_cost_per_1k=1.0,
+            _http=fake_http,
+        )
+    )

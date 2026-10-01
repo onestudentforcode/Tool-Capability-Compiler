@@ -19,7 +19,8 @@ if str(_ROOT) not in sys.path:
 
 from capability_runtime import (  # noqa: E402
     LayerRegistry,
-    ScenarioLoader,
+    Scenario,
+    ScenarioSuite,
     SlowRegressionRunner,
     ToolRegistry,
     TopologyBuilder,
@@ -143,8 +144,9 @@ def test_topology_declares_five_layers_with_l0_nodes() -> None:
 
 def test_l0_artifacts_reach_the_blackboard() -> None:
     store.STORE.reset()
-    # Batch-A scope: an L0-only registry, so the smoke run stays offline and
-    # deterministic even though office.build_topology() now spans all batches.
+    # Batch-A scope: an L0-only registry and an inline four-scenario suite, so
+    # the smoke run stays offline and deterministic even though the authored
+    # scenarios.json now carries the full 60-scenario battlefield suite.
     layers = LayerRegistry()
     for order, name in enumerate(office.LAYERS):
         layers.register(name, order)
@@ -153,7 +155,16 @@ def test_l0_artifacts_reach_the_blackboard() -> None:
         tools.register(node)
     topology = TopologyBuilder(layers, tools).build()
 
-    suite = ScenarioLoader().load_file(str(OFFICE_DIR / "scenarios.json"))
+    suite = ScenarioSuite(
+        name="office_batch_a_smoke",
+        version="0.1.0",
+        scenarios=(
+            Scenario(id="s_doc", query="read the report", expected_capabilities=("doc.parse",)),
+            Scenario(id="s_fs", query="raw read the report", expected_capabilities=("fs.read",)),
+            Scenario(id="s_table", query="load the table", expected_capabilities=("table.parse",)),
+            Scenario(id="s_deck", query="read the deck", expected_capabilities=("ppt.parse",)),
+        ),
+    )
 
     runner = SlowRegressionRunner(
         topology=topology,
@@ -181,22 +192,36 @@ def test_exported_topology_is_executable_json(tmp_path) -> None:
     loaded = TopologyLoader().load_file(str(topology_path))
     assert unbound_tool_names(loaded) == ()
 
-    # Basefast seeds pin every smoke route to its context-layer reader, so the
-    # executable-JSON run touches no LLM tool and stays offline-deterministic.
-    seeds: dict[str, dict] = {}
-    for scenario in json.loads((OFFICE_DIR / "scenarios.json").read_text(encoding="utf-8"))[
-        "scenarios"
-    ]:
-        reader = {
-            "smoke_doc_parse": "doc_parse",
-            "smoke_fs_read": "fs_read",
-            "smoke_table_parse": "table_parse",
-            "smoke_deck_parse": "deck_parse",
-        }[scenario["id"]]
-        seeds[scenario["id"]] = {
-            "layers": [{"layer": "context", "tools": [reader]}],
-            "capabilities": scenario["expected_capabilities"],
-        }
+    # A minimal two-scenario suite with context-layer seeds proves the JSON
+    # executes end to end without touching any LLM tool (offline, fast).
+    scenarios = {
+        "name": "office_export_smoke",
+        "version": "0.1.0",
+        "scenarios": [
+            {
+                "id": "export_doc",
+                "query": "read the report",
+                "expected_capabilities": ["doc.parse"],
+            },
+            {
+                "id": "export_table",
+                "query": "load the table",
+                "expected_capabilities": ["table.parse"],
+            },
+        ],
+    }
+    scen_path = tmp_path / "scenarios.json"
+    scen_path.write_text(json.dumps(scenarios), encoding="utf-8")
+    seeds = {
+        "export_doc": {
+            "layers": [{"layer": "context", "tools": ["doc_parse"]}],
+            "capabilities": ["doc.parse"],
+        },
+        "export_table": {
+            "layers": [{"layer": "context", "tools": ["table_parse"]}],
+            "capabilities": ["table.parse"],
+        },
+    }
     seeds_path = tmp_path / "seeds.json"
     seeds_path.write_text(json.dumps(seeds), encoding="utf-8")
 
@@ -204,7 +229,7 @@ def test_exported_topology_is_executable_json(tmp_path) -> None:
         [
             "regression", "slow",
             "--topology", str(topology_path),
-            "--scenario", str(OFFICE_DIR / "scenarios.json"),
+            "--scenario", str(scen_path),
             "--basefast", str(seeds_path),
             "--trials", "1",
         ]

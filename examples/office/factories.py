@@ -21,6 +21,7 @@ from capability_runtime import ToolNode, tool
 
 from . import office_llm, store
 from .facts import (
+    AggregateResult,
     Draft,
     FactSheet,
     FormulaSpec,
@@ -248,16 +249,17 @@ def make_formula_gen(
 ) -> ToolNode:
     system = style_system(style)
 
-    async def formula_gen(narrative: Narrative) -> FormulaSpec:
+    async def formula_gen(aggregate_result: AggregateResult) -> FormulaSpec:
         await asyncio.sleep(latency)
         shape = 'Reply only with JSON: {"column": str, "formula": str, "explanation": str}.'
+        groups = ", ".join(f"{key}={value:g}" for key, value in aggregate_result.groups)
         prompt = (
-            f"Turn this request into one spreadsheet formula: {narrative.text} "
-            f"{shape} {prompt_hint}"
+            f"Turn this analysis of metric {aggregate_result.metric} "
+            f"({groups}) into one spreadsheet formula. {shape} {prompt_hint}"
         )
         payload = await office_llm.complete_json(prompt, system=system)
         return FormulaSpec(
-            column=as_str(payload.get("column"), ""),
+            column=as_str(payload.get("column"), aggregate_result.metric),
             formula=as_str(payload.get("formula"), ""),
             explanation=as_str(payload.get("explanation"), ""),
         )
@@ -267,7 +269,7 @@ def make_formula_gen(
         name=name,
         layer="compose",
         capabilities={"formula.generate"},
-        consumes=(Narrative,),
+        consumes=(AggregateResult,),
         produces=(FormulaSpec,),
         cost=cost,
         description=f"LLM formula generator ({style} variant)",
