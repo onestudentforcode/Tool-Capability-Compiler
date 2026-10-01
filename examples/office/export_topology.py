@@ -33,8 +33,9 @@ from examples.office import office  # noqa: E402
 from capability_runtime import ToolNode  # noqa: E402
 
 _IMPLEMENTATION_PACKAGE = "examples.office"
-# Tool modules carrying ``implementation`` bindings; grows with batches B/C.
-_MODULES = ("tools_l0",)
+# Tool modules carrying ``implementation`` bindings (L0 readers, deterministic
+# layer, LLM layer).
+_MODULES = ("tools_l0", "tools_det", "tools_llm")
 
 
 def _implementation_map() -> dict[str, str]:

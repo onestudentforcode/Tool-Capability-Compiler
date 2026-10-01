@@ -22,7 +22,7 @@ from capability_runtime import (
     TopologyBuilder,
 )
 
-from . import tools_l0
+from . import tools_det, tools_l0, tools_llm
 
 LAYERS = ("context", "extract", "compose", "verify", "render")
 DEFAULT_TOPOLOGY_VERSION = "office-v0"
@@ -34,7 +34,7 @@ def build_topology(*, topology_version: str = DEFAULT_TOPOLOGY_VERSION):
         layers.register(name, order)
 
     tools = ToolRegistry()
-    for node in tools_l0.NODES:
+    for node in (*tools_l0.NODES, *tools_det.NODES, *tools_llm.NODES):
         tools.register(node)
 
     topology = TopologyBuilder(layers, tools).build()

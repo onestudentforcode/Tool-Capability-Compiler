@@ -24,6 +24,56 @@
   ],
   "tools": [
     {
+      "name": "chart_data_check",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:chart_data_check",
+      "capabilities": [
+        "chart.check"
+      ],
+      "description": "Rule check: chart series matches the source table values",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "chart_prepare",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:chart_prepare",
+      "capabilities": [
+        "chart.prepare"
+      ],
+      "description": "Prepare a bar chart series from the last numeric column",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "chart_type_pick_llm",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:chart_type_pick_llm",
+      "capabilities": [
+        "chart.select"
+      ],
+      "description": "LLM chart kind pick (redundant with the rule variant)",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "chart_type_pick_rule",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:chart_type_pick_rule",
+      "capabilities": [
+        "chart.select"
+      ],
+      "description": "Rule-based chart kind pick (redundant with the LLM variant)",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "data_aggregate",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:data_aggregate",
+      "capabilities": [
+        "data.aggregate"
+      ],
+      "description": "Group by the first column and sum the last numeric column",
+      "cost_per_call": 0.002
+    },
+    {
       "name": "deck_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:deck_parse",
@@ -34,6 +84,16 @@
       "cost_per_call": 0.002
     },
     {
+      "name": "doc_length_check",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:doc_length_check",
+      "capabilities": [
+        "doc.length"
+      ],
+      "description": "Rule check: body word count and section headings",
+      "cost_per_call": 0.0005
+    },
+    {
       "name": "doc_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:doc_parse",
@@ -41,6 +101,116 @@
         "doc.parse"
       ],
       "description": "Parse the restricted-markdown corpus document",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "draft_email_concise",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_email_concise",
+      "capabilities": [
+        "mail.draft"
+      ],
+      "description": "LLM concise mail draft (never sent — §10)",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "draft_email_detailed",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_email_detailed",
+      "capabilities": [
+        "mail.draft"
+      ],
+      "description": "LLM detailed mail draft (never sent — §10)",
+      "cost_per_call": 0.008
+    },
+    {
+      "name": "draft_section_fast",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_section_fast",
+      "capabilities": [
+        "section.draft"
+      ],
+      "description": "LLM section drafter (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "draft_section_steady",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_section_steady",
+      "capabilities": [
+        "section.draft"
+      ],
+      "description": "LLM section drafter (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "draft_section_verbose",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_section_verbose",
+      "capabilities": [
+        "section.draft"
+      ],
+      "description": "LLM section drafter (verbose variant)",
+      "cost_per_call": 0.02
+    },
+    {
+      "name": "draft_speaker_notes",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:draft_speaker_notes",
+      "capabilities": [
+        "notes.draft"
+      ],
+      "description": "LLM speaker notes for a deck",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "fact_check_judge",
+      "layer": "verify",
+      "implementation": "examples.office.tools_llm:fact_check_judge",
+      "capabilities": [
+        "fact.verify"
+      ],
+      "description": "LLM judge: draft consistency against the fact sheet",
+      "cost_per_call": 0.005
+    },
+    {
+      "name": "formula_check",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:formula_check",
+      "capabilities": [
+        "formula.check"
+      ],
+      "description": "Rule check: formula syntax, column references, numeric ranges",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "formula_gen_fast",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:formula_gen_fast",
+      "capabilities": [
+        "formula.generate"
+      ],
+      "description": "LLM formula generator (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "formula_gen_steady",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:formula_gen_steady",
+      "capabilities": [
+        "formula.generate"
+      ],
+      "description": "LLM formula generator (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "formula_scan",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:formula_scan",
+      "capabilities": [
+        "formula.audit"
+      ],
+      "description": "Audit formula-looking cells: suspicious syntax, out-of-range refs",
       "cost_per_call": 0.001
     },
     {
@@ -54,6 +224,196 @@
       "cost_per_call": 0.001
     },
     {
+      "name": "grammar_check_llm",
+      "layer": "verify",
+      "implementation": "examples.office.tools_llm:grammar_check_llm",
+      "capabilities": [
+        "text.grammar"
+      ],
+      "description": "LLM grammar check (redundant with the batch-B rule variant)",
+      "cost_per_call": 0.005
+    },
+    {
+      "name": "grammar_check_rule",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:grammar_check_rule",
+      "capabilities": [
+        "text.grammar"
+      ],
+      "description": "Rule check: double spaces, lowercase sentence starts, TODO markers",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "insight_narrate",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:insight_narrate",
+      "capabilities": [
+        "insight.narrate"
+      ],
+      "description": "LLM narration of a grouped aggregate",
+      "cost_per_call": 0.003
+    },
+    {
+      "name": "keyfact_extract",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:keyfact_extract",
+      "capabilities": [
+        "fact.extract"
+      ],
+      "description": "LLM key-fact extraction (the fact-verify anchor)",
+      "cost_per_call": 0.003
+    },
+    {
+      "name": "outline_doc_gen_fast",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:outline_doc_gen_fast",
+      "capabilities": [
+        "outline.compose"
+      ],
+      "description": "LLM document outline (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "outline_doc_gen_steady",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:outline_doc_gen_steady",
+      "capabilities": [
+        "outline.compose"
+      ],
+      "description": "LLM document outline (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "outline_slide_gen",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:outline_slide_gen",
+      "capabilities": [
+        "outline.slides"
+      ],
+      "description": "LLM slide outline from a drafted document",
+      "cost_per_call": 0.005
+    },
+    {
+      "name": "quality_judge",
+      "layer": "verify",
+      "implementation": "examples.office.tools_llm:quality_judge",
+      "capabilities": [
+        "quality.judge"
+      ],
+      "description": "LLM judge: overall draft quality score",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "render_chart",
+      "layer": "render",
+      "implementation": "examples.office.tools_det:render_chart",
+      "capabilities": [
+        "chart.render"
+      ],
+      "description": "Assemble a json chart FileSpec (in memory, never written)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "render_doc",
+      "layer": "render",
+      "implementation": "examples.office.tools_det:render_doc",
+      "capabilities": [
+        "doc.render"
+      ],
+      "description": "Assemble a markdown doc FileSpec with the review verdict",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "render_pptx",
+      "layer": "render",
+      "implementation": "examples.office.tools_det:render_pptx",
+      "capabilities": [
+        "ppt.render"
+      ],
+      "description": "Assemble a json deck FileSpec (in memory, never written)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "render_xlsx",
+      "layer": "render",
+      "implementation": "examples.office.tools_det:render_xlsx",
+      "capabilities": [
+        "table.render"
+      ],
+      "description": "Assemble a csv sheet FileSpec with a formula footnote",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "slide_copy_fast",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:slide_copy_fast",
+      "capabilities": [
+        "slide.copy"
+      ],
+      "description": "LLM per-slide copy (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "slide_copy_steady",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:slide_copy_steady",
+      "capabilities": [
+        "slide.copy"
+      ],
+      "description": "LLM per-slide copy (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "slide_overflow_check",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:slide_overflow_check",
+      "capabilities": [
+        "ppt.overflow"
+      ],
+      "description": "Rule check: per-slide bullet count and bullet length",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "style_check",
+      "layer": "verify",
+      "implementation": "examples.office.tools_det:style_check",
+      "capabilities": [
+        "style.check"
+      ],
+      "description": "Rule check: sentence length against the StyleSpec contract",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "style_profile",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:style_profile",
+      "capabilities": [
+        "style.profile"
+      ],
+      "description": "LLM writing-style profile of the source document",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "table_header_fix_llm",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:table_header_fix_llm",
+      "capabilities": [
+        "table.repair"
+      ],
+      "description": "LLM header repair (redundant with the batch-B rule variant)",
+      "cost_per_call": 0.006
+    },
+    {
+      "name": "table_header_fix_rule",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:table_header_fix_rule",
+      "capabilities": [
+        "table.repair"
+      ],
+      "description": "Rule repair: strip headers, fill empty names, drop duplicate columns",
+      "cost_per_call": 0.0005
+    },
+    {
       "name": "table_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:table_parse",
@@ -62,6 +422,116 @@
       ],
       "description": "Parse the csv corpus table into a DataTable",
       "cost_per_call": 0.002
+    },
+    {
+      "name": "table_profile",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:table_profile",
+      "capabilities": [
+        "table.profile"
+      ],
+      "description": "Profile a table: column types, null rates, anomalies",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "text_expand",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:text_expand",
+      "capabilities": [
+        "text.expand"
+      ],
+      "description": "LLM outline expansion into full sections",
+      "cost_per_call": 0.005
+    },
+    {
+      "name": "text_polish_aggressive",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:text_polish_aggressive",
+      "capabilities": [
+        "text.polish"
+      ],
+      "description": "LLM aggressive polish (rewrites freely for impact)",
+      "cost_per_call": 0.006
+    },
+    {
+      "name": "text_polish_conservative",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:text_polish_conservative",
+      "capabilities": [
+        "text.polish"
+      ],
+      "description": "LLM conservative polish (keeps wording, fixes clear issues)",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "text_segment",
+      "layer": "extract",
+      "implementation": "examples.office.tools_det:text_segment",
+      "capabilities": [
+        "text.segment"
+      ],
+      "description": "Cut a document into non-empty chunks on blank lines",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "text_summarize_fast",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:text_summarize_fast",
+      "capabilities": [
+        "text.summarize"
+      ],
+      "description": "LLM summary of the source document (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "text_summarize_steady",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:text_summarize_steady",
+      "capabilities": [
+        "text.summarize"
+      ],
+      "description": "LLM summary of the source document (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "text_translate_fast",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:text_translate_fast",
+      "capabilities": [
+        "text.translate"
+      ],
+      "description": "LLM translation of the source document (fast variant)",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "text_translate_steady",
+      "layer": "extract",
+      "implementation": "examples.office.tools_llm:text_translate_steady",
+      "capabilities": [
+        "text.translate"
+      ],
+      "description": "LLM translation of the source document (steady variant)",
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "theme_palette_pick",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:theme_palette_pick",
+      "capabilities": [
+        "palette.select"
+      ],
+      "description": "Deterministic tone-to-palette mapping",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "title_gen",
+      "layer": "compose",
+      "implementation": "examples.office.tools_llm:title_gen",
+      "capabilities": [
+        "title.compose"
+      ],
+      "description": "Cheap LLM title generator (high-frequency FAST-tier traffic)",
+      "cost_per_call": 0.0008
     }
   ]
 }

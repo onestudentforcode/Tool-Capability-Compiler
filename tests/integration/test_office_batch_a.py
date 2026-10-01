@@ -18,8 +18,11 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from capability_runtime import (  # noqa: E402
+    LayerRegistry,
     ScenarioLoader,
     SlowRegressionRunner,
+    ToolRegistry,
+    TopologyBuilder,
     TopologyLoader,
     unbound_tool_names,
 )
@@ -132,14 +135,24 @@ def test_topology_declares_five_layers_with_l0_nodes() -> None:
     assert version == office.DEFAULT_TOPOLOGY_VERSION
     assert [layer.name for layer in topology.layers()] == list(office.LAYERS)
     assert [layer.order for layer in topology.layers()] == [0, 1, 2, 3, 4]
-    assert set(topology.nodes()) == {"fs_read", "doc_parse", "table_parse", "deck_parse"}
-    for name in topology.nodes():
+    # The four batch-A readers live in the context layer; later batches fill
+    # the upper layers (51 nodes in total once B/C have landed).
+    for name in ("fs_read", "doc_parse", "table_parse", "deck_parse"):
         assert topology.node(name).spec.layer == "context"
 
 
 def test_l0_artifacts_reach_the_blackboard() -> None:
     store.STORE.reset()
-    topology, _ = office.build_topology()
+    # Batch-A scope: an L0-only registry, so the smoke run stays offline and
+    # deterministic even though office.build_topology() now spans all batches.
+    layers = LayerRegistry()
+    for order, name in enumerate(office.LAYERS):
+        layers.register(name, order)
+    tools = ToolRegistry()
+    for node in tools_l0.NODES:
+        tools.register(node)
+    topology = TopologyBuilder(layers, tools).build()
+
     suite = ScenarioLoader().load_file(str(OFFICE_DIR / "scenarios.json"))
 
     runner = SlowRegressionRunner(
@@ -161,18 +174,38 @@ def test_exported_topology_is_executable_json(tmp_path) -> None:
     payload = build_payload()
     assert payload["version"] == office.DEFAULT_TOPOLOGY_VERSION
     assert len(payload["layers"]) == 5
-    assert len(payload["tools"]) == 4
+    assert len(payload["tools"]) == 51
 
     topology_path = tmp_path / "office.json"
     topology_path.write_text(json.dumps(payload), encoding="utf-8")
     loaded = TopologyLoader().load_file(str(topology_path))
     assert unbound_tool_names(loaded) == ()
 
+    # Basefast seeds pin every smoke route to its context-layer reader, so the
+    # executable-JSON run touches no LLM tool and stays offline-deterministic.
+    seeds: dict[str, dict] = {}
+    for scenario in json.loads((OFFICE_DIR / "scenarios.json").read_text(encoding="utf-8"))[
+        "scenarios"
+    ]:
+        reader = {
+            "smoke_doc_parse": "doc_parse",
+            "smoke_fs_read": "fs_read",
+            "smoke_table_parse": "table_parse",
+            "smoke_deck_parse": "deck_parse",
+        }[scenario["id"]]
+        seeds[scenario["id"]] = {
+            "layers": [{"layer": "context", "tools": [reader]}],
+            "capabilities": scenario["expected_capabilities"],
+        }
+    seeds_path = tmp_path / "seeds.json"
+    seeds_path.write_text(json.dumps(seeds), encoding="utf-8")
+
     code = cli_main(
         [
             "regression", "slow",
             "--topology", str(topology_path),
             "--scenario", str(OFFICE_DIR / "scenarios.json"),
+            "--basefast", str(seeds_path),
             "--trials", "1",
         ]
     )
