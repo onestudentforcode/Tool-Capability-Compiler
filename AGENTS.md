@@ -231,6 +231,22 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      一致是硬门槛）+ rollback；三段零隐式串联，probe 保持显式，
      旧版两版本报告保留为 optimize report。
 
+5. Office Battlefield 真实域靶场——已完成（2026-10）
+     docs/acceptance/office-battlefield.md（批次 A-E 全部落地，F 可选后置）。
+     examples/office/：5 层 51 工具节点（42 实现 + 工厂变体）、
+     11 个冗余 capability、60 场景 / 4 家族 / 42-9-9 覆盖分布、
+     clean/messy/sparse/conflict 语料变体、确定性离线 fake LLM。
+     里程碑意义兑现：optimize 首次在真实证据上产出非空补丁
+     （6 个 IDENTIFIED 边候选）并走通 validate ACCEPT → commit →
+     rollback；rank 三 Tier 全非空且 6 个冗余 capability 变体跨 Tier；
+     两轮收敛（在线 60/60 成功，延迟 183→174ms）。顺手修复四个
+     此前从未被触达的核心缺陷（pipeline analyze 节点/边候选混淆、
+     CounterfactualResult 字段误用、RouteSearch 预算不约束子集扫描、
+     Tier 参照池含零成功路线）——详见 office-battlefield.md §12。
+     已知边界：精确 RouteSearch 在宽最大链拓扑上仍受枚举预算截断
+     （可行性见证回退保证语义），60 场景覆盖报告由种子见证路线
+     线性推导（语义等价）。
+
 工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
 
 多租户服务化 / 在线自适应 / 熔断器 / 监控体系 / LLMRouter 真实规模实跑

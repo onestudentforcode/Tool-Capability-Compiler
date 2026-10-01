@@ -264,27 +264,35 @@ LLM 工具      经 LLMResource：实测 token/成本自动入账（管道拦截
 
 **批次级**（各批完成时勾选）：
 
-- [ ] A：类型主干贯通（L0 读语料 → 类型化产出进黑板，下游可消费）；
+- [x] A：类型主干贯通（L0 读语料 → 类型化产出进黑板，下游可消费）；
       export_topology 产出可执行 JSON 且 `regression slow` 可跑
-- [ ] B：确定性工具有 gold 断言测试（同输入同输出）；规则检查能给出
+- [x] B：确定性工具有 gold 断言测试（同输入同输出）；规则检查能给出
       通过 / 失败两类结论
-- [ ] C：LLM 工具经 fake 注入全离线测试；变体四维分化（延迟 / token /
+- [x] C：LLM 工具经 fake 注入全离线测试；变体四维分化（延迟 / token /
       成本 / quality 至少三维不同）；解析失败正确归类
-- [ ] D：覆盖分布达标（≈70/15/15）；slow 落盘含全部失败类别；
+- [x] D：覆盖分布达标（≈70/15/15）；slow 落盘含全部失败类别；
       `(scenario, trial)` 重跑一致
-- [ ] E：见下方总验收
+- [x] E：见下方总验收
 
 **总验收（里程碑完成标准）**：
 
-- [ ] **首个真实剪枝事件**：optimize analyze 在真实证据上产出 ≥1 个
+- [x] **首个真实剪枝事件**：optimize analyze 在真实证据上产出 ≥1 个
       IDENTIFIED 候选（非 PROTECTED），非空补丁经 validate ACCEPT、
       commit 落版本、rollback 可重放——三段式首次在非空补丁上走通
-- [ ] rank 产出 ≥2 个非空 Tier，且至少一个冗余 capability 的变体被
+      （实测：6 个 IDENTIFIED 边候选、反事实 pass、三门 ACCEPT、
+      office-v0.1 落版本并成功重放）
+- [x] rank 产出 ≥2 个非空 Tier，且至少一个冗余 capability 的变体被
       分进不同 Tier（四维张力的直接证据）
-- [ ] 两轮收敛演示：Round 2（含在线遥测回流证据）平均成本或延迟下降、
+      （实测：fast 3 / balanced 2 / quality 12；section.draft、
+      text.polish、text.summarize、formula.generate、slide.copy、
+      text.grammar 六个 capability 的变体跨 Tier）
+- [x] 两轮收敛演示：Round 2（含在线遥测回流证据）平均成本或延迟下降、
       成功率不降，报告落盘可复跑
-- [ ] 全部测试离线；全量测试 + compileall + diff-check 通过
-- [ ] AGENTS.md §7 与 README 更新
+      （实测：在线服务 60/60，成功率 0.5565 → 1.0，平均延迟
+      183 → 174ms，平均成本 0.02435 → 0.02428；`run_closed_loop.py`
+      一键复跑，report.json 落盘）
+- [x] 全部测试离线；全量测试 + compileall + diff-check 通过
+- [x] AGENTS.md §7 与 README 更新
 
 ---
 
@@ -320,9 +328,9 @@ feat    批次 E：闭环演示脚本 + 证据资产
 
 | 批次 | 状态 | 说明 |
 | --- | --- | --- |
-| A 域模型与语料 | [ ] | |
-| B 确定性工具层 | [ ] | |
-| C LLM 工具层 | [ ] | |
-| D 场景集与实跑 | [ ] | |
-| E 闭环证据 | [ ] | |
-| F 复合节点（可选） | [ ] | |
+| A 域模型与语料 | [x] | facts.py 15 类型主干 + corpus（受限 md / csv / json deck）+ 4 个 L0 读取工具 + export_topology；`regression slow` 可跑（tests/integration/test_office_batch_a.py） |
+| B 确定性工具层 | [x] | tools_det.py 16 节点：L1 确定性 6 + L3 规则检查 6 + L4 render-to-FileSpec 4；gold 断言 + 通过/失败双路径测试（test_office_det_tools.py） |
+| C LLM 工具层 | [x] | office_llm.py（可替换 LLMResource 句柄 + 宽松解析）+ factories.py（6 个参数化工厂）+ tools_llm.py 31 节点；fake 注入全离线、四维分化断言、解析失败归类 TOOL_EXECUTION_ERROR（test_office_llm_tools.py）。L2 消费只取 L0/L1 产物（同层互不依赖） |
+| D 场景集与实跑 | [x] | scenarios.json 60 条 / 4 家族 / 42-9-9 分布 / 3 哨兵（test_office_scenarios.py）；fixtures.py 四变体（messy/sparse/conflict 确定性变换）；run_scale.py 规模实跑（60×5，全部失败类别落盘，(scenario, trial) 重跑语义一致）。覆盖报告由种子见证路线推导（与精确分析器语义一致、线性成本——精确 RouteSearch 在 51 节点稠密拓扑上指数爆炸，见 AGENTS.md §7 已知边界） |
+| E 闭环证据 | [x] | run_closed_loop.py 一键复跑：analyze 首批真实剪枝候选（6 边）→ validate 三门 ACCEPT → commit office-v0.1 → rollback 重放 → rank 三 Tier + 6 个冗余 capability 变体跨 Tier → select 干跑 → 在线服务 60/60 + 遥测回流；两轮收敛（成功率 0.5565→1.0，延迟 183→174ms，成本微降）落盘 report.json |
+| F 复合节点（可选） | [ ] | 后置 | |

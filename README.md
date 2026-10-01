@@ -113,6 +113,23 @@ tool-topology optimize \
     --scenario examples/scenarios/refund.json
 ```
 
+## Office Battlefield（真实域靶场）
+
+退款沙盒是手写的教学域；办公域是主循环的第一个真实领域验证场：
+5 层 51 个工具节点（文档撰写 / PPT / 表格 / 邮件草稿，简化格式语料，
+本地 Ollama 语义但测试全离线）、11 个冗余 capability、60 场景 / 4 家族。
+完整验收见 `docs/acceptance/office-battlefield.md`。
+
+```bash
+# 规模实跑（60 场景 × 5 试验，确定性离线 fake，slow 工件落盘）
+python examples/office/run_scale.py --trials 5
+
+# 主循环闭环一键复跑：Round 1 → optimize analyze（首个真实剪枝事件）
+# → validate ACCEPT → commit → rollback → rank（三 Tier + 变体跨 Tier）
+# → select → Round 2 在线服务 + 遥测回流 → 两轮收敛报告
+python examples/office/run_closed_loop.py --trials 15
+```
+
 ## Develop
 
 ```bash
