@@ -326,6 +326,10 @@ feat    批次 E：闭环演示脚本 + 证据资产
 
 ## 12. 实现进度
 
+> 实施过程中的问题排查与解决记录（同层依赖约束、sys.modules 遮蔽、
+> 四个核心缺陷、Tier 参照池口径、JSON 拓扑类型缺失的语义分歧等）
+> 见 `office-battlefield-notes.md`。
+
 | 批次 | 状态 | 说明 |
 | --- | --- | --- |
 | A 域模型与语料 | [x] | facts.py 15 类型主干 + corpus（受限 md / csv / json deck）+ 4 个 L0 读取工具 + export_topology；`regression slow` 可跑（tests/integration/test_office_batch_a.py） |
