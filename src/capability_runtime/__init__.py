@@ -163,6 +163,13 @@ from .regression import (
     TopologyGapEntry,
     compute_diff,
 )
+from .regression.report import fast_report_from_json, fast_report_to_json
+from .regression.seed_export import (
+    SeedEntry,
+    SeedsPayload,
+    export_seeds,
+    read_seeds,
+)
 from .optimization.pipeline import (
     ValidateConfig,
     analyze as pipeline_analyze,
@@ -568,6 +575,12 @@ __all__ = [
     "TopologyBuilder",
     "TopologyFrameworkError",
     "TopologyGapEntry",
+    "fast_report_from_json",
+    "fast_report_to_json",
+    "SeedEntry",
+    "SeedsPayload",
+    "export_seeds",
+    "read_seeds",
     "TrialFailureCategory",
     "TopologyLoader",
     "TopologyPatch",

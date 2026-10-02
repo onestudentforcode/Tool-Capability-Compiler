@@ -43,7 +43,13 @@ from .fixtures.manager import DefaultFixtureManager
 from .regression.baseline import Baseline, BaselineStore, compute_diff
 from .regression.candidate_route import CandidateRoute
 from .regression.coverage import CoverageStatus
-from .regression.report import CoverageReport, FastRegressionRunner
+from .regression.report import (
+    CoverageReport,
+    FastRegressionRunner,
+    fast_report_from_json,
+    fast_report_to_json,
+)
+from .regression.seed_export import export_seeds, read_seeds
 from .regression.slow.persistence import SlowRegressionWriter
 from .regression.slow.report import (
     build_slow_regression_report,
@@ -51,7 +57,6 @@ from .regression.slow.report import (
 )
 from .regression.slow.runner import SlowRegressionRunner
 from .regression.slow.stats import build_observation_stats
-from .route.models import RouteLayer
 from .router.llm_router import LLMRouter
 from .router.models import ToolSummary
 from .scenario import ScenarioLoader, ScenarioSuite
@@ -76,6 +81,7 @@ from .optimization.pipeline import (
     rollback as pipeline_rollback,
     validate as pipeline_validate,
 )
+from .optimization.artifacts import declared_fingerprint
 from .onboarding import (
     apply_capabilities,
     propose_capabilities,
@@ -129,6 +135,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit non-zero when any scenario regresses to not-covered",
     )
+    fast_parser.add_argument(
+        "--out-dir",
+        help="Write the full report.json (candidate routes included) here",
+    )
 
     slow_parser = fast.add_parser("slow", help="Run slow (real execution) regression")
     slow_parser.add_argument("--topology", required=True, help="Topology JSON file")
@@ -148,6 +158,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON mapping scenario_id -> CandidateRoute used to seed each trial",
     )
     slow_parser.add_argument(
+        "--allow-seed-mismatch",
+        action="store_true",
+        help="Run even when the seeds file was generated against a different "
+        "declared topology (v2 seeds carry a fingerprint)",
+    )
+    slow_parser.add_argument(
         "--out-dir",
         help="Write traces.jsonl / manifest.json / report.json / *_stats.json here",
     )
@@ -158,6 +174,37 @@ def build_parser() -> argparse.ArgumentParser:
     slow_parser.add_argument("--base-url", help="Ollama base URL (LLM routing)")
     slow_parser.add_argument("--model", help="Ollama model name (LLM routing)")
     slow_parser.add_argument(
+        "--expected-fact",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="A fact the deterministic evaluator expects in the final state (repeatable)",
+    )
+
+    seeds_parser = subparsers.add_parser(
+        "seeds", help="Seed lifecycle: freeze verified chains into seeds.json"
+    )
+    seeds_sub = seeds_parser.add_subparsers(dest="seeds_command", required=True)
+    seeds_export = seeds_sub.add_parser(
+        "export",
+        help="Freeze fast-report candidate chains into replay-verified seeds",
+    )
+    seeds_export.add_argument("--topology", required=True)
+    seeds_export.add_argument("--scenario", required=True)
+    seeds_export.add_argument(
+        "--fast-report",
+        required=True,
+        help="fast --out-dir directory (report.json inside) or the report JSON path",
+    )
+    seeds_export.add_argument("--out", required=True)
+    seeds_export.add_argument("--replay-trials", type=int, default=1)
+    seeds_export.add_argument("--max-verify", type=int, default=3)
+    seeds_export.add_argument(
+        "--require-eval",
+        action="store_true",
+        help="Also require the evaluator (built from --expected-fact) to pass",
+    )
+    seeds_export.add_argument(
         "--expected-fact",
         action="append",
         default=[],
@@ -335,6 +382,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_rank(args)
     if args.command == "select":
         return run_select(args)
+    if args.command == "seeds":
+        return run_seeds_export(args)
     if args.command == "onboard":
         return run_onboard(args)
     build_parser().error(f"Unsupported command: {args.command}")
@@ -362,25 +411,67 @@ def run_fast(args: argparse.Namespace) -> int:
         BaselineStore().save(Baseline.from_report(report), args.save_baseline)
 
     print(render_report(report, suite, baseline))
+    if args.out_dir:
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        report_path = out_dir / "report.json"
+        report_path.write_text(
+            json.dumps(fast_report_to_json(report), indent=2, ensure_ascii=False)
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"fast report written to {report_path}")
     if args.fail_on_regression and _has_regression(report, baseline):
         return 1
     return 0
 
 
 def load_seed_routes(path: str) -> dict[str, CandidateRoute]:
-    """Load the ``--basefast`` seed file mapping scenario_id -> CandidateRoute."""
-    raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    seeds: dict[str, CandidateRoute] = {}
-    for scenario_id, route in dict(raw).items():
-        layers = tuple(
-            RouteLayer(str(segment["layer"]), tuple(segment["tools"]))
-            for segment in route["layers"]
+    """Load the ``--basefast`` seed file mapping scenario_id -> CandidateRoute.
+
+    Accepts both the legacy plain ``{scenario_id: route}`` map and the v2
+    format with a header (format_version / topology_fingerprint / seeds).
+    """
+    routes, _ = read_seeds(path)
+    return routes
+
+
+def run_seeds_export(args: argparse.Namespace) -> int:
+    topology = TopologyLoader().load_file(args.topology)
+    suite = ScenarioLoader().load_file(args.scenario)
+    report_path = Path(args.fast_report)
+    if report_path.is_dir():
+        report_path = report_path / "report.json"
+    report = fast_report_from_json(
+        json.loads(report_path.read_text(encoding="utf-8"))
+    )
+
+    expected: dict[str, str] = {}
+    for pair in args.expected_fact:
+        name, _, value = pair.partition("=")
+        expected[name] = value
+    evaluator = StructuredEvaluator(expected) if args.require_eval else None
+
+    payload = asyncio.run(
+        export_seeds(
+            topology,
+            suite,
+            report,
+            replay_trials=args.replay_trials,
+            max_verify=args.max_verify,
+            evaluator=evaluator,
         )
-        seeds[scenario_id] = CandidateRoute(
-            layers=layers,
-            capabilities=frozenset(route.get("capabilities", ())),
-        )
-    return seeds
+    )
+    out_path = payload.write(args.out)
+    print(
+        f"seeds written to {out_path}: {payload.frozen_count}/"
+        f"{len(suite.scenarios)} scenarios frozen "
+        f"(topology {payload.topology_fingerprint})"
+    )
+    for entry in payload.entries:
+        if entry.status != "frozen":
+            print(f"  {entry.scenario_id}: {entry.status} ({entry.reason})")
+    return 0
 
 
 def run_slow(args: argparse.Namespace) -> int:
@@ -398,7 +489,25 @@ def run_slow(args: argparse.Namespace) -> int:
         return 2
     suite = ScenarioLoader().load_file(args.scenario)
 
-    seeds = load_seed_routes(args.basefast) if args.basefast else None
+    seeds = None
+    if args.basefast:
+        seeds, seed_fingerprint = read_seeds(args.basefast)
+        active_fingerprint = declared_fingerprint(topology)
+        if (
+            seed_fingerprint is not None
+            and seed_fingerprint != active_fingerprint
+            and not args.allow_seed_mismatch
+        ):
+            # Stale seeds silently degrade (baseline ∩ available shrinks);
+            # a fingerprint mismatch means the world moved under them.
+            print(
+                "refusing to run slow regression: seeds file was generated "
+                f"against topology {seed_fingerprint} but the declared "
+                f"topology is {active_fingerprint}; regenerate the seeds or "
+                "pass --allow-seed-mismatch",
+                file=sys.stderr,
+            )
+            return 2
     router = None
     router_config_id = "basefast" if seeds else "free"
     if args.router_config:

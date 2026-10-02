@@ -62,6 +62,10 @@ class FastRegressionError(TopologyFrameworkError):
     pass
 
 
+class SeedExportError(FastRegressionError):
+    pass
+
+
 class BaselineError(FastRegressionError):
     pass
 
