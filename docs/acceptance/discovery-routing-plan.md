@@ -82,12 +82,76 @@
 
 ---
 
-## 批次 B 计划：模型驱动发现（占位，开工前细化）
+## 批次 B 计划：模型驱动发现
 
-目标：slow + LLMRouter 一次发现跑 → ObservedRoute → 复放验证 →
-与批次 A 同一 seeds 格式；FakeRouter 离线测试；真实 Ollama 可选。
-待细化决策点：路由 prompt 与合法池的呈现方式；发现跑的 trial
-预算；失败模式分类（解析失败/选池外工具）。
+状态：**计划已展示，待验收** ｜ 对应问题：P2（LLM 首次上路由座位的
+机制与离线实测路径）、P3（复放验证，与批次 A 共用）
+
+### B.0 前置事实（已核实）
+
+- slow 原生支持 router 模式：逐层把 RoutingContext（query、当前层、
+  可用池、状态摘要、已走层）交给路由器，决策经
+  `validate_decision` 对合法池校验；路由失败（含选池外工具、解析
+  失败）在 runner 中归类为 ROUTING_ERROR trial。
+- LLMRouter（router/llm_router.py）决策格式为
+  `{"action": "execute"|"finish", "selected_tools": [...], "reason": ...}`，
+  支持 `_http` 注入 → **可全离线测试**；重复工具名被容忍（去重）。
+- FakeRouter（按层全局映射）不分场景；发现按场景逐个跑，因此需要
+  按场景的脚本路由器。
+- 批次 A 的 `_replay_verified` 判据与 SeedsPayload 组装可直接复用。
+
+### B.1 交付物
+
+1. **seed_export.py 小重构**：`_replay_verified` → 公共
+   `replay_verified`；抽出 `build_seed_payload(...)` 供两条路径
+   （fast-report / model-discovery）共用 v2 组装。
+2. **新模块 `regression/seed_discovery.py`**：
+   `async def discover_seeds(topology, suite, *, router_factory,
+   replay_trials=1, evaluator=None) -> SeedsPayload`
+   - 逐场景独立跑一次**发现 slow**（单场景套件、discovery_trials=1、
+     router=router_factory(scenario) 产出、router_config_id=
+     "model-discovery"）→ 取 ObservedRoute → **确定性复放验证**
+     （与批次 A 同判据）→ 通过才固化；
+   - payload `source = "model-discovery"`，指纹绑定同 v2；
+   - entries 状态扩展：`discovery-failed`（发现跑未完成/路由失败/
+     评估失败）与 `replay-failed`（发现成功但复放不过——模型的
+     链不可确定性复现时不许固化）。
+3. **`ScenarioScriptedRouter`**（router/fake_router.py，与 FakeRouter
+   同处）：按 `{layer: [tools]}` 逐层查表返回决策，未列层 FINISH；
+   供离线确定性发现与测试。
+4. **CLI**：`tool-topology seeds discover --topology --scenario --out
+   [--router-config JSON | --scripted-router JSON] [--discovery-trials]
+   [--replay-trials] [--require-eval / --expected-fact]`
+   - `--router-config`：真实 Ollama（字段同 slow：base_url / model /
+     temperature / max_tools_per_layer）→ LLMRouter；
+   - `--scripted-router`：离线确定性发现脚本
+     `{scenario_id: {layer: [tools]}}`，标注"测试与可复现实验用"。
+5. **测试（tests/unit/test_seed_discovery.py + CLI 集成）**：
+   - 脚本路由给出好链 → frozen（source=model-discovery）；
+   - 脚本选中坏工具（source_bad）→ 发现跑 LAYER_ERROR →
+     discovery-failed；
+   - 脚本选池外工具 → ROUTING_ERROR → discovery-failed；
+   - **非确定性防护**：计数器工具（发现第 1 次调用成功、复放第
+     2 次抛错）→ entry replay-failed——固化必须过确定性复放；
+   - LLMRouter + fake `_http`（返回合法决策 JSON）→ 真路由器驱动
+     发现的离线证明（P2 机制级）；
+   - 评估门：evaluator 失败 → 不固化；
+   - CLI：`seeds discover --scripted-router` → seeds.json →
+     `slow --basefast` 复放 → 指纹绑定同批次 A。
+
+### B.2 明确不做
+
+真实 Ollama 规模实跑与三模式对照（批次 E）；不改 LLMRouter 的
+prompt/解析本体（其真实鲁棒性正是批次 E 的验证对象）；不改
+basefast 扩展语义；发现失败不做自动重试（记录为批次 E 备选）。
+
+### B.3 决策点（请验收时确认）
+
+1. 发现跑固定 discovery_trials=1（成本考虑），不做多温度重试；
+2. `--scripted-router` 进 CLI——让"无 LLM 的确定性发现"成为
+   一等公民（同时服务测试与可复现实验）；
+3. router_factory 以场景为键注入（RoutingContext 无场景标识，
+   逐场景独立发现跑是唯一干净解）。
 
 ## 批次 C 计划：双路径等价（占位，开工前细化）
 
