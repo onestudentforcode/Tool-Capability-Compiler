@@ -24,6 +24,24 @@ import time
 from collections import Counter
 from pathlib import Path
 
+
+class _Tee:
+    """Mirror stdout/stderr into the run's console.txt (逐行刷盘, failure-safe)."""
+
+    def __init__(self, stream, file) -> None:
+        self._stream = stream
+        self._file = file
+
+    def write(self, text: str) -> int:
+        self._stream.write(text)
+        self._file.write(text)
+        self._file.flush()
+        return len(text)
+
+    def flush(self) -> None:
+        self._stream.flush()
+        self._file.flush()
+
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent.parent
 for _path in (str(_ROOT / "src"), str(_ROOT)):
@@ -226,6 +244,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-dir", default=None)
     args = parser.parse_args(argv)
 
+    out_dir = Path(args.out_dir) if args.out_dir else _HERE / "artifacts" / "scale"
+    run_dir = out_dir / f"scale_{time.strftime('%Y%m%d%H%M%S')}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    # Console archive: everything printed from here on (success or failure)
+    # is mirrored into the run directory.
+    console = open(run_dir / "console.txt", "w", encoding="utf-8")
+    sys.stdout = _Tee(sys.stdout, console)
+    sys.stderr = _Tee(sys.stderr, console)
+
     topology, version = office.build_topology(topology_version=args.topology_version)
     suite = ScenarioLoader().load_file(str(SUITE_PATH))
     seeds = build_seeds(suite, topology)
@@ -258,9 +285,6 @@ def main(argv: list[str] | None = None) -> int:
         router_config_id="basefast-office",
     )
 
-    out_dir = Path(args.out_dir) if args.out_dir else _HERE / "artifacts" / "scale"
-    run_dir = out_dir / f"scale_{time.strftime('%Y%m%d%H%M%S')}"
-    run_dir.mkdir(parents=True, exist_ok=True)
     writer = SlowRegressionWriter(run_dir)
     writer.write(
         run_id=f"scale-{run_dir.name}",
@@ -339,6 +363,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Artifacts in {run_dir}:")
     for path in sorted(run_dir.iterdir()):
         print(f"  {path.name:<26}{path.stat().st_size:>10} bytes")
+    try:  # the readable mirror must never fail the run itself
+        from examples.office import render_review
+
+        render_review.write_review(run_dir)
+        print(f"  {'review.md':<26}{'(human-readable mirror)':>10}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  review rendering skipped: {exc}")
     return 0
 
 

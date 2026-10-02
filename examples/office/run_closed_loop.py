@@ -73,6 +73,24 @@ from examples.office.fixtures import OfficeFixtureManager  # noqa: E402
 from examples.office.store import STORE  # noqa: E402
 
 
+class _Tee:
+    """Mirror stdout/stderr into the run's console.txt (逐行刷盘, failure-safe)."""
+
+    def __init__(self, stream, file) -> None:
+        self._stream = stream
+        self._file = file
+
+    def write(self, text: str) -> int:
+        self._stream.write(text)
+        self._file.write(text)
+        self._file.flush()
+        return len(text)
+
+    def flush(self) -> None:
+        self._stream.flush()
+        self._file.flush()
+
+
 def check(condition: bool, message: str) -> None:
     """Milestone assertions: a closed-loop run that cannot prove itself fails."""
     if not condition:
@@ -200,6 +218,11 @@ def main(argv: list[str] | None = None) -> int:
         else _HERE / "artifacts" / "closed_loop" / time.strftime("loop_%Y%m%d%H%M%S")
     )
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Console archive: everything printed from here on (success or failure)
+    # is mirrored into the run directory.
+    console = open(out_dir / "console.txt", "w", encoding="utf-8")
+    sys.stdout = _Tee(sys.stdout, console)
+    sys.stderr = _Tee(sys.stderr, console)
     started = time.perf_counter()
 
     # ---- Round 1: offline exploration on the declared topology --------------
@@ -421,9 +444,15 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "report.json").write_text(
         json.dumps(report_payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    try:  # the readable mirror must never fail the run itself
+        from examples.office import render_review
+
+        render_review.write_review(out_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"review rendering skipped: {exc}")
     print(f"\nCLOSED LOOP COMPLETE in {elapsed}s — artifacts in {out_dir}")
-    for name in ("candidates.json", "verdict.json", "ranking.json",
-                 "selection.json", "report.json", "versions"):
+    for name in ("console.txt", "candidates.json", "verdict.json", "ranking.json",
+                 "selection.json", "report.json", "review.md", "versions"):
         print(f"  {name}")
     return 0
 

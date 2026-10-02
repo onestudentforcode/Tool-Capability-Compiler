@@ -130,6 +130,11 @@ python examples/office/run_scale.py --trials 5
 python examples/office/run_closed_loop.py --trials 15
 ```
 
+每次运行在产物目录留档：`console.txt`（控制台镜像，失败现场也保留）与
+`review.md`（人类可读审查报告——术语表 + 各阶段表格与判读，由
+`render_review.py` 生成，也可对既有产物目录单独执行）。审查入口即产物
+目录下的 `review.md`。
+
 ## Develop
 
 ```bash
