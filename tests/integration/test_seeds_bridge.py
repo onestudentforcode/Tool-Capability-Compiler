@@ -167,3 +167,35 @@ def test_legacy_seeds_still_load(tmp_path) -> None:
         "--basefast", str(seeds), "--trials", "1",
     ])
     assert code == 0
+
+
+def test_seeds_discover_scripted_router_end_to_end(tmp_path) -> None:
+    topo, scen = _write_files(tmp_path)
+    routing = tmp_path / "routing.json"
+    routing.write_text(json.dumps({
+        "S1": {"read": ["source_good"], "analyze": ["decide"], "act": ["archive"]},
+        "S2": {},
+    }), encoding="utf-8")
+    seeds = tmp_path / "discovered.json"
+
+    code = main([
+        "seeds", "discover",
+        "--topology", str(topo), "--scenario", str(scen),
+        "--scripted-router", str(routing), "--out", str(seeds),
+    ])
+    assert code == 0
+    payload = json.loads(seeds.read_text(encoding="utf-8"))
+    assert payload["source"] == "model-discovery"
+    assert set(payload["seeds"]) == {"S1"}
+    entries = {e["scenario_id"]: e for e in payload["entries"]}
+    assert entries["S1"]["status"] == "frozen"
+    assert entries["S2"]["status"] == "discovery-failed"
+    topology = TopologyLoader().load_file(str(topo))
+    assert payload["topology_fingerprint"] == declared_fingerprint(topology)
+
+    # discovered chains replay through the standard slow path
+    assert main([
+        "regression", "slow",
+        "--topology", str(topo), "--scenario", str(scen),
+        "--basefast", str(seeds), "--trials", "1",
+    ]) == 0

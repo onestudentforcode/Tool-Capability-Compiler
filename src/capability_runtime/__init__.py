@@ -170,6 +170,7 @@ from .regression.seed_export import (
     export_seeds,
     read_seeds,
 )
+from .regression.seed_discovery import discover_seeds
 from .optimization.pipeline import (
     ValidateConfig,
     analyze as pipeline_analyze,
@@ -580,6 +581,7 @@ __all__ = [
     "SeedEntry",
     "SeedsPayload",
     "export_seeds",
+    "discover_seeds",
     "read_seeds",
     "TrialFailureCategory",
     "TopologyLoader",

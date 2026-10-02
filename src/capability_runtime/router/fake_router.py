@@ -37,3 +37,34 @@ class FakeRouter:
                 f"FakeRouter selected tools not available: {', '.join(unknown)}"
             )
         return RoutingDecision(action=RoutingAction.EXECUTE, selected_tools=selected)
+
+
+@dataclass(slots=True)
+class ScenarioScriptedRouter:
+    """Per-scenario scripted router for offline deterministic discovery.
+
+    Binds ONE scenario's table (``{layer: [tools]}``); a layer without an
+    entry means FINISH, an entry with tools means EXECUTE exactly those
+    tools (the runner validates them against the available pool, so pool-
+    illegal scripts surface as ROUTING_ERROR — which discovery records).
+    Used by ``seeds discover --scripted-router`` and offline tests; the
+    discovery flow replays every discovered chain deterministically before
+    freezing, so scripted output is treated exactly like model output.
+    """
+
+    routing: Mapping[str, Sequence[str]] = field(default_factory=dict)
+
+    async def route(self, context: RoutingContext) -> RoutingDecision:
+        planned = self.routing.get(context.current_layer)
+        if planned is None:
+            return RoutingDecision(
+                action=RoutingAction.FINISH,
+                reason="scripted: layer not listed",
+            )
+        selected = tuple(dict.fromkeys(str(tool) for tool in planned))
+        if not selected:
+            return RoutingDecision(
+                action=RoutingAction.FINISH,
+                reason="scripted: empty plan",
+            )
+        return RoutingDecision(action=RoutingAction.EXECUTE, selected_tools=selected)

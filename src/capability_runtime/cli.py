@@ -50,6 +50,7 @@ from .regression.report import (
     fast_report_to_json,
 )
 from .regression.seed_export import export_seeds, read_seeds
+from .regression.seed_discovery import discover_seeds
 from .regression.slow.persistence import SlowRegressionWriter
 from .regression.slow.report import (
     build_slow_regression_report,
@@ -57,8 +58,9 @@ from .regression.slow.report import (
 )
 from .regression.slow.runner import SlowRegressionRunner
 from .regression.slow.stats import build_observation_stats
+from .router.fake_router import ScenarioScriptedRouter
 from .router.llm_router import LLMRouter
-from .router.models import ToolSummary
+from .router.models import RouterConfig, ToolSummary
 from .scenario import ScenarioLoader, ScenarioSuite
 from .topology.loader import TopologyLoader, unbound_tool_names
 from .optimization.report import OptimizationReport, build_report
@@ -205,6 +207,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also require the evaluator (built from --expected-fact) to pass",
     )
     seeds_export.add_argument(
+        "--expected-fact",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="A fact the deterministic evaluator expects in the final state (repeatable)",
+    )
+
+    seeds_discover = seeds_sub.add_parser(
+        "discover",
+        help="Discover seeds by letting a router pick tools; chains are "
+        "replay-verified before freezing",
+    )
+    seeds_discover.add_argument("--topology", required=True)
+    seeds_discover.add_argument("--scenario", required=True)
+    seeds_discover.add_argument("--out", required=True)
+    discover_router = seeds_discover.add_mutually_exclusive_group(required=True)
+    discover_router.add_argument(
+        "--router-config",
+        help="JSON {base_url?, model, temperature?, max_tools_per_layer?, "
+        "input_cost_per_1k?, output_cost_per_1k?} -> LLMRouter (local Ollama)",
+    )
+    discover_router.add_argument(
+        "--scripted-router",
+        help="JSON {scenario_id: {layer: [tools]}} -> offline deterministic "
+        "discovery (testing / reproducible experiments)",
+    )
+    seeds_discover.add_argument("--discovery-trials", type=int, default=1)
+    seeds_discover.add_argument("--replay-trials", type=int, default=1)
+    seeds_discover.add_argument(
+        "--require-eval",
+        action="store_true",
+        help="Also require the evaluator (built from --expected-fact) to pass",
+    )
+    seeds_discover.add_argument(
         "--expected-fact",
         action="append",
         default=[],
@@ -383,6 +419,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "select":
         return run_select(args)
     if args.command == "seeds":
+        if args.seeds_command == "discover":
+            return run_seeds_discover(args)
         return run_seeds_export(args)
     if args.command == "onboard":
         return run_onboard(args)
@@ -467,6 +505,59 @@ def run_seeds_export(args: argparse.Namespace) -> int:
         f"seeds written to {out_path}: {payload.frozen_count}/"
         f"{len(suite.scenarios)} scenarios frozen "
         f"(topology {payload.topology_fingerprint})"
+    )
+    for entry in payload.entries:
+        if entry.status != "frozen":
+            print(f"  {entry.scenario_id}: {entry.status} ({entry.reason})")
+    return 0
+
+
+def run_seeds_discover(args: argparse.Namespace) -> int:
+    topology = TopologyLoader().load_file(args.topology)
+    suite = ScenarioLoader().load_file(args.scenario)
+
+    expected: dict[str, str] = {}
+    for pair in args.expected_fact:
+        name, _, value = pair.partition("=")
+        expected[name] = value
+    evaluator = StructuredEvaluator(expected) if args.require_eval else None
+
+    if args.router_config:
+        config = json.loads(Path(args.router_config).read_text(encoding="utf-8"))
+        router_config = RouterConfig(
+            model=config.get("model", "local"),
+            temperature=config.get("temperature", 0.0),
+            max_tools_per_layer=config.get("max_tools_per_layer", 3),
+            input_cost_per_1k=config.get("input_cost_per_1k"),
+            output_cost_per_1k=config.get("output_cost_per_1k"),
+        )
+        base_url = config.get("base_url")
+
+        def router_factory(scenario):
+            return LLMRouter(router_config=router_config, base_url=base_url)
+    else:
+        routing = json.loads(
+            Path(args.scripted_router).read_text(encoding="utf-8")
+        )
+
+        def router_factory(scenario):
+            return ScenarioScriptedRouter(routing=routing.get(scenario.id, {}))
+
+    payload = asyncio.run(
+        discover_seeds(
+            topology,
+            suite,
+            router_factory=router_factory,
+            discovery_trials=args.discovery_trials,
+            replay_trials=args.replay_trials,
+            evaluator=evaluator,
+        )
+    )
+    out_path = payload.write(args.out)
+    print(
+        f"seeds written to {out_path}: {payload.frozen_count}/"
+        f"{len(suite.scenarios)} scenarios frozen "
+        f"(topology {payload.topology_fingerprint}, source={payload.payload['source']})"
     )
     for entry in payload.entries:
         if entry.status != "frozen":

@@ -134,7 +134,7 @@ async def export_seeds(
         last_reason = ""
         for candidate in list(result.candidate_routes)[:max_verify]:
             attempts += 1
-            ok, reason = await _replay_verified(
+            ok, reason = await replay_verified(
                 topology, scenario, candidate, replay_trials, evaluator
             )
             if ok:
@@ -162,11 +162,30 @@ async def export_seeds(
             )
         )
 
+    return build_seed_payload(topology, suite, source=SOURCE_FAST_REPORT, entries=entries)
+
+
+def build_seed_payload(
+    topology: Topology,
+    suite: ScenarioSuite,
+    *,
+    source: str,
+    entries: list[SeedEntry],
+) -> SeedsPayload:
+    """Assemble the v2 seeds document shared by all discovery paths."""
+    from ..optimization.artifacts import declared_fingerprint  # lazy: optimization imports regression.slow
+
+    fingerprint = declared_fingerprint(topology)
+    routes = {
+        entry.scenario_id: entry.route
+        for entry in entries
+        if entry.status == ENTRY_FROZEN and entry.route is not None
+    }
     payload = {
         KEY_FORMAT_VERSION: SEEDS_FORMAT_VERSION,
         KEY_TOPOLOGY_FINGERPRINT: fingerprint,
         KEY_SUITE: {"name": suite.name, "version": suite.version},
-        KEY_SOURCE: SOURCE_FAST_REPORT,
+        KEY_SOURCE: source,
         KEY_GENERATED_AT: datetime.now().isoformat(timespec="seconds"),
         KEY_SEEDS: {
             scenario_id: route_to_json(route)
@@ -191,7 +210,7 @@ async def export_seeds(
     )
 
 
-async def _replay_verified(
+async def replay_verified(
     topology: Topology,
     scenario: Scenario,
     route: CandidateRoute,
