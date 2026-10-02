@@ -212,11 +212,59 @@ TopologyFilter 行为分歧，office-battlefield-notes.md §4.2）
 3. `declared_fingerprint` 不纳入类型（种子/版本链在类型注解微调时
    保持有效）。
 
-## 批次 D 计划：声明期诊断（占位，开工前细化）
+## 批次 D 计划：声明期诊断
 
-目标：P6 同层依赖静态诊断、P7 槽名冲突警告、P8 域包规范成文、
-P9 timeout 联动检查。待细化：诊断落点（builder 警告 vs 独立
-lint 命令）。
+状态：**计划已展示，待验收** ｜ 对应问题：P6 / P7 / P8 / P9
+
+### D.0 前置事实（已核实）
+
+- P6 判定口径：consumed 类型的生产者若**全部不在更早层**（同层/
+  更晚层/不存在三种情形）→ 执行期不可满足——同层并发互不可见、
+  晚层执行时输入早已错过。实现落点 TopologyBuilder.build（Python
+  与 JSON 两条构建路径都经过，诊断自动双路径生效）。
+- P7 判定口径：executor 实参解析"形参名优先、类型兜底"——形参名
+  恰好命中**另一类型**的槽名（snake(T') == 形参名, T' ≠ 注解 T）
+  即潜在错绑。_snake = 驼峰转下划线（executor.py:34），诊断必须
+  镜像同一换算。
+- 既有基线：office 436 条 / refund 14 条 SCHEMA_MISMATCH 警告
+  （稠密拓扑"允许的边无 schema 重叠"的正常现象）。经逐工具核对，
+  两个域**零新增**新诊断警告——将作为回归护栏断言。
+- TopologyValidationWarning(code, message, source, target)。
+
+### D.1 交付物
+
+1. **builder 新警告 `UNSATISFIABLE_INPUT`**（P6）：对每个工具的每个
+   consumes 类型，若不存在更早层的生产者 → 警告
+   （source=工具名, target=类型名, message 说明三种不可满足情形与
+   修复方向）。确定性顺序（按工具名、类型名升序）。
+2. **builder 新警告 `SLOT_NAME_CONFLICT`**（P7）：handler 形参注解为
+   类型 T、形参名 ≠ snake(T)、且形参名恰为另一类型 T'（T' ≠ T）的
+   槽名 → 警告（名字优先解析会把 T' 的产物绑给该形参）。无注解
+   形参跳过。
+3. **P8 规范成文**：`docs/domain-package-conventions.md`——域包
+   checklist：包路径导入（裸名禁令 + sys.modules 遮蔽机理）、
+   形参名 = 槽名约定、计量上下文规则（句柄只在 ToolExecutor 内，
+   测试用 mount_collector helper）、同层互不依赖、capability 命名、
+   **timeout 联动规则**（P9：超时线高于最慢正常变体、低于注入
+   停顿）、console/review 留档。
+4. **测试**：builder 单测（同层依赖/更早层生产者/无生产者/槽名
+   冲突/合规五例）+ 回归护栏（office 与 refund 的新增诊断警告数
+   为 0）+ 全量回归。
+
+### D.2 明确不做
+
+UNSATISFIABLE_INPUT / SLOT_NAME_CONFLICT 不做错误级别（沿用
+SCHEMA_MISMATCH 先例：可加载、可执行出证据，不阻断）；不改
+executor 解析语义；**P9 不做 latency 声明字段**（schema 扩展后置，
+本批次以规范落地，理由在文档中记录）；不动既有 SCHEMA_MISMATCH。
+
+### D.3 决策点（请验收时确认）
+
+1. 两个诊断均为 warning 而非 error；
+2. P6 口径取"无更早层生产者"（同层/后层/无生产者三合一，一个
+   判据覆盖三种不可满足）；
+3. P9 以规范而非代码落地（工具无 latency 声明，代码化需先扩
+   schema，属独立后续）。
 
 ## 批次 E 计划：路由证据（占位，开工前细化）
 
