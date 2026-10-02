@@ -118,6 +118,55 @@
       "cost_per_call": 0.002
     },
     {
+      "name": "doc_composed_report",
+      "layer": "compose",
+      "kind": "composite",
+      "inner": "doc_composed_report_inner.json",
+      "route": [
+        {
+          "layer": "c_draft",
+          "tools": [
+            "draft_step"
+          ]
+        },
+        {
+          "layer": "c_check",
+          "tools": [
+            "check_step"
+          ]
+        },
+        {
+          "layer": "c_polish",
+          "tools": [
+            "polish_step"
+          ]
+        },
+        {
+          "layer": "c_release",
+          "tools": [
+            "report_release",
+            "report_holdover"
+          ]
+        }
+      ],
+      "stop_when": [
+        "draft"
+      ],
+      "max_iterations": 3,
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
+      "capabilities": [
+        "doc.composed_report"
+      ],
+      "description": "Bounded draft->length-check->polish->release loop producing a self-checked Draft (deterministic two-iteration convergence)",
+      "cost_per_call": 0.0061
+    },
+    {
       "name": "doc_length_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:doc_length_check",
@@ -453,6 +502,55 @@
       ],
       "description": "LLM slide outline from the source document",
       "cost_per_call": 0.005
+    },
+    {
+      "name": "ppt_composed_deck",
+      "layer": "compose",
+      "kind": "composite",
+      "inner": "ppt_composed_deck_inner.json",
+      "route": [
+        {
+          "layer": "c_draft",
+          "tools": [
+            "deck_step"
+          ]
+        },
+        {
+          "layer": "c_check",
+          "tools": [
+            "deck_check_step"
+          ]
+        },
+        {
+          "layer": "c_polish",
+          "tools": [
+            "deck_polish_step"
+          ]
+        },
+        {
+          "layer": "c_release",
+          "tools": [
+            "deck_release",
+            "deck_holdover"
+          ]
+        }
+      ],
+      "stop_when": [
+        "slide_copy"
+      ],
+      "max_iterations": 3,
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:SlideCopy"
+      ],
+      "capabilities": [
+        "ppt.composed_deck"
+      ],
+      "description": "Bounded deck->overflow-check->trim->release loop producing a self-checked SlideCopy (deterministic two-iteration convergence)",
+      "cost_per_call": 0.0041
     },
     {
       "name": "quality_judge",

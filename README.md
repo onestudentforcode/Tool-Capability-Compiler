@@ -149,6 +149,10 @@ PYTHONPATH=src python -m capability_runtime.cli seeds discover     --topology ex
 
 # 三模式对照（free / basefast / llm-scripted，离线确定性）
 python examples/office/run_routing_comparison.py --limit 12 --trials 2
+
+# 复合节点展台（批次 F）：6 场景穿过两个宏节点，确定性两轮收敛 +
+# flattener 内层伪 trial + 计量聚合，留档 artifacts/composite_demo/
+python examples/office/run_composite_demo.py --trials 3
 ```
 
 首次真实实测结论（qwen3:1.7B @ office mail 子集）：模型在 51 工具

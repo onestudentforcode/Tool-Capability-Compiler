@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from capability_runtime import FixtureRegistry, FixtureSetupError
 
-from . import store
+from . import composite_inner, store
 
 DEFAULT_FIXTURE = "clean"
 
@@ -50,6 +50,7 @@ class OfficeFixtureManager:
         # The seeded reset: rng draws (flaky stalls, fake-LLM wobble) derive
         # from (scenario_id, trial_index), so every trial is reproducible.
         store.STORE.reset(name, scenario_id=scenario.id, trial_index=trial.trial_index)
+        composite_inner.reset_inner_gates()
         return {"fixture": name, "scenario_id": scenario.id}
 
     async def reset(self, scenario, trial) -> None:

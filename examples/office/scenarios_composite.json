@@ -1,0 +1,97 @@
+{
+  "name": "office_composite",
+  "version": "1.0.0",
+  "description": "office battlefield batch F showcase: routes through the two composite macro nodes",
+  "scenarios": [
+    {
+      "id": "composed_weekly_report",
+      "query": "用复合流水线把周报语料写成自检过的调研报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "doc.composed_report",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "composed_minutes_brief",
+      "query": "用复合流水线把会议纪要整理成通过长度自检的简报",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "doc.composed_report",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "composed_conflict_report",
+      "query": "用复合流水线处理矛盾语料并产出自检报告",
+      "category": "doc_report",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "doc.composed_report",
+        "quality.judge",
+        "doc.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "composed_quarter_deck",
+      "query": "用复合流水线把复盘材料转成不溢出的汇报幻灯",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "ppt.composed_deck",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    },
+    {
+      "id": "composed_conflict_deck",
+      "query": "用复合流水线把矛盾语料转成合规幻灯",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "ppt.composed_deck",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "conflict"
+      }
+    },
+    {
+      "id": "composed_minutes_deck",
+      "query": "用复合流水线从纪要语料生成紧凑幻灯",
+      "category": "slide_deck",
+      "expected_capabilities": [
+        "doc.parse",
+        "fact.extract",
+        "ppt.composed_deck",
+        "ppt.overflow",
+        "ppt.render"
+      ],
+      "metadata": {
+        "fixture": "clean"
+      }
+    }
+  ]
+}

@@ -31,7 +31,22 @@ from capability_runtime.optimization.artifacts import (  # noqa: E402
 )
 
 from examples.office import facts, office  # noqa: E402
-from examples.office.export_topology import build_payload  # noqa: E402
+from examples.office.export_topology import (  # noqa: E402
+    build_payload,
+    write_inner_payloads,
+)
+
+
+def _json_topology(tmp_path):
+    """Materialize the exported payload (incl. composite inner files)."""
+    import json
+
+    from capability_runtime import TopologyLoader
+
+    out = tmp_path / "office.json"
+    out.write_text(json.dumps(build_payload()), encoding="utf-8")
+    write_inner_payloads(out.parent)
+    return TopologyLoader().load_file(str(out))
 
 
 def _artifact(slot: str, value) -> tuple[str, ArtifactValue]:
@@ -114,9 +129,9 @@ def _previous_selections(topology):
     return selections
 
 
-def test_dual_path_schemas_match_per_node() -> None:
+def test_dual_path_schemas_match_per_node(tmp_path) -> None:
     python_topology, _ = office.build_topology()
-    json_topology = TopologyLoader().load_data(build_payload())
+    json_topology = _json_topology(tmp_path)
 
     assert set(python_topology.nodes()) == set(json_topology.nodes())
     for name in sorted(python_topology.nodes()):
@@ -126,9 +141,9 @@ def test_dual_path_schemas_match_per_node() -> None:
         assert py_spec.produces == json_spec.produces, name
 
 
-def test_dual_path_filter_availability_identical() -> None:
+def test_dual_path_filter_availability_identical(tmp_path) -> None:
     python_topology, _ = office.build_topology()
-    json_topology = TopologyLoader().load_data(build_payload())
+    json_topology = _json_topology(tmp_path)
     py_filter = TopologyFilter(python_topology)
     json_filter = TopologyFilter(json_topology)
 
@@ -147,9 +162,9 @@ def test_dual_path_filter_availability_identical() -> None:
                 )
 
 
-def test_dual_path_warnings_and_fingerprint_identical() -> None:
+def test_dual_path_warnings_and_fingerprint_identical(tmp_path) -> None:
     python_topology, _ = office.build_topology()
-    json_topology = TopologyLoader().load_data(build_payload())
+    json_topology = _json_topology(tmp_path)
 
     py_warnings = sorted(
         (w.source, w.target, w.code) for w in python_topology.warnings()

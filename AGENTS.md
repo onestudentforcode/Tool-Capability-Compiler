@@ -232,7 +232,7 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      旧版两版本报告保留为 optimize report。
 
 5. Office Battlefield 真实域靶场——已完成（2026-10）
-     docs/acceptance/office-battlefield.md（批次 A-E 全部落地，F 可选后置）。
+     docs/acceptance/office-battlefield.md（批次 A-F 全部落地，2026-10）。
      examples/office/：5 层 51 工具节点（42 实现 + 工厂变体）、
      11 个冗余 capability、60 场景 / 4 家族 / 42-9-9 覆盖分布、
      clean/messy/sparse/conflict 语料变体、确定性离线 fake LLM。
@@ -243,6 +243,15 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      此前从未被触达的核心缺陷（pipeline analyze 节点/边候选混淆、
      CounterfactualResult 字段误用、RouteSearch 预算不约束子集扫描、
      Tier 参照池含零成功路线）——详见 office-battlefield.md §12。
+     批次 F（复合节点展台，2026-10 追加）：doc_composed_report /
+     ppt_composed_deck 入图（51+2）；门控首现设计（终态类型仅收尾门
+     产出，绕开 runtime 首个匹配提取语义）、诚实计费、6 场景独立
+     展台（21 次复合执行全部恰好 2 轮确定性收敛）；loader composite
+     条目放开可选 consumes/produces（批次 C 机制延伸，双路径等价
+     覆盖复合节点）。deck 复合消费对齐 (SourceDoc, FactSheet)：
+     严格邻接边下，坐镇 L2 只吃 L0 产物的复合在跳过 extract 的
+     路线上不可达——复合与普通工具同受邻接约束（零特殊分支的
+     另一面）。
      已知边界：精确 RouteSearch 在宽最大链拓扑上仍受枚举预算截断
      （可行性见证回退保证语义），60 场景覆盖报告由种子见证路线
      线性推导（语义等价）。

@@ -185,10 +185,13 @@ def test_exported_topology_is_executable_json(tmp_path) -> None:
     payload = build_payload()
     assert payload["version"] == office.DEFAULT_TOPOLOGY_VERSION
     assert len(payload["layers"]) == 5
-    assert len(payload["tools"]) == 51
+    assert len(payload["tools"]) == 53
 
     topology_path = tmp_path / "office.json"
     topology_path.write_text(json.dumps(payload), encoding="utf-8")
+    from examples.office.export_topology import write_inner_payloads
+
+    write_inner_payloads(tmp_path)
     loaded = TopologyLoader().load_file(str(topology_path))
     assert unbound_tool_names(loaded) == ()
 

@@ -57,6 +57,8 @@ _COMPOSITE_FIELDS = {
     "capabilities",
     "description",
     "cost_per_call",
+    "consumes",
+    "produces",
 }
 
 
@@ -135,12 +137,11 @@ class TopologyLoader:
             {"name", "layer", "inner", "route", "stop_when", "max_iterations"},
             location,
         )
-        for unsupported in ("providers", "workers", "consumes", "produces"):
+        for unsupported in ("providers", "workers"):
             if unsupported in item:
                 raise TopologyBuildError(
                     f"{location} composite entries do not support "
-                    f"{unsupported!r} (outer edges default to all; typed "
-                    "contracts are Python-path only)"
+                    f"{unsupported!r} (outer edges default to all)"
                 )
         inner_raw = Path(str(item["inner"]))
         if not inner_raw.is_absolute() and source is not None:
@@ -186,6 +187,11 @@ class TopologyLoader:
             raise TopologyBuildError(
                 f"{location} 'max_iterations' must be a positive integer"
             )
+        # optional typed outer contract (batch-C mechanism extended to
+        # composites): without it the generated handler has no parameters
+        # and outer artifacts cannot flow in on the JSON path
+        consumes = self._type_references(item.get("consumes"), location, "consumes")
+        produces = self._type_references(item.get("produces"), location, "produces")
         try:
             spec = CompositeSpec(
                 name=str(item["name"]),
@@ -194,6 +200,8 @@ class TopologyLoader:
                 route=tuple(route),
                 stop_when=tuple(str(slot) for slot in stop_when),
                 max_iterations=max_iterations,
+                consumes=consumes,
+                produces=produces,
                 capabilities=frozenset(str(cap) for cap in item.get("capabilities", [])),
                 cost_per_call=item.get("cost_per_call"),
                 description=str(item.get("description", "")),

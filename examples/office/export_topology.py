@@ -66,10 +66,72 @@ def _type_ref(value_type) -> str:
     return f"{value_type.__module__}:{value_type.__qualname__}"
 
 
+def _inner_topology_payload(spec) -> dict:
+    """Serialize one composite's inner topology (tools with implementations)."""
+    inner = spec.topology
+    tools = []
+    for name in inner.nodes():
+        node_spec = inner.node(name).spec
+        item = {
+            "name": node_spec.name,
+            "layer": node_spec.layer,
+            "implementation": f"{_IMPLEMENTATION_PACKAGE}.composite_inner:{name}",
+        }
+        if node_spec.consumes:
+            item["consumes"] = [_type_ref(t) for t in node_spec.consumes]
+        if node_spec.produces:
+            item["produces"] = [_type_ref(t) for t in node_spec.produces]
+        if node_spec.capabilities:
+            item["capabilities"] = sorted(node_spec.capabilities)
+        if node_spec.description:
+            item["description"] = node_spec.description
+        if node_spec.cost_per_call is not None:
+            item["cost_per_call"] = node_spec.cost_per_call
+        tools.append(item)
+    return {
+        "version": f"inner-{spec.name}",
+        "layers": [
+            {"name": layer.name, "order": layer.order} for layer in inner.layers()
+        ],
+        "tools": tools,
+    }
+
+
+def _composite_item(spec) -> dict:
+    """The outer composite entry (kind=composite) referencing the inner file."""
+    route = []
+    for group in spec.route:
+        first = spec.topology.node(next(iter(group)))
+        route.append({"layer": first.spec.layer, "tools": list(group)})
+    item = {
+        "name": spec.name,
+        "layer": spec.layer,
+        "kind": "composite",
+        "inner": f"{spec.name}_inner.json",
+        "route": route,
+        "stop_when": list(spec.stop_when),
+        "max_iterations": spec.max_iterations,
+    }
+    if spec.consumes:
+        item["consumes"] = [_type_ref(t) for t in spec.consumes]
+    if spec.produces:
+        item["produces"] = [_type_ref(t) for t in spec.produces]
+    if spec.capabilities:
+        item["capabilities"] = sorted(spec.capabilities)
+    if spec.description:
+        item["description"] = spec.description
+    if spec.cost_per_call is not None:
+        item["cost_per_call"] = spec.cost_per_call
+    return item
+
+
 def build_payload() -> dict:
+    from examples.office import composite_nodes
+
     topology, version = office.build_topology()
     implementations = _implementation_map()
-    missing = sorted(set(topology.nodes()) - set(implementations))
+    composites = dict(composite_nodes.SPECS)
+    missing = sorted(set(topology.nodes()) - set(composites) - set(implementations))
     if missing:
         raise RuntimeError(
             "no implementation binding for tools: " + ", ".join(missing)
@@ -77,6 +139,9 @@ def build_payload() -> dict:
     tools = []
     for name in topology.nodes():
         spec = topology.node(name).spec
+        if name in composites:
+            tools.append(_composite_item(composites[name]))
+            continue
         item = {
             "name": spec.name,
             "layer": spec.layer,
@@ -110,6 +175,22 @@ def build_payload() -> dict:
     }
 
 
+def write_inner_payloads(out_dir: Path) -> list[Path]:
+    """Write each composite's inner topology JSON next to the main payload."""
+    from examples.office import composite_nodes
+
+    written = []
+    for name, spec in sorted(composite_nodes.SPECS.items()):
+        path = out_dir / f"{name}_inner.json"
+        path.write_text(
+            json.dumps(_inner_topology_payload(spec), indent=2, ensure_ascii=False)
+            + "\n",
+            encoding="utf-8",
+        )
+        written.append(path)
+    return written
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -124,7 +205,11 @@ def main(argv: list[str] | None = None) -> int:
     out_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    print(f"topology written to {out_path} ({len(payload['tools'])} tools)")
+    inner_paths = write_inner_payloads(out_path.parent)
+    print(
+        f"topology written to {out_path} ({len(payload['tools'])} tools, "
+        f"{len(inner_paths)} composite inner files)"
+    )
     return 0
 
 

@@ -1,0 +1,106 @@
+{
+  "version": "inner-doc_composed_report",
+  "layers": [
+    {
+      "name": "c_draft",
+      "order": 0
+    },
+    {
+      "name": "c_check",
+      "order": 1
+    },
+    {
+      "name": "c_polish",
+      "order": 2
+    },
+    {
+      "name": "c_release",
+      "order": 3
+    }
+  ],
+  "tools": [
+    {
+      "name": "check_step",
+      "layer": "c_check",
+      "implementation": "examples.office.composite_inner:check_step",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDraft"
+      ],
+      "produces": [
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "capabilities": [
+        "doc.length.inner"
+      ],
+      "description": "Inner length rule: 10..800 words",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "draft_step",
+      "layer": "c_draft",
+      "implementation": "examples.office.composite_inner:draft_step",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.composite_inner:WorkingDraft"
+      ],
+      "capabilities": [
+        "doc.draft.inner"
+      ],
+      "description": "Gate-cached drafter: first call drafts (fast variant), later iterations re-emit the current best",
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "polish_step",
+      "layer": "c_polish",
+      "implementation": "examples.office.composite_inner:polish_step",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDraft",
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "produces": [
+        "examples.office.composite_inner:WorkingDraft"
+      ],
+      "capabilities": [
+        "doc.polish.inner"
+      ],
+      "description": "Deterministic expansion when the length rule failed; updates the gate's current best",
+      "cost_per_call": 0.004
+    },
+    {
+      "name": "report_holdover",
+      "layer": "c_release",
+      "implementation": "examples.office.composite_inner:report_holdover",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDraft"
+      ],
+      "produces": [
+        "examples.office.composite_inner:KeepNote"
+      ],
+      "capabilities": [
+        "doc.hold.inner"
+      ],
+      "description": "Keeps the release layer alive while the gate refuses",
+      "cost_per_call": 0.0001
+    },
+    {
+      "name": "report_release",
+      "layer": "c_release",
+      "implementation": "examples.office.composite_inner:report_release",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDraft",
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
+      "capabilities": [
+        "doc.release.inner"
+      ],
+      "description": "Terminal gate: emits the Draft only when the inner review passed",
+      "cost_per_call": 0.0005
+    }
+  ]
+}
