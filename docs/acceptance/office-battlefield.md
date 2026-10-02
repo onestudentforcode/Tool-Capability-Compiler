@@ -337,4 +337,49 @@ feat    批次 E：闭环演示脚本 + 证据资产
 | C LLM 工具层 | [x] | office_llm.py（可替换 LLMResource 句柄 + 宽松解析）+ factories.py（6 个参数化工厂）+ tools_llm.py 31 节点；fake 注入全离线、四维分化断言、解析失败归类 TOOL_EXECUTION_ERROR（test_office_llm_tools.py）。L2 消费只取 L0/L1 产物（同层互不依赖） |
 | D 场景集与实跑 | [x] | scenarios.json 60 条 / 4 家族 / 42-9-9 分布 / 3 哨兵（test_office_scenarios.py）；fixtures.py 四变体（messy/sparse/conflict 确定性变换）；run_scale.py 规模实跑（60×5，全部失败类别落盘，(scenario, trial) 重跑语义一致）。覆盖报告由种子见证路线推导（与精确分析器语义一致、线性成本——精确 RouteSearch 在 51 节点稠密拓扑上指数爆炸，见 AGENTS.md §7 已知边界） |
 | E 闭环证据 | [x] | run_closed_loop.py 一键复跑：analyze 首批真实剪枝候选（6 边）→ validate 三门 ACCEPT → commit office-v0.1 → rollback 重放 → rank 三 Tier + 6 个冗余 capability 变体跨 Tier → select 干跑 → 在线服务 60/60 + 遥测回流；两轮收敛（成功率 0.5565→1.0，延迟 183→174ms，成本微降）落盘 report.json |
-| F 复合节点（可选） | [ ] | 后置 | |
+| F 复合节点（可选） | [ ] | 计划已定（见 §13），实现中 | |
+
+## 13. 批次 F 计划：复合节点真实展台（2026-10 裁定后细化）
+
+用户裁定：**门控首现**（终态类型仅由收尾门产出，不改核心提取语义）、
+**诚实计费**（cost_per_call = 内层声明成本之和，带测试锁定）、
+**最小演示规模**（独立 6 场景套件，不动 60 条主套件）。
+
+### 设计要点
+
+- 外部契约：两节点居 compose 层——doc_composed_report
+  (SourceDoc+FactSheet → Draft, `doc.composed_report`) 与
+  ppt_composed_deck (SourceDoc → SlideCopy, `ppt.composed_deck`)；
+  新 capability 不与既有 11 个冗余 capability 重叠。
+- 内部子拓扑（composite_inner.py）：固定路线 ×4 内层
+  （起草/检查/修润/收尾门+保活），跨轮门缓存用计量句柄
+  （fixture 每 trial 重置），确定性两轮收敛：
+  轮1 起(短/挤)→查(败)→修(扩/裁)；轮2 幂等重放缓存→查(过)→放行。
+  终态类型首现即成功（stop_when=("draft",)/("slide_copy",)）。
+- 失败模式取自 §6：字数不足→扩写；单页塞满（>5 bullets）→裁剪。
+- 证据：runtime 计量聚合 + flatten_composite_results 展平内层伪
+  trial → 同一套 Phase 3/4 机器处理内层世界。
+
+### 配套核心小改（批次 C 语义的延伸）
+
+loader 的 composite 条目放开可选 consumes/produces（module:attr
+类型引用，同 tools 机制）：当前"typed contracts are Python-path
+only"的限制使 JSON 路径复合节点丢失外部契约（handler 零参数、
+外层工件无法注入）。放开后双路径等价保证自动覆盖复合节点。
+
+### 工作清单
+
+composite_inner.py / composite_nodes.py（注册入 office.build_topology，
+51+2）/ 导出器 composite 分支（inner 拓扑另存 JSON + 外层条目）/
+fixtures 门重置 / office_composite.json（6 场景）/
+run_composite_demo.py（实跑+展平+留档）/ 单测与集成测试
+（收敛=2 轮、诚实计费、门重置隔离、JSON 往返、flattener 断言）/
+批次 A 测试 51→53。
+
+### 验收
+
+- [ ] 两复合节点确定性两轮收敛，终态类型仅门产出
+- [ ] 诚实计费：外层 cost == 内层声明成本之和（测试锁定）
+- [ ] 导出 JSON 含 composite 条目与 inner 文件，双路径等价测试覆盖
+- [ ] 演示脚本：6 场景实跑全成 + flattener 展平 + 留档
+- [ ] 全量测试 + compileall + diff-check；§12 F 行勾选
