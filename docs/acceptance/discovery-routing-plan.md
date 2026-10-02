@@ -271,7 +271,60 @@ executor 解析语义；**P9 不做 latency 声明字段**（schema 扩展后置
 3. P9 以规范而非代码落地（工具无 latency 声明，代码化需先扩
    schema，属独立后续）。
 
-## 批次 E 计划：路由证据（占位，开工前细化）
+## 批次 E 计划：路由证据（收官批次）
 
-目标：真实 Ollama 规模发现跑；basefast/free/llm 三模式对照报告；
-Tier 口径成文（P11）；P12/P13 口径记录。
+状态：**计划已展示，待验收** ｜ 对应问题：P2 实测、P11、P12/P13 口径
+
+### E.0 前置事实（已核实）
+
+- **本地 Ollama 在运行**，含 chat 模型（qwen3:1.7b / qwen3.5:2b 等，
+  均 ≤2B）——真实发现跑可在本环境实跑；小模型的选路错误正是 P2
+  需要的失败模式证据；
+- free 模式在 office 域的行为已知（失败流量为主，run_scale 已记录）；
+  basefast（批次 A 桥）与 llm-scripted（批次 B 发现）两条种子路径
+  可复用；
+- render_review 只覆盖 scale/closed_loop 目录，比较报告由脚本自带
+  markdown 输出（口径解释内嵌）。
+
+### E.1 交付物
+
+1. **examples/office/run_routing_comparison.py**：三模式对照
+   （free / basefast / llm-scripted）——
+   - free：无种子 slow；basefast：FastRegressionRunner →
+     export_seeds（批次 A 桥）→ 种子 slow；llm-scripted：由
+     build_seeds 派生脚本路由表 → discover_seeds（批次 B）→ 种子
+     slow；
+   - 每模式指标：成功率 / 平均成本 / 平均延迟 / 唯一路线数 / 种子
+     冻结数；
+   - `--limit N`（场景子集，冒烟与测试旋钮）、`--trials`、
+     `--out-dir`；
+   - 产物：`comparison.md`（口径解释内嵌：P12 在线回流无业务评估
+     =SERVED、P13 fake 质量合成的边界）+ `report.json`。
+2. **真实 Ollama 证据路径**：`seeds discover --router-config`（批次
+   B CLI 已就绪）在 office 场景子集（~10 条）上实跑 qwen3:1.7b，
+   产物落 `artifacts/model_discovery/`（seeds + console 留档，逐场景
+   记录发现/复放/失败）——**不进 pytest**（环境依赖），按"证据落
+   artifacts + 脚本可重跑"交付。
+3. **P11 成文**：`docs/ranking-tiers.md`——TierConfig 容差与多标签
+   规则、参照池口径（business_success_count > 0，含修复理由）、
+   UNASSIGNED 语义、确定性说明。
+4. **测试**：integration `test_routing_comparison.py`（`--limit 6
+   --trials 1` 冒烟：三模式齐全、basefast 成功率 ≥ free、报告结构
+   断言）。
+5. **里程碑收尾**：AGENTS.md §7 item 6 与里程碑文档 §4 状态更新、
+   README 补三模式对照 runbook。
+
+### E.2 明确不做
+
+在线自适应 / 遥测 schema 扩展（P12 只记录口径）；多温度重试；
+远程 LLM API（本地 Ollama 口径不变）。
+
+### E.3 决策点（请验收时确认）
+
+1. llm-scripted 模式作为离线"模型替身"：脚本 = 与 basefast 同源的
+   目标链，验证**发现机制**能复现基线质量；真实模型的差异与失败
+   模式由 `--router-config` 实跑证据提供；
+2. 实跑证据不进 pytest（本地 Ollama 环境依赖），子集规模 ~10 场景
+   控制成本；
+3. 比较口径五项：成功率 / 平均成本 / 平均延迟 / 唯一路线数 / 种子
+   冻结数。
