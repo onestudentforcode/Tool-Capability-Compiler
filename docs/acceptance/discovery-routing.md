@@ -198,11 +198,27 @@ E 依赖 A+B。
       回归不变绿转红
 - [ ] D：同层依赖构造样例在声明期得到明确诊断；槽名冲突产生警告；
       域包规范成文（含裸名禁令、计量上下文、槽名约定 checklist）
-- [ ] E：三模式对照报告落盘（覆盖率/成功率/成本/延迟/路由决策
-      质量各一表）；LLMRouter 的失败模式分类进 slow 工件；
-      Tier 口径写入 ranking 文档
-- [ ] 全量测试 + compileall + diff-check 通过；AGENTS.md §7 与
+- [x] E：三模式对照报告落盘（free/basefast/llm-scripted 五指标，
+      comparison.md + report.json，含 P12/P13 口径说明）；LLMRouter
+      失败模式分类进 slow 工件（ROUTING_ERROR/TOOL_SELECTION_ERROR；
+      实跑另暴露并修复读超时裸抛缺陷）；Tier 口径写入
+      docs/ranking-tiers.md
+- [x] 真实 Ollama 发现跑（P2 首次实测，qwen3:1.7b @ office mail 子集
+      6 场景）：机制端到端走通，0/6 固化——模型链 5/6 系统性缺
+      text.grammar 收尾、1/6 形状错配走成文档链、1/6 空选；复放
+      验证门全部拒绝且理由精确；零池外工具。结论与后续方向见
+      §7 收官注记
+- [x] 全量测试 + compileall + diff-check 通过；AGENTS.md §7 与
       README 更新
+
+### 真实发现跑证据摘要（2026-10，详见 artifacts/model_discovery/）
+
+qwen3:1.7B 在 51 工具合法池内自主选链：**零池外工具**（合法池约束
+有效）、链形合理但**系统性不完整**（5/6 缺收尾检查、1/6 形状错配、
+1/6 空选），复放验证门 6/6 拒绝且理由精确到缺失 capability。
+结论：发现→复放验证→诚实拒绝的机制就绪；1.7B 选链完整度不足，
+后续 = 路由 prompt 注入期望能力 / 更强模型 / 静态桥与模型发现混合
+（LLMRouter 读超时裸抛缺陷已顺手修复并带回归测试）。
 
 ## 5. 本里程碑不做
 
@@ -234,4 +250,4 @@ feat    批次 E：三模式对照 + 证据报告
 | B 模型驱动发现 | [x] | 已实现：discover_seeds（发现跑 → 复放验证 → 固化，source=model-discovery）、ScenarioScriptedRouter、CLI seeds discover（--router-config 真实 Ollama / --scripted-router 离线）|
 | C 双路径等价 | [x] | 已实现：loader 可选 consumes/produces（module:attr 类型引用）、导出器自动派生并重生成两份拓扑 JSON、office 真域三重断言（节点 schema / 过滤器可用性矩阵 / 警告与指纹）|
 | D 声明期诊断 | [x] | 已实现：builder 双警告（UNSATISFIABLE_INPUT / SLOT_NAME_CONFLICT，双构建路径自动生效）、domain-package-conventions.md 规范成文（含 P9 timeout 口径）、office/refund 零新增警告护栏 |
-| E 路由证据 | [ ] | |
+| E 路由证据 | [x] | run_routing_comparison 三模式对照 + docs/ranking-tiers.md（P11）+ 真实 Ollama 发现跑（0/6 固化，拒绝理由精确；LLMRouter 读超时缺陷修复）|

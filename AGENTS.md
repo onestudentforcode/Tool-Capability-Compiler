@@ -247,15 +247,22 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      （可行性见证回退保证语义），60 场景覆盖报告由种子见证路线
      线性推导（语义等价）。
 
-6. Discovery & Routing 发现与路由——已立项（2026-10，验收文档已起草，
-   实现未开始；批次 A-D 建设为主，验证后置）
-     docs/acceptance/discovery-routing.md。
-     种子生命周期回归正位：fast 候选链 / 模型驱动发现（用户裁定：
-     模型在合法池内自选工具，调用链经复放验证后固化 seeds.json）
-     → slow 定向探索 → 在线复用；覆盖判定权保留静态 fast。
-     含 LLMRouter 首次真实实测（证据空洞 #3）、JSON/Python 双执行
-     路径等价性、声明期诊断（同层依赖/槽名冲突/域包规范）。
-     问题全景见该文档 §1（P1-P13，含已修复留档 F1-F4）。
+6. Discovery & Routing 发现与路由——已完成（2026-10，批次 A-E 全部落地）
+     docs/acceptance/discovery-routing.md（+ discovery-routing-plan.md
+     逐批次计划、domain-package-conventions.md 域包规范、
+     ranking-tiers.md Tier 口径）。
+     种子生命周期正位：fast 候选链（seeds export，复放验证 + 指纹
+     绑定）与模型驱动发现（seeds discover，ScenarioScriptedRouter
+     离线 / LLMRouter 真实）双路径，复放不过不固化；覆盖判定权
+     保留静态 fast。
+     JSON/Python 双构建路径等价（loader 类型保真 + 往返一致性测试）；
+     声明期诊断（UNSATISFIABLE_INPUT / SLOT_NAME_CONFLICT）。
+     LLM 路由首次真实实测（空洞 #3）：qwen3:1.7B 合法池内零违例，
+     但 6/6 链不完整（系统性缺收尾检查），复放验证门全部拒绝——
+     机制就绪，模型完整度不足；后续 = 路由 prompt 注入期望能力 /
+     更强模型 / 静态+模型混合。顺手修复 LLMRouter 读超时裸抛缺陷。
+     已知边界：精确 RouteSearch 宽拓扑预算截断（见证回退保语义）；
+     latency 声明字段后置（P9 以规范落地）。
 
 工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
 

@@ -204,3 +204,53 @@ def test_invalid_arguments_rejected() -> None:
                 discovery_trials=0,
             )
         )
+
+
+def test_router_timeout_classifies_as_routing_error() -> None:
+    """A read-phase timeout from the model server becomes RoutingError and
+    the discovery run records it as discovery-failed instead of crashing
+    (real-run finding, batch E)."""
+    import json as _json
+
+    from capability_runtime.core.errors import RoutingError
+    from capability_runtime.router.llm_router import LLMRouter
+
+    def hanging_http(payload):
+        raise TimeoutError("timed out")
+
+    router = LLMRouter(router_config=RouterConfig(model="slow", temperature=0.0,
+                                                  max_tools_per_layer=3),
+                       _http=hanging_http)
+    topology = bridge.build_topology()
+
+    def factory(scenario):
+        return router
+
+    payload = asyncio.run(
+        discover_seeds(topology, _suite(), router_factory=factory)
+    )
+    entries = {e.scenario_id: e for e in payload.entries}
+    assert entries["S1"].status == ENTRY_DISCOVERY_FAILED
+    assert "routing_error" in entries["S1"].reason
+
+    with pytest.raises(RoutingError, match="timed out"):
+        asyncio.run(router.route(_context_for(router, topology)))
+
+
+def _context_for(router, topology):
+    from capability_runtime import ToolSummary
+    from capability_runtime.router.models import RoutingContext
+
+    from capability_runtime.execution.state import ExecutionState
+
+    return RoutingContext(
+        query="q",
+        current_layer="read",
+        available_tools=tuple(
+            ToolSummary.from_tool_node(topology.node(name))
+            for name in ("source_bad", "source_good")
+        ),
+        topology_version="t",
+        state_summary=ExecutionState(query="q"),
+        previous_layers=(),
+    )

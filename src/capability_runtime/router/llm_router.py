@@ -120,7 +120,15 @@ class LLMRouter:
 
     def _complete(self, payload: dict[str, Any]) -> tuple[str, TokenUsage | None]:
         if self._http is not None:
-            response = self._http(payload)
+            try:
+                response = self._http(payload)
+            except RoutingError:
+                raise
+            except (TimeoutError, OSError) as exc:
+                # injected transports time out too (fakes, in-process stubs)
+                raise RoutingError(
+                    f"router request failed for model {self._config.model!r}: {exc}"
+                ) from exc
             # Test fakes may return the inner content string directly; a full
             # response body additionally carries usage for metering.
             if isinstance(response, str):
@@ -146,6 +154,15 @@ class LLMRouter:
         except urllib.error.URLError as exc:
             raise RoutingError(
                 f"Ollama request failed for model {self._config.model!r}: {exc.reason}"
+            ) from exc
+        except TimeoutError as exc:
+            # read-phase timeouts surface as bare TimeoutError (socket.recv),
+            # not URLError - they must become RoutingError so the runner can
+            # classify them as ROUTING_ERROR instead of crashing the run
+            # (found by the first real model-driven discovery run, batch E).
+            raise RoutingError(
+                f"Ollama request timed out after {self._timeout}s "
+                f"for model {self._config.model!r}"
             ) from exc
         except json.JSONDecodeError as exc:
             raise RoutingError(f"Ollama returned non-JSON response: {exc}") from exc

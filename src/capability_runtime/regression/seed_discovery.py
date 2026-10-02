@@ -130,12 +130,15 @@ async def discover_seeds(
             topology, scenario, discovered, replay_trials, evaluator
         )
         if not ok:
+            # the proposed chain travels with the entry: reviewers see what
+            # the model actually picked even when verification refuses it
             entries.append(
                 SeedEntry(
                     scenario_id=scenario.id,
                     status=ENTRY_REPLAY_FAILED,
                     attempts=1,
                     reason=reason,
+                    route=discovered,
                 )
             )
             continue

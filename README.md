@@ -135,6 +135,28 @@ python examples/office/run_closed_loop.py --trials 15
 `render_review.py` 生成，也可对既有产物目录单独执行）。审查入口即产物
 目录下的 `review.md`。
 
+## Discovery & Routing（发现与路由）
+
+种子生命周期 + LLM 路由首测（`docs/acceptance/discovery-routing.md`）：
+
+```bash
+# 静态桥：fast 候选链 → 复放验证 → seeds.json（拓扑指纹绑定）
+python -m capability_runtime.cli regression fast     --topology examples/topology/office.json     --scenario examples/office/scenarios.json --out-dir artifacts/fast
+PYTHONPATH=src python -m capability_runtime.cli seeds export     --topology examples/topology/office.json     --scenario examples/office/scenarios.json     --fast-report artifacts/fast --out artifacts/seeds.json
+
+# 模型驱动发现（需本地 Ollama；离线测试用 --scripted-router）
+PYTHONPATH=src python -m capability_runtime.cli seeds discover     --topology examples/topology/office.json     --scenario examples/office/scenarios.json     --router-config router.json --out artifacts/discovered.json
+
+# 三模式对照（free / basefast / llm-scripted，离线确定性）
+python examples/office/run_routing_comparison.py --limit 12 --trials 2
+```
+
+首次真实实测结论（qwen3:1.7B @ office mail 子集）：模型在 51 工具
+合法池内零违例，但链系统性不完整（6/6 缺收尾检查或形状错配），
+复放验证门全部拒绝——机制就绪，模型完整度是后续方向。详见
+`docs/acceptance/discovery-routing.md` 与
+`docs/ranking-tiers.md`。
+
 ## Develop
 
 ```bash
