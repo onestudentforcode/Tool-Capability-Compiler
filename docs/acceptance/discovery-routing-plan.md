@@ -153,11 +153,64 @@ basefast 扩展语义；发现失败不做自动重试（记录为批次 E 备�
 3. router_factory 以场景为键注入（RoutingContext 无场景标识，
    逐场景独立发现跑是唯一干净解）。
 
-## 批次 C 计划：双路径等价（占位，开工前细化）
+## 批次 C 计划：双路径等价
 
-目标：消除 JSON/Python 两条执行路径的语义分歧（P5）。待细化的
-核心决策：loader schema 扩展 carries 类型引用（module:attr 指向
-类型对象）vs 过滤器去类型化 vs 其他方案；往返一致性测试的定义。
+状态：**计划已展示，待验收** ｜ 对应问题：P5（JSON 拓扑丢类型 →
+TopologyFilter 行为分歧，office-battlefield-notes.md §4.2）
+
+### C.0 前置事实（已核实）
+
+- 分歧的确切位置：TopologyFilter._schema_satisfiable 读
+  `tool.spec.consumes`；JSON 路径的 ToolSpec schema 为空（类型按设计
+  不在 JSON 里）→ 恒可满足 → 类型不可行的工具混进可用池。
+- 执行本身不受影响（ToolExecutor 按 implementation 处理器的真实
+  注解解析实参）——分歧只在**过滤器**（与 builder 的 SCHEMA_MISMATCH
+  警告）。
+- loader 是严格 schema（loader.py `_TOOL_FIELDS` 白名单，未知字段
+  拒绝）；`implementation: module:attr` 已有 importlib 解析先例；
+  `declared_fingerprint` 已含 nodes/capabilities/edges，不含类型
+  （指纹口径保持不变，见决策点 3）。
+- ExecutionState 可测试构造：`add_artifact(槽名, ArtifactValue(...))`。
+
+### C.1 交付物
+
+1. **loader 扩展（核心）**：`tools[]` 允许可选字段
+   `consumes` / `produces`（"module:attr" 字符串数组）→ importlib
+   解析为**真实类型对象**进入 ToolSpec（与 implementation 同一信任
+   模型）；解析失败/非类对象 → 带位置信息的构建错误；字段缺省 →
+   空元组（全部既有 JSON 文件零破坏）。composite 条目不变。
+2. **导出器同步**：office 与 slow_refund 的 export_topology 输出
+   consumes/produces——类型引用由 `type.__module__` + `__qualname__`
+   **自动派生**（如 `examples.office.facts:SourceDoc`），无手工映射
+   表；重新生成 examples/topology/office.json 与 refund_sandbox.json。
+3. **往返一致性测试**（tests/integration/test_topology_path_equivalence.py，
+   用 office 真域）：同一声明经 TopologyBuilder（Python）与
+   TopologyLoader（JSON）构建后——
+   - 逐节点断言 spec.consumes/produces 相同；
+   - 对 context/extract/compose/verify/render × 多组状态（空、仅
+     SourceDoc、+DataTable、+FactSheet+StyleSpec、全工件）× 若干
+     previous_selected 组合，断言 TopologyFilter.available_tools
+     输出完全一致；
+   - builder 的 SCHEMA_MISMATCH 警告集合一致。
+4. **loader 单测**（并入 test_topology_loader.py）：类型解析成功/
+   坏引用报错/字段缺省向后兼容。
+5. **office 全套回归**：621 测试不变绿转红（尤其种子桥与闭环）。
+
+### C.2 明确不做
+
+不改 TopologyFilter 的类型过滤语义（去类型化是错误方向）；不动
+`declared_fingerprint` 口径（类型变更不影响指纹——剪枝判据的
+连续性优先）；office 闭环暂不改回 JSON 路径（等价后属可选优化）；
+不加新工具。
+
+### C.3 决策点（请验收时确认）
+
+1. 类型引用格式 = `"module:attr"`（importlib，与 implementation
+   同一信任模型），由导出器自动派生；
+2. 旧 JSON 文件无类型字段仍合法（= 今日行为）；**等价性保证只覆盖
+   带类型字段的导出拓扑**——"可执行"与"等价"从此可区分；
+3. `declared_fingerprint` 不纳入类型（种子/版本链在类型注解微调时
+   保持有效）。
 
 ## 批次 D 计划：声明期诊断（占位，开工前细化）
 
