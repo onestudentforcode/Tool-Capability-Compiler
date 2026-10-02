@@ -43,6 +43,8 @@ _TOOL_FIELDS = {
     "description",
     "cost_per_call",
     "implementation",
+    "consumes",
+    "produces",
 }
 _COMPOSITE_FIELDS = {
     "name",
@@ -280,15 +282,61 @@ class TopologyLoader:
         if not isinstance(description, str):
             raise TopologyBuildError(f"{location} 'description' must be a string")
         cost_per_call = cls._cost_per_call(item.get("cost_per_call"), location)
+        consumes = cls._type_references(item.get("consumes"), location, "consumes")
+        produces = cls._type_references(item.get("produces"), location, "produces")
         return ToolSpec(
             name=name,
             layer=layer,
             providers=providers,
             workers=workers,
             capabilities=capabilities,
+            consumes=consumes,
+            produces=produces,
             description=description.strip(),
             cost_per_call=cost_per_call,
         )
+
+    @staticmethod
+    def _type_references(
+        value: object, location: str, field: str
+    ) -> tuple[type, ...]:
+        """Resolve optional ``"module:attr"`` type references to classes.
+
+        Restores the schema (consumes/produces) of a JSON-declared tool so
+        the Python and JSON construction paths behave identically — the
+        same trust model as ``implementation``: only explicit, importable
+        entry points are resolved. Absent field -> empty tuple.
+        """
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise TopologyBuildError(
+                f"{location} '{field}' must be a list of 'module:attr' type references"
+            )
+        resolved: list[type] = []
+        for index, reference in enumerate(value):
+            item_location = f"{location} '{field}'[{index}]"
+            if not isinstance(reference, str) or reference.count(":") != 1:
+                raise TopologyBuildError(
+                    f"{item_location} must be a 'module:attr' type reference"
+                )
+            module_name, _, attr = reference.partition(":")
+            module_name = module_name.strip()
+            attr = attr.strip()
+            try:
+                module = importlib.import_module(module_name)
+                resolved_type = getattr(module, attr)
+            except (ImportError, AttributeError) as exc:
+                raise TopologyBuildError(
+                    f"{item_location} cannot resolve type reference "
+                    f"{reference!r}: {exc}"
+                ) from exc
+            if not inspect.isclass(resolved_type):
+                raise TopologyBuildError(
+                    f"{item_location} {reference!r} is not a class"
+                )
+            resolved.append(resolved_type)
+        return tuple(resolved)
 
     @staticmethod
     def _cost_per_call(value: object, location: str) -> float | None:

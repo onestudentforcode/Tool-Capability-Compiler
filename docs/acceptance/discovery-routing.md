@@ -232,6 +232,6 @@ feat    批次 E：三模式对照 + 证据报告
 | --- | --- | --- |
 | A 固化桥（静态） | [x] | 已实现：fast --out-dir 落盘、seed_export 复放验证固化、seeds v2 指纹绑定、P10 对照测试 |
 | B 模型驱动发现 | [x] | 已实现：discover_seeds（发现跑 → 复放验证 → 固化，source=model-discovery）、ScenarioScriptedRouter、CLI seeds discover（--router-config 真实 Ollama / --scripted-router 离线）|
-| C 双路径等价 | [ ] | |
+| C 双路径等价 | [x] | 已实现：loader 可选 consumes/produces（module:attr 类型引用）、导出器自动派生并重生成两份拓扑 JSON、office 真域三重断言（节点 schema / 过滤器可用性矩阵 / 警告与指纹）|
 | D 声明期诊断 | [ ] | |
 | E 路由证据 | [ ] | |

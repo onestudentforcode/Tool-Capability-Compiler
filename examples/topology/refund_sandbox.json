@@ -19,6 +19,9 @@
       "name": "create_ticket",
       "layer": "action",
       "implementation": "examples.slow_refund.refund:create_ticket",
+      "produces": [
+        "facts:Ticket"
+      ],
       "capabilities": [
         "ticket.create"
       ],
@@ -28,6 +31,9 @@
       "name": "erp",
       "layer": "read",
       "implementation": "examples.slow_refund.refund:erp",
+      "produces": [
+        "facts:ErpRecord"
+      ],
       "capabilities": [
         "erp.read"
       ],
@@ -37,6 +43,9 @@
       "name": "order_db",
       "layer": "read",
       "implementation": "examples.slow_refund.refund:order_db",
+      "produces": [
+        "facts:Order"
+      ],
       "capabilities": [
         "order.read",
         "order.search"
@@ -47,6 +56,12 @@
       "name": "policy_check",
       "layer": "analyze",
       "implementation": "examples.slow_refund.refund:policy_check",
+      "consumes": [
+        "facts:Order"
+      ],
+      "produces": [
+        "facts:PolicyDecision"
+      ],
       "capabilities": [
         "refund.policy.check"
       ],
@@ -56,6 +71,9 @@
       "name": "rag",
       "layer": "read",
       "implementation": "examples.slow_refund.refund:rag",
+      "produces": [
+        "facts:Passage"
+      ],
       "capabilities": [
         "refund.policy.read"
       ],
@@ -65,6 +83,13 @@
       "name": "refund_api",
       "layer": "action",
       "implementation": "examples.slow_refund.refund:refund_api",
+      "consumes": [
+        "facts:Order",
+        "facts:PolicyDecision"
+      ],
+      "produces": [
+        "facts:RefundResult"
+      ],
       "capabilities": [
         "refund.execute"
       ],
@@ -74,6 +99,12 @@
       "name": "risk_check",
       "layer": "analyze",
       "implementation": "examples.slow_refund.refund:risk_check",
+      "consumes": [
+        "facts:Order"
+      ],
+      "produces": [
+        "facts:RiskReport"
+      ],
       "capabilities": [
         "refund.risk.check"
       ],
@@ -83,6 +114,12 @@
       "name": "send_email",
       "layer": "action",
       "implementation": "examples.slow_refund.refund:send_email",
+      "consumes": [
+        "facts:Order"
+      ],
+      "produces": [
+        "facts:EmailSent"
+      ],
       "capabilities": [
         "email.send"
       ],
@@ -92,6 +129,12 @@
       "name": "summarizer",
       "layer": "analyze",
       "implementation": "examples.slow_refund.refund:summarizer",
+      "consumes": [
+        "facts:Order"
+      ],
+      "produces": [
+        "facts:Digest"
+      ],
       "capabilities": [
         "order.summarize"
       ],
@@ -101,6 +144,9 @@
       "name": "web_search",
       "layer": "read",
       "implementation": "examples.slow_refund.refund:web_search",
+      "produces": [
+        "facts:SearchResult"
+      ],
       "capabilities": [
         "web.search"
       ],

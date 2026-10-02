@@ -27,6 +27,13 @@
       "name": "chart_data_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:chart_data_check",
+      "consumes": [
+        "examples.office.facts:ChartSpec",
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "chart.check"
       ],
@@ -37,6 +44,12 @@
       "name": "chart_prepare",
       "layer": "extract",
       "implementation": "examples.office.tools_det:chart_prepare",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:ChartSpec"
+      ],
       "capabilities": [
         "chart.prepare"
       ],
@@ -47,6 +60,12 @@
       "name": "chart_type_pick_llm",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:chart_type_pick_llm",
+      "consumes": [
+        "examples.office.facts:ChartSpec"
+      ],
+      "produces": [
+        "examples.office.facts:ChartSpec"
+      ],
       "capabilities": [
         "chart.select"
       ],
@@ -57,6 +76,12 @@
       "name": "chart_type_pick_rule",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:chart_type_pick_rule",
+      "consumes": [
+        "examples.office.facts:ChartSpec"
+      ],
+      "produces": [
+        "examples.office.facts:ChartSpec"
+      ],
       "capabilities": [
         "chart.select"
       ],
@@ -67,6 +92,12 @@
       "name": "data_aggregate",
       "layer": "extract",
       "implementation": "examples.office.tools_det:data_aggregate",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:AggregateResult"
+      ],
       "capabilities": [
         "data.aggregate"
       ],
@@ -77,6 +108,9 @@
       "name": "deck_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:deck_parse",
+      "produces": [
+        "examples.office.facts:SlideDigest"
+      ],
       "capabilities": [
         "ppt.parse"
       ],
@@ -87,6 +121,12 @@
       "name": "doc_length_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:doc_length_check",
+      "consumes": [
+        "examples.office.facts:Draft"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "doc.length"
       ],
@@ -97,6 +137,9 @@
       "name": "doc_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:doc_parse",
+      "produces": [
+        "examples.office.facts:SourceDoc"
+      ],
       "capabilities": [
         "doc.parse"
       ],
@@ -107,6 +150,12 @@
       "name": "draft_email_concise",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_email_concise",
+      "consumes": [
+        "examples.office.facts:Narrative"
+      ],
+      "produces": [
+        "examples.office.facts:EmailDraft"
+      ],
       "capabilities": [
         "mail.draft"
       ],
@@ -117,6 +166,12 @@
       "name": "draft_email_detailed",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_email_detailed",
+      "consumes": [
+        "examples.office.facts:Narrative"
+      ],
+      "produces": [
+        "examples.office.facts:EmailDraft"
+      ],
       "capabilities": [
         "mail.draft"
       ],
@@ -127,6 +182,13 @@
       "name": "draft_section_fast",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_section_fast",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "section.draft"
       ],
@@ -137,6 +199,13 @@
       "name": "draft_section_steady",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_section_steady",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "section.draft"
       ],
@@ -147,6 +216,13 @@
       "name": "draft_section_verbose",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_section_verbose",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "section.draft"
       ],
@@ -157,16 +233,29 @@
       "name": "draft_speaker_notes",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:draft_speaker_notes",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:Narrative"
+      ],
       "capabilities": [
         "notes.draft"
       ],
-      "description": "LLM speaker notes for a deck",
+      "description": "LLM speaker notes for a deck based on the source document",
       "cost_per_call": 0.004
     },
     {
       "name": "fact_check_judge",
       "layer": "verify",
       "implementation": "examples.office.tools_llm:fact_check_judge",
+      "consumes": [
+        "examples.office.facts:Draft",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "fact.verify"
       ],
@@ -177,6 +266,13 @@
       "name": "formula_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:formula_check",
+      "consumes": [
+        "examples.office.facts:FormulaSpec",
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "formula.check"
       ],
@@ -187,6 +283,12 @@
       "name": "formula_gen_fast",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:formula_gen_fast",
+      "consumes": [
+        "examples.office.facts:AggregateResult"
+      ],
+      "produces": [
+        "examples.office.facts:FormulaSpec"
+      ],
       "capabilities": [
         "formula.generate"
       ],
@@ -197,6 +299,12 @@
       "name": "formula_gen_steady",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:formula_gen_steady",
+      "consumes": [
+        "examples.office.facts:AggregateResult"
+      ],
+      "produces": [
+        "examples.office.facts:FormulaSpec"
+      ],
       "capabilities": [
         "formula.generate"
       ],
@@ -207,6 +315,12 @@
       "name": "formula_scan",
       "layer": "extract",
       "implementation": "examples.office.tools_det:formula_scan",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:FormulaAudit"
+      ],
       "capabilities": [
         "formula.audit"
       ],
@@ -217,6 +331,9 @@
       "name": "fs_read",
       "layer": "context",
       "implementation": "examples.office.tools_l0:fs_read",
+      "produces": [
+        "examples.office.facts:SourceDoc"
+      ],
       "capabilities": [
         "fs.read"
       ],
@@ -227,6 +344,12 @@
       "name": "grammar_check_llm",
       "layer": "verify",
       "implementation": "examples.office.tools_llm:grammar_check_llm",
+      "consumes": [
+        "examples.office.facts:Draft"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "text.grammar"
       ],
@@ -237,6 +360,12 @@
       "name": "grammar_check_rule",
       "layer": "verify",
       "implementation": "examples.office.tools_det:grammar_check_rule",
+      "consumes": [
+        "examples.office.facts:Draft"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "text.grammar"
       ],
@@ -247,6 +376,12 @@
       "name": "insight_narrate",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:insight_narrate",
+      "consumes": [
+        "examples.office.facts:AggregateResult"
+      ],
+      "produces": [
+        "examples.office.facts:Narrative"
+      ],
       "capabilities": [
         "insight.narrate"
       ],
@@ -257,6 +392,12 @@
       "name": "keyfact_extract",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:keyfact_extract",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:FactSheet"
+      ],
       "capabilities": [
         "fact.extract"
       ],
@@ -267,6 +408,13 @@
       "name": "outline_doc_gen_fast",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:outline_doc_gen_fast",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Outline"
+      ],
       "capabilities": [
         "outline.compose"
       ],
@@ -277,6 +425,13 @@
       "name": "outline_doc_gen_steady",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:outline_doc_gen_steady",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Outline"
+      ],
       "capabilities": [
         "outline.compose"
       ],
@@ -287,16 +442,28 @@
       "name": "outline_slide_gen",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:outline_slide_gen",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:SlideOutline"
+      ],
       "capabilities": [
         "outline.slides"
       ],
-      "description": "LLM slide outline from a drafted document",
+      "description": "LLM slide outline from the source document",
       "cost_per_call": 0.005
     },
     {
       "name": "quality_judge",
       "layer": "verify",
       "implementation": "examples.office.tools_llm:quality_judge",
+      "consumes": [
+        "examples.office.facts:Draft"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "quality.judge"
       ],
@@ -307,6 +474,12 @@
       "name": "render_chart",
       "layer": "render",
       "implementation": "examples.office.tools_det:render_chart",
+      "consumes": [
+        "examples.office.facts:ChartSpec"
+      ],
+      "produces": [
+        "examples.office.facts:FileSpec"
+      ],
       "capabilities": [
         "chart.render"
       ],
@@ -317,6 +490,13 @@
       "name": "render_doc",
       "layer": "render",
       "implementation": "examples.office.tools_det:render_doc",
+      "consumes": [
+        "examples.office.facts:Draft",
+        "examples.office.facts:ReviewReport"
+      ],
+      "produces": [
+        "examples.office.facts:FileSpec"
+      ],
       "capabilities": [
         "doc.render"
       ],
@@ -327,6 +507,12 @@
       "name": "render_pptx",
       "layer": "render",
       "implementation": "examples.office.tools_det:render_pptx",
+      "consumes": [
+        "examples.office.facts:SlideCopy"
+      ],
+      "produces": [
+        "examples.office.facts:FileSpec"
+      ],
       "capabilities": [
         "ppt.render"
       ],
@@ -337,6 +523,13 @@
       "name": "render_xlsx",
       "layer": "render",
       "implementation": "examples.office.tools_det:render_xlsx",
+      "consumes": [
+        "examples.office.facts:DataTable",
+        "examples.office.facts:FormulaSpec"
+      ],
+      "produces": [
+        "examples.office.facts:FileSpec"
+      ],
       "capabilities": [
         "table.render"
       ],
@@ -347,6 +540,12 @@
       "name": "slide_copy_fast",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:slide_copy_fast",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:SlideCopy"
+      ],
       "capabilities": [
         "slide.copy"
       ],
@@ -357,6 +556,12 @@
       "name": "slide_copy_steady",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:slide_copy_steady",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:SlideCopy"
+      ],
       "capabilities": [
         "slide.copy"
       ],
@@ -367,6 +572,12 @@
       "name": "slide_overflow_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:slide_overflow_check",
+      "consumes": [
+        "examples.office.facts:SlideCopy"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "ppt.overflow"
       ],
@@ -377,6 +588,13 @@
       "name": "style_check",
       "layer": "verify",
       "implementation": "examples.office.tools_det:style_check",
+      "consumes": [
+        "examples.office.facts:Draft",
+        "examples.office.facts:StyleSpec"
+      ],
+      "produces": [
+        "examples.office.facts:ReviewReport"
+      ],
       "capabilities": [
         "style.check"
       ],
@@ -387,6 +605,12 @@
       "name": "style_profile",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:style_profile",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:StyleSpec"
+      ],
       "capabilities": [
         "style.profile"
       ],
@@ -397,6 +621,12 @@
       "name": "table_header_fix_llm",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:table_header_fix_llm",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:DataTable"
+      ],
       "capabilities": [
         "table.repair"
       ],
@@ -407,6 +637,12 @@
       "name": "table_header_fix_rule",
       "layer": "extract",
       "implementation": "examples.office.tools_det:table_header_fix_rule",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:DataTable"
+      ],
       "capabilities": [
         "table.repair"
       ],
@@ -417,6 +653,9 @@
       "name": "table_parse",
       "layer": "context",
       "implementation": "examples.office.tools_l0:table_parse",
+      "produces": [
+        "examples.office.facts:DataTable"
+      ],
       "capabilities": [
         "table.parse"
       ],
@@ -427,6 +666,12 @@
       "name": "table_profile",
       "layer": "extract",
       "implementation": "examples.office.tools_det:table_profile",
+      "consumes": [
+        "examples.office.facts:DataTable"
+      ],
+      "produces": [
+        "examples.office.facts:TableProfile"
+      ],
       "capabilities": [
         "table.profile"
       ],
@@ -437,16 +682,29 @@
       "name": "text_expand",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:text_expand",
+      "consumes": [
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "text.expand"
       ],
-      "description": "LLM outline expansion into full sections",
+      "description": "LLM expansion of key facts into full sections",
       "cost_per_call": 0.005
     },
     {
       "name": "text_polish_aggressive",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:text_polish_aggressive",
+      "consumes": [
+        "examples.office.facts:Narrative",
+        "examples.office.facts:StyleSpec"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "text.polish"
       ],
@@ -457,6 +715,13 @@
       "name": "text_polish_conservative",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:text_polish_conservative",
+      "consumes": [
+        "examples.office.facts:Narrative",
+        "examples.office.facts:StyleSpec"
+      ],
+      "produces": [
+        "examples.office.facts:Draft"
+      ],
       "capabilities": [
         "text.polish"
       ],
@@ -467,6 +732,12 @@
       "name": "text_segment",
       "layer": "extract",
       "implementation": "examples.office.tools_det:text_segment",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:TextSegments"
+      ],
       "capabilities": [
         "text.segment"
       ],
@@ -477,6 +748,12 @@
       "name": "text_summarize_fast",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:text_summarize_fast",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:Narrative"
+      ],
       "capabilities": [
         "text.summarize"
       ],
@@ -487,6 +764,12 @@
       "name": "text_summarize_steady",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:text_summarize_steady",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:Narrative"
+      ],
       "capabilities": [
         "text.summarize"
       ],
@@ -497,6 +780,12 @@
       "name": "text_translate_fast",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:text_translate_fast",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:SourceDoc"
+      ],
       "capabilities": [
         "text.translate"
       ],
@@ -507,6 +796,12 @@
       "name": "text_translate_steady",
       "layer": "extract",
       "implementation": "examples.office.tools_llm:text_translate_steady",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:SourceDoc"
+      ],
       "capabilities": [
         "text.translate"
       ],
@@ -517,6 +812,12 @@
       "name": "theme_palette_pick",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:theme_palette_pick",
+      "consumes": [
+        "examples.office.facts:StyleSpec"
+      ],
+      "produces": [
+        "examples.office.facts:StyleSpec"
+      ],
       "capabilities": [
         "palette.select"
       ],
@@ -527,6 +828,12 @@
       "name": "title_gen",
       "layer": "compose",
       "implementation": "examples.office.tools_llm:title_gen",
+      "consumes": [
+        "examples.office.facts:SourceDoc"
+      ],
+      "produces": [
+        "examples.office.facts:Narrative"
+      ],
       "capabilities": [
         "title.compose"
       ],

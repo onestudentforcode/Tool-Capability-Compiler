@@ -35,6 +35,11 @@ def _selector_names(selector) -> list[str] | None:
     return sorted(selector.names)
 
 
+def _type_ref(value_type) -> str:
+    """Auto-derive the ``module:attr`` reference for a domain type."""
+    return f"{value_type.__module__}:{value_type.__qualname__}"
+
+
 def build_payload() -> dict:
     topology, version = refund.build_topology()
     tools = []
@@ -45,6 +50,10 @@ def build_payload() -> dict:
             "layer": spec.layer,
             "implementation": f"{_IMPLEMENTATION_MODULE}:{spec.name}",
         }
+        if spec.consumes:
+            item["consumes"] = [_type_ref(t) for t in spec.consumes]
+        if spec.produces:
+            item["produces"] = [_type_ref(t) for t in spec.produces]
         providers = _selector_names(spec.providers)
         if providers is not None:
             item["providers"] = providers
