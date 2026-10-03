@@ -835,7 +835,11 @@ def run_onboard(args: argparse.Namespace) -> int:
         out_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        print(f"skeleton written to {args.out} ({len(payload['tools'])} tools)")
+        count = len(payload["tools"])
+        print(
+            f"skeleton written to {args.out} "
+            f"({count} tool{'s' if count != 1 else ''})"
+        )
         return 0
 
     if args.onboard_command == "propose":
