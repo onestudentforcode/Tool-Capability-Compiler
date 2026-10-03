@@ -96,9 +96,9 @@
 - [x] P5：analyze/validate stdout 含输入回显头（validate 另含耗时）
 - [x] P6：render 宽度断言（段不拆、工具零省略、悬挂缩进、None=旧行为）；
       rank CLI --width（0 关闭）
-- [ ] P7：report 聚合含 cost 三分项与 access 汇总（全 None 保持 None）；
+- [x] P7：report 聚合含 cost 三分项与 access 汇总（全 None 保持 None）；
       render 含 Metering 段（None 显示 `-`）；既有测试零改动通过
-- [ ] P8：fast/seeds/select 对缺失文件与损坏 JSON 返回 2 且无
+- [x] P8：fast/seeds/select 对缺失文件与损坏 JSON 返回 2 且无
       traceback；正常路径与既有退出码（1 = 判定负面）不受影响
 - [x] 全量测试（653）+ compileall + diff-check；README 无需变更
 
