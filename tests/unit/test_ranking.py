@@ -539,3 +539,42 @@ def test_rows_from_results_matches_disk_rows(tmp_path) -> None:
     by_scenario = {row.scenario_id: row for row in disk_rows}
     assert set(by_scenario) == {"ra"}
     assert all(row.success is True for row in disk_rows)
+
+
+# ---- output polish (P6): route wrapping ---------------------------------------
+
+
+def _profile_with_canonical(canonical: str):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(canonical=canonical)
+
+
+def test_wrap_route_keeps_segments_and_width() -> None:
+    from capability_runtime.ranking.report import _wrap_route
+
+    segments = [f"layer{i}:[tool_{i}_a,tool_{i}_b]" for i in range(8)]
+    canonical = " ".join(segments)
+    lines = _wrap_route(_profile_with_canonical(canonical), width=60)
+    joined = " ".join(line.strip() for line in lines)
+    # no tool lost, order preserved
+    assert joined.replace("    ", " ") == canonical
+    # every line respects the width unless a single segment exceeds it
+    for line in lines:
+        assert len(line) <= 60 or line.count("[") == 1
+    # long routes actually wrapped
+    assert len(lines) > 1
+    # continuation lines are hanging-indented
+    assert lines[1].startswith("      ")
+
+
+def test_wrap_route_short_route_single_line() -> None:
+    from capability_runtime.ranking.report import _wrap_route
+
+    profile = _profile_with_canonical("read:[db] analyze:[policy]")
+    assert _wrap_route(profile, width=88) == ["  read:[db] analyze:[policy]"]
+    # width=None keeps the legacy flattened behavior
+    long_canonical = " ".join(f"l{i}:[t{i}]" for i in range(30))
+    assert _wrap_route(
+        _profile_with_canonical(long_canonical), width=None
+    ) == [f"  {long_canonical}"]

@@ -293,8 +293,13 @@ def _to_json(value: Any) -> Any:
     return str(value)
 
 
-def render(report: RouteRankingReport) -> str:
-    """Human text output (phase5 §14)."""
+def render(report: RouteRankingReport, *, width: int | None = 88) -> str:
+    """Human text output (phase5 §14).
+
+    ``width`` wraps route canonical lines at layer-segment boundaries
+    with a hanging indent (tools are never elided); None disables
+    wrapping (legacy single line).
+    """
     lines = [
         "Route Ranking",
         "",
@@ -323,7 +328,11 @@ def render(report: RouteRankingReport) -> str:
             continue
         lines.append(f"Tier {tier.value.upper()}")
         for assignment in members:
-            lines.extend(_render_profile(profile_of[assignment.route_id], frontier))
+            lines.extend(
+                _render_profile(
+                    profile_of[assignment.route_id], frontier, width=width
+                )
+            )
             others = [
                 other.value for other in assignment.tiers if other is not tier
             ]
@@ -337,7 +346,11 @@ def render(report: RouteRankingReport) -> str:
     if unassigned:
         lines.append("UNASSIGNED")
         for assignment in unassigned:
-            lines.extend(_render_profile(profile_of[assignment.route_id], frontier))
+            lines.extend(
+                _render_profile(
+                    profile_of[assignment.route_id], frontier, width=width
+                )
+            )
         lines.append("")
 
     lines.append(
@@ -400,18 +413,50 @@ def _display(profile: RouteProfile) -> str:
     return profile.canonical.replace("\n", " ")
 
 
-def _render_profile(profile: RouteProfile, frontier: set[str]) -> list[str]:
+def _render_profile(
+    profile: RouteProfile, frontier: set[str], *, width: int | None = 88
+) -> list[str]:
     low, high = profile.success_confidence_interval
     quality = (
         f"{profile.quality_mean:.2f}" if profile.quality_mean is not None else "-"
     )
     p95 = f"{profile.latency_p95:.0f}ms" if profile.latency_p95 is not None else "-"
     cost = f"${profile.cost_mean:.3f}" if profile.cost_mean is not None else "-"
+    route_lines = _wrap_route(profile, width=width)
     return [
-        f"  {_display(profile)}",
+        *route_lines,
         f"      success {profile.business_success_rate * 100:.1f}% "
         f"[{low * 100:.1f}, {high * 100:.1f}]  quality {quality}  "
         f"latency {profile.latency_median:.0f}ms (p95 {p95})",
         f"      cost {cost}  trials {profile.trial_count}  "
         f"pareto: {'yes' if profile.route_id in frontier else 'no'}",
     ]
+
+
+def _wrap_route(
+    profile: RouteProfile, *, width: int | None = 88, indent: str = "  "
+) -> list[str]:
+    """Route canonical as wrapped lines - segment (layer) per boundary.
+
+    Every layer segment stays intact on one line; wrapping never drops
+    tools. width=None keeps the legacy single flattened line.
+    """
+    canonical = _display(profile)
+    if width is None or len(indent) + len(canonical) <= width:
+        return [f"{indent}{canonical}"]
+    segments = canonical.split(" ")
+    continuation = f"{indent}    "
+    lines: list[str] = []
+    current = indent
+    for segment in segments:
+        if current == indent:
+            candidate = current + segment
+        elif len(current) + 1 + len(segment) <= width:
+            candidate = current + " " + segment
+        else:
+            lines.append(current)
+            current = continuation + segment
+            continue
+        current = candidate
+    lines.append(current)
+    return lines

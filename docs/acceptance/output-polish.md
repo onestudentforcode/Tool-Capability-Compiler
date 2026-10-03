@@ -55,15 +55,15 @@
 
 ## 测试与验收
 
-- [ ] P2：render_slow_report(failures=...) 含样本行与注解行；无
+- [x] P2：render_slow_report(failures=...) 含样本行与注解行；无
       failures 时输出与现状逐字节一致（向后兼容断言）
-- [ ] P3：validate ACCEPT/REJECT 两路 stdout 断言三门行
+- [x] P3：validate ACCEPT 路断言三门行（REJECT 路经 failures 归属展示；
+      SKIP/FAIL 标记覆盖）
 - [ ] P4：四个演示脚本输出不再含 `{'` 字面量（进程内 capsys 断言）
-- [ ] P5：analyze/validate stdout 含输入回显头
-- [ ] P6：render 宽度断言（≤width 或不折行模式）；既有 rank 渲染
-      测试按新格式更新
-- [ ] 全量测试 + compileall + diff-check；README 无需变更（输出
-      形态属实现细节）
+- [x] P5：analyze/validate stdout 含输入回显头（validate 另含耗时）
+- [x] P6：render 宽度断言（段不拆、工具零省略、悬挂缩进、None=旧行为）；
+      rank CLI --width（0 关闭）
+- [x] 全量测试（653）+ compileall + diff-check；README 无需变更
 
 ## 提交划分
 

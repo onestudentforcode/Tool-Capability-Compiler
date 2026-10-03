@@ -329,6 +329,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format (default: text)",
     )
     rank.add_argument(
+        "--width",
+        type=int,
+        default=88,
+        help="Wrap route lines at layer boundaries (0 disables wrapping)",
+    )
+    rank.add_argument(
         "--out",
         help="Write the ranking report to this file instead of stdout",
     )
@@ -720,7 +726,9 @@ def run_rank(args: argparse.Namespace) -> int:
     output = (
         json.dumps(ranking_to_json(report), indent=2, ensure_ascii=False)
         if args.format == "json"
-        else render_ranking(report)
+        else render_ranking(
+            report, width=None if args.width == 0 else args.width
+        )
     )
     if args.out:
         Path(args.out).write_text(output, encoding="utf-8")
