@@ -521,6 +521,9 @@ def test_cli_three_stage_flow_on_argless_world(tmp_path, capsys) -> None:
     out = capsys.readouterr().out
     assert code == 0
     assert "candidates written" in out
+    # (P5) analyze header echoes the inputs
+    assert "Optimize Analyze" in out
+    assert f"slow report: {run_dir}" in out
 
     code = main([
         "optimize", "validate",
@@ -533,6 +536,14 @@ def test_cli_three_stage_flow_on_argless_world(tmp_path, capsys) -> None:
     out = capsys.readouterr().out
     assert code == 0, out
     assert "VERDICT: ACCEPT" in out
+    # output polish (P3): the three gates render before the verdict
+    assert "Gates:" in out
+    assert "fast (coverage)     PASS" in out
+    assert "slow (regression)   PASS" in out
+    assert "diversity           PASS" in out
+    # (P5) header echoes the inputs
+    assert "Optimize Validate" in out
+    assert f"patch:    {candidates}" in out
     assert verdict_file.is_file()
 
     code = main([

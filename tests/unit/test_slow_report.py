@@ -99,3 +99,84 @@ def test_report_sums_recent_latency_converts_tokens() -> None:
     assert all(v is None or v >= 0 for v in report.latency_ms_basics)
     assert report.token_usage.input_tokens >= 0
     assert report.token_usage.output_tokens == 0
+
+# ---- output polish (P2/P3/P5) -------------------------------------------------
+
+
+def _fake_result(trial_id, category, reason=None):
+    """Minimal TrialResult double for the renderer's samples section."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        trial=SimpleNamespace(id=trial_id),
+        failure_category=category,
+        evaluation=SimpleNamespace(reason=reason) if reason else None,
+        execution_status=SimpleNamespace(value="layer_error"),
+    )
+
+
+def test_render_slow_report_adds_glosses_and_samples() -> None:
+    from capability_runtime import TokenUsage
+    from capability_runtime.core.failure import TrialFailureCategory
+    from capability_runtime.regression.slow.report import (
+        SlowRegressionReport,
+        render_slow_report,
+    )
+
+    report = SlowRegressionReport(
+        suite_name="s", suite_version="1", topology_version="t",
+        router_config_id="free", scenario_count=2, trial_count=2,
+        completed=0, routing_error=0, execution_failed=2,
+        evaluation_error=0, fixture_error=0,
+        business_success=0, business_failure=2,
+        latency_ms_basics=(None, None, None),
+        token_usage=TokenUsage(),
+        unique_routes=1,
+        observed_nodes=1, total_nodes=2,
+        observed_edges=0, total_edges=2, unused_edges=2,
+        failure_by_category=(
+            ("answer_error", 2), ("timeout", 1),
+        ),
+    )
+    failures = [
+        _fake_result("b#001", TrialFailureCategory.TIMEOUT),
+        _fake_result("a#000", TrialFailureCategory.ANSWER_ERROR,
+                     "missing artifacts: review_report, file_spec"),
+        _fake_result("b#000", TrialFailureCategory.ANSWER_ERROR, "quality too low"),
+    ]
+    text = render_slow_report(report, failures=failures)
+
+    assert "answer_error" in text and "# business evaluation failed" in text
+    assert "timeout" in text and "# a tool exceeded the per-tool timeout" in text
+    assert "Failure Samples (up to 2 per category):" in text
+    # deterministic order: a#000 before b#000; two samples max per category
+    assert "a#000 - missing artifacts: review_report, file_spec" in text
+    assert "b#000 - quality too low" in text
+    assert "b#001 - layer_error" in text  # no evaluation reason -> status
+    samples = text.split("Failure Samples")[1]
+    assert samples.index("a#000") < samples.index("b#000")
+
+
+def test_render_slow_report_without_failures_unchanged() -> None:
+    from capability_runtime import TokenUsage
+    from capability_runtime.regression.slow.report import (
+        SlowRegressionReport,
+        render_slow_report,
+    )
+
+    report = SlowRegressionReport(
+        suite_name="s", suite_version="1", topology_version="t",
+        router_config_id="free", scenario_count=1, trial_count=1,
+        completed=1, routing_error=0, execution_failed=0,
+        evaluation_error=0, fixture_error=0,
+        business_success=1, business_failure=0,
+        latency_ms_basics=(1.0, 1.0, 1.0),
+        token_usage=TokenUsage(),
+        unique_routes=1,
+        observed_nodes=1, total_nodes=1,
+        observed_edges=0, total_edges=0, unused_edges=0,
+        failure_by_category=(),
+    )
+    text = render_slow_report(report)
+    assert "Failure Samples" not in text
+    assert "(Phase 3 observes only" in text

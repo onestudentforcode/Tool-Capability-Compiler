@@ -133,8 +133,33 @@ def build_slow_regression_report(
     )
 
 
-def render_slow_report(report: SlowRegressionReport) -> str:
-    """Render the CLI text output (phase3 §107-108)."""
+# One-line plain-language glosses for the failure taxonomy, shown inline
+# next to the counts (review.md carries the long-form glossary).
+FAILURE_CATEGORY_GLOSSES = {
+    "tool_selection_error": "router picked an unreachable tool",
+    "missing_tool": "router picked a tool that does not exist",
+    "wrong_tool_dependency": "all same-layer tools failed (dependency chain)",
+    "schema_mismatch": "a tool input could not be resolved from state",
+    "tool_execution_error": "a tool raised during execution",
+    "reasoning_error": "the LLM judge reasoned incorrectly",
+    "answer_error": "business evaluation failed (missing artifacts / quality)",
+    "provider_failure": "the LLM / external provider failed",
+    "timeout": "a tool exceeded the per-tool timeout",
+    "evaluation_error": "the evaluator itself failed",
+    "fixture_error": "fixture setup / teardown failed",
+    "success": "no failure",
+}
+
+_SAMPLE_REASON_LIMIT = 100
+
+
+def render_slow_report(report: SlowRegressionReport, *, failures=None) -> str:
+    """Render the CLI text output (phase3 §107-108).
+
+    ``failures`` (optional trial results) adds a "Failure Samples" section:
+    up to two representative trials per category (deterministic by trial
+    id) with the evaluation reason. Without it the output is unchanged.
+    """
     mean, median, p95 = report.latency_ms_basics
     mean_s = f"{mean:.1f}" if mean is not None else "-"
     median_s = f"{median:.1f}" if median is not None else "-"
@@ -171,8 +196,44 @@ def render_slow_report(report: SlowRegressionReport) -> str:
         lines.append("")
         lines.append("Failure Categories:")
         for name, count in report.failure_by_category:
-            lines.append(f"  {name:<26}{count}")
+            gloss = FAILURE_CATEGORY_GLOSSES.get(name)
+            suffix = f"  # {gloss}" if gloss else ""
+            lines.append(f"  {name:<26}{count}{suffix}")
 
     lines.append("")
+    if failures:
+        samples = _failure_samples(failures)
+        if samples:
+            lines.append("")
+            lines.append("Failure Samples (up to 2 per category):")
+            for name, entries in samples:
+                lines.append(f"  {name}")
+                for trial_id, reason in entries:
+                    lines.append(f"    {trial_id} - {reason}")
+
     lines.append("(Phase 3 observes only; it makes no pruning recommendation.)")
     return "\n".join(lines)
+def _failure_samples(failures) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Up to two representative (trial id, reason) pairs per failure category."""
+    by_category: dict[str, list] = {}
+    for result in failures:
+        category = result.failure_category
+        if category is None:
+            continue
+        by_category.setdefault(category.value, []).append(result)
+    samples = []
+    for name in sorted(by_category):
+        entries = []
+        for result in sorted(
+            by_category[name], key=lambda item: item.trial.id
+        )[:2]:
+            reason = (
+                result.evaluation.reason
+                if result.evaluation is not None and result.evaluation.reason
+                else result.execution_status.value
+            )
+            if len(reason) > _SAMPLE_REASON_LIMIT:
+                reason = reason[:_SAMPLE_REASON_LIMIT] + "..."
+            entries.append((result.trial.id, reason))
+        samples.append((name, entries))
+    return samples

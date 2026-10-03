@@ -32,6 +32,7 @@ import argparse
 import asyncio
 import json
 import sys
+import time
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
@@ -657,7 +658,7 @@ def run_slow(args: argparse.Namespace) -> int:
             obs=obs,
         )
 
-    print(render_slow_report(report))
+    print(render_slow_report(report, failures=outcome.results))
     return 0
 
 
@@ -885,6 +886,10 @@ def run_onboard(args: argparse.Namespace) -> int:
 
 
 def run_optimize_analyze(args: argparse.Namespace) -> int:
+    print("Optimize Analyze")
+    print(f"  topology:    {args.topology}")
+    print(f"  scenario:    {args.scenario}")
+    print(f"  slow report: {args.slow_report}")
     """optimize analyze: read-only evidence -> candidates.json (spec 2)."""
     try:
         topology = TopologyLoader().load_file(args.topology)
@@ -919,6 +924,11 @@ def run_optimize_analyze(args: argparse.Namespace) -> int:
 
 def run_optimize_validate(args: argparse.Namespace) -> int:
     """optimize validate: three gates; REJECT exits 1 (spec 3)."""
+    started = time.perf_counter()
+    print("Optimize Validate")
+    print(f"  topology: {args.topology}")
+    print(f"  scenario: {args.scenario}")
+    print(f"  patch:    {args.patch}")
     topology = TopologyLoader().load_file(args.topology)
     unbound = unbound_tool_names(topology)
     if unbound:
@@ -955,9 +965,23 @@ def run_optimize_validate(args: argparse.Namespace) -> int:
         json.dumps(verdict, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     print(f"verdict written to {args.out}")
+    print("Gates:")
+    for label, gate in (
+        ("fast (coverage)", verdict["fast"]),
+        ("slow (regression)", verdict["slow"]),
+        ("diversity", verdict["diversity"]),
+    ):
+        if gate.get("skipped"):
+            mark = "SKIP"
+        elif gate.get("passed"):
+            mark = "PASS"
+        else:
+            mark = "FAIL"
+        print(f"  {label:<20}{mark}")
     for failure in verdict["failures"]:
         print(f"  [{failure['domain']}/{failure['key']}] {failure['reason']}")
-    print(f"VERDICT: {verdict['verdict'].upper()}")
+    elapsed = time.perf_counter() - started
+    print(f"VERDICT: {verdict['verdict'].upper()}  ({elapsed:.1f}s)")
     return 0 if verdict["verdict"] == "accept" else 1
 
 
