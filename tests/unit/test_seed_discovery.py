@@ -90,6 +90,9 @@ def test_failing_tool_yields_discovery_failed() -> None:
     entries = {entry.scenario_id: entry for entry in payload.entries}
     assert entries["S1"].status == ENTRY_DISCOVERY_FAILED
     assert "layer_error" in entries["S1"].reason
+    # the category alone hides the cause; the first tool error travels with it
+    assert "source_bad" in entries["S1"].reason
+    assert "always fails" in entries["S1"].reason
     assert "S1" not in payload.routes
 
 

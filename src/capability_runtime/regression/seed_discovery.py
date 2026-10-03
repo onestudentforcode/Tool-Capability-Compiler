@@ -36,6 +36,28 @@ from .slow.trial import TrialExecutionStatus
 SOURCE_MODEL_DISCOVERY = "model-discovery"
 ENTRY_DISCOVERY_FAILED = "discovery-failed"
 
+_HINT_LIMIT = 120
+
+
+def _first_error_hint(result) -> str:
+    """Compact cause for a failed discovery trial: the first tool error.
+
+    The category alone (``layer_error``) hides whether the tool was wrong or
+    the environment was down — the hint makes the seeds payload diagnosable
+    without re-running the trial (discovery-routing batch E field lesson).
+    """
+    trace = getattr(result, "trace", None)
+    if trace is None:
+        return ""
+    for layer in trace.layers:
+        for execution in layer.tool_executions:
+            if execution.error is not None:
+                hint = f"{execution.tool_name}: {execution.error}"
+                if len(hint) > _HINT_LIMIT:
+                    hint = hint[:_HINT_LIMIT] + "..."
+                return hint
+    return ""
+
 
 def _candidate_from_observed(observed, scenario: Scenario) -> CandidateRoute:
     return CandidateRoute(
@@ -98,7 +120,9 @@ async def discover_seeds(
                     if result.failure_category
                     else result.execution_status.value
                 )
-                failure_reason = f"discovery {result.trial.id}: {detail}"
+                hint = _first_error_hint(result)
+                suffix = f" ({hint})" if hint else ""
+                failure_reason = f"discovery {result.trial.id}: {detail}{suffix}"
                 continue
             if result.route is None:
                 failure_reason = (
