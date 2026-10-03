@@ -36,8 +36,16 @@ def _selector_names(selector) -> list[str] | None:
 
 
 def _type_ref(value_type) -> str:
-    """Auto-derive the ``module:attr`` reference for a domain type."""
-    return f"{value_type.__module__}:{value_type.__qualname__}"
+    """Auto-derive the ``module:attr`` reference for a domain type.
+
+    slow_refund modules may be imported under bare names (script style),
+    which leaves ``type.__module__`` as e.g. 'facts' — unresolvable from
+    the repo root. The canonical import path is the package form.
+    """
+    module = value_type.__module__
+    if module == "facts":
+        module = _IMPLEMENTATION_MODULE.rsplit(".", 1)[0] + ".facts"
+    return f"{module}:{value_type.__qualname__}"
 
 
 def build_payload() -> dict:
