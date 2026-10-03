@@ -352,13 +352,22 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"Office scale run: {len(suite.scenarios)} scenarios x {args.trials} trials")
-    print(f"Coverage: {summary['coverage']}")
+    coverage = summary["coverage"]
+    print(
+        f"Coverage: covered {coverage.get('covered', 0)} / "
+        f"uncertain {coverage.get('uncertain', 0)} / "
+        f"uncovered {coverage.get('uncovered', 0)}"
+    )
     print(
         f"Business: {report.business_success} success / "
         f"{report.business_failure} failed"
     )
-    print(f"Status breakdown: {breakdown['execution_status']}")
-    print(f"Failure categories: {breakdown['failure_category']}")
+    print("Status: " + " | ".join(
+        f"{name} {count}" for name, count in breakdown["execution_status"].items()
+    ))
+    print("Failures: " + (" | ".join(
+        f"{name} {count}" for name, count in breakdown["failure_category"].items()
+    ) or "none"))
     print(f"Unique routes: {obs.unique_route_count}  elapsed: {elapsed:.1f}s")
     print(f"Artifacts in {run_dir}:")
     for path in sorted(run_dir.iterdir()):

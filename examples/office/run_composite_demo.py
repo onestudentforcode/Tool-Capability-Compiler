@@ -152,10 +152,13 @@ def main(argv: list[str] | None = None) -> int:
 
     iterations = composite_iterations(outcome)
     for name, counts in sorted(iterations.items()):
-        print(
-            f"  {name}: {len(counts)} executions, iterations per execution "
-            f"{Counter(counts)}"
+        distinct = sorted(set(counts))
+        summary = (
+            f"{distinct[0]} iterations on all {len(counts)} executions"
+            if len(distinct) == 1
+            else " | ".join(f"{value}x{counts.count(value)}" for value in distinct)
         )
+        print(f"  {name}: {summary}")
 
     # inner world through the standard machinery
     flattened = flatten_composite_results(outcome.results, composite_nodes.SPECS)
@@ -164,7 +167,10 @@ def main(argv: list[str] | None = None) -> int:
         "pseudo_trials": len(flattened),
         "inner_unique_routes": inner_obs.unique_route_count,
     }
-    print(f"Flattened inner world: {inner_summary}")
+    print(
+        f"Flattened inner world: pseudo-trials {inner_summary['pseudo_trials']}"
+        f" | unique inner routes {inner_summary['inner_unique_routes']}"
+    )
 
     # metering rollup: composite ToolExecutions carry the inner access counts
     rollup = {}
@@ -182,9 +188,12 @@ def main(argv: list[str] | None = None) -> int:
                     if execution.token_usage is not None:
                         bucket["tokens"] += execution.token_usage.total
     for name, bucket in sorted(rollup.items()):
+        accesses = " | ".join(
+            f"{key} x{count}" for key, count in sorted(bucket["access_counts"].items())
+        )
         print(
-            f"  {name}: metering rollup {dict(bucket['access_counts'])}, "
-            f"tokens={bucket['tokens']}"
+            f"  {name} metering: {accesses or 'no handle access'}"
+            f" | tokens {bucket['tokens']}"
         )
 
     report = {

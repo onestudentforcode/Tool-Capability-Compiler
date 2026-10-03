@@ -22,7 +22,8 @@ def _load(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _table(headers: list[str], rows: list[list[str]]) -> str:
+def table(headers: list[str], rows: list[list[str]]) -> str:
+    """Markdown table (the shared formatting primitive for run consoles)."""
     def esc(value) -> str:
         return str(value).replace("|", "\\|").replace("\n", " ")
 
@@ -32,7 +33,8 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join([head, rule, *body]) if body else "（无记录）"
 
 
-def _fmt(value, digits: int = 1, suffix: str = "") -> str:
+def fmt(value, digits: int = 1, suffix: str = "") -> str:
+    """Human number formatting (None -> dash)."""
     if value is None:
         return "—"
     if isinstance(value, float):
@@ -89,7 +91,7 @@ def _review_closed_loop(d: Path) -> str:
         "（uncovered 场景必失败、messy 语料读取失败、注入的畸形输出/超时），"
         "失败流量正是后续剪枝与排名的证据。",
         "",
-        _table(
+        table(
             ["指标", "值", "说明"],
             [
                 ["trials", r1["trials"], "总试验数 = 60 场景 × 15 试验"],
@@ -117,7 +119,7 @@ def _review_closed_loop(d: Path) -> str:
         "PROTECTED 免疫剪枝。这是本项目历史上第一次在真实证据上产出非空补丁"
         "（退款沙盒时代每个工具都是唯一提供者，补丁恒为空）。",
         "",
-        _table(
+        table(
             ["证据切分", "场景数", "用途"],
             [
                 ["optimization", len(split["optimization"]), "只读地产生候选证据"],
@@ -126,7 +128,7 @@ def _review_closed_loop(d: Path) -> str:
             ],
         ),
         "",
-        _table(
+        table(
             ["候选状态", "数量", "说明"],
             [
                 ["identified", by_status.get("identified", 0), "进入补丁提案"],
@@ -138,7 +140,7 @@ def _review_closed_loop(d: Path) -> str:
         "",
         "### IDENTIFIED 明细（opportunity=本可使用的次数；usage_rate=实际使用占比）",
         "",
-        _table(
+        table(
             ["subject（边/节点）", "kind", "opportunity", "usage_rate", "判读"],
             [
                 [
@@ -163,7 +165,7 @@ def _review_closed_loop(d: Path) -> str:
     lines += [
         "## 3. validate —— 三道门全部通过才算 ACCEPT",
         "",
-        _table(
+        table(
             ["门", "判定", "它检查什么"],
             [
                 ["fast（覆盖门）", _gate(verdict["fast"].get("passed")),
@@ -186,7 +188,7 @@ def _review_closed_loop(d: Path) -> str:
     lines += [
         "## 4. commit / rollback —— 唯一写操作与可逆性",
         "",
-        _table(
+        table(
             ["项", "值", "说明"],
             [
                 ["版本", "office-v0.1", "版本记录不可变，写入 versions/ 目录"],
@@ -207,7 +209,7 @@ def _review_closed_loop(d: Path) -> str:
         "（少了失败流量的分支）。rank/catalog 必须消费**这个版本自己的证据**——框架会"
         "拒绝版本错配的 ranking。",
         "",
-        _table(
+        table(
             ["指标", "Round 2a", "说明"],
             [
                 ["trials", r2a["trials"], "60 场景 × 5 试验"],
@@ -232,10 +234,10 @@ def _review_closed_loop(d: Path) -> str:
                 a["route_id"][:8],
                 "/".join(a["tiers"]),
                 p.get("trial_count", "—"),
-                _fmt(a["success_rate"], 2),
-                _fmt(a["latency_median"], 1, "ms"),
-                _fmt(a["quality_mean"], 2),
-                _fmt(a["cost_mean"], 4),
+                fmt(a["success_rate"], 2),
+                fmt(a["latency_median"], 1, "ms"),
+                fmt(a["quality_mean"], 2),
+                fmt(a["cost_mean"], 4),
                 canonical[:110],
             ]
         )
@@ -255,11 +257,11 @@ def _review_closed_loop(d: Path) -> str:
         "",
         f"### 跨 Tier 的冗余 capability（{len(sep_rows)} 个）",
         "",
-        _table(["capability", "横跨的 Tier", "变体 → 各自 Tier"], sep_rows),
+        table(["capability", "横跨的 Tier", "变体 → 各自 Tier"], sep_rows),
         "",
         f"### 有标签路线明细（{len(rows)} 条，按 Tier 排序）",
         "",
-        _table(
+        table(
             ["route", "Tier", "trials", "成功率", "延迟中位", "质量均值", "成本均值", "canonical"],
             rows,
         ),
@@ -276,7 +278,7 @@ def _review_closed_loop(d: Path) -> str:
         f"对 {len(sel['dry_runs'])} 个请求按类别列出目录中的 Tier 候选数；"
         "这是上线前的人工检查点，不产生执行。",
         "",
-        _table(
+        table(
             ["request", "各 Tier 候选数"],
             [[s["request_id"], json.dumps(s["tiers"], ensure_ascii=False)] for s in sel["dry_runs"]],
         ),
@@ -288,7 +290,7 @@ def _review_closed_loop(d: Path) -> str:
     lines += [
         "## 8. Round 2 —— 在线服务 + 遥测回流（两轮收敛）",
         "",
-        _table(
+        table(
             ["指标", "Round 1（离线探索）", "Round 2（在线，Tier 优先）", "说明"],
             [
                 ["成功率", r1["success_rate"], r2["success_rate"],
@@ -339,7 +341,7 @@ def _review_scale(d: Path) -> str:
         GLOSSARY,
         "## 1. 运行摘要",
         "",
-        _table(
+        table(
             ["指标", "值", "说明"],
             [
                 ["场景 × 试验", f"{run['scenarios']} × {run['trials_per_scenario']}", "总 trial 数见下行"],
@@ -354,7 +356,7 @@ def _review_scale(d: Path) -> str:
         "",
         "## 2. 覆盖分布（fast regression 语义，不执行工具）",
         "",
-        _table(
+        table(
             ["家族", "covered", "uncertain", "uncovered"],
             [[fam, c["covered"], c["uncertain"], c["uncovered"]] for fam, c in sorted(by_family.items())],
         ),
@@ -365,7 +367,7 @@ def _review_scale(d: Path) -> str:
         "",
         "## 3. 失败构成（slow 落盘必须含全部类别）",
         "",
-        _table(
+        table(
             ["执行状态", "次数", "说明"],
             [
                 ["completed", summary["failures"]["execution_status"].get("completed", 0),
@@ -375,7 +377,7 @@ def _review_scale(d: Path) -> str:
             ],
         ),
         "",
-        _table(
+        table(
             ["失败类别", "次数", "典型来源"],
             [
                 ["answer_error", summary["failures"]["failure_category"].get("answer_error", 0),
@@ -391,7 +393,7 @@ def _review_scale(d: Path) -> str:
         "",
         "**从未被选中的节点**（selected_count=0 → 节点剪枝候选视角；实际候选由 optimize analyze 在优化集上判定）：",
         "",
-        _table(
+        table(
             ["tool", "opportunity", "selected", "success"],
             [[n["tool"], n["opportunity_count"], n["selected_count"], n["success_trial_count"]]
              for n in sorted(never_selected, key=lambda n: n["tool"])],
@@ -399,7 +401,7 @@ def _review_scale(d: Path) -> str:
         "",
         "**机会数最高的边**（opportunity 大而 observed 小 → 边剪枝候选视角）：",
         "",
-        _table(
+        table(
             ["source → target", "opportunity", "observed", "success"],
             [[f"{e['source']} → {e['target']}", e["opportunity_count"], e["observed_count"],
               e["successful_trial_count"]] for e in hot_edges],

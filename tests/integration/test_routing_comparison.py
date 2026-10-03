@@ -18,12 +18,16 @@ if str(_ROOT) not in sys.path:
 from examples.office.run_routing_comparison import main  # noqa: E402
 
 
-def test_three_mode_comparison_smoke(tmp_path) -> None:
+def test_three_mode_comparison_smoke(tmp_path, capsys) -> None:
     out_dir = tmp_path / "cmp"
     code = main([
         "--limit", "6", "--trials", "1", "--out-dir", str(out_dir),
     ])
     assert code == 0
+
+    # output polish (P4): no python dict literals on the console
+    console = capsys.readouterr().out
+    assert "{'" not in console and "({" not in console
 
     report = json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
     assert set(report["modes"]) == {"free", "basefast", "llm-scripted"}

@@ -200,7 +200,13 @@ def main(argv: list[str] | None = None) -> int:
             _run_mode(mode, topology, suite, seeds, args.trials)
         )
         modes[mode] = {"metrics": _metrics(results), "seeds": seed_info}
-        print(f"{mode:>13}: {modes[mode]['metrics']}")
+        m = modes[mode]["metrics"]
+        print(
+            f"{mode:>13}: trials {m['trials']} | success {m['success_rate']} | "
+            f"cost {m['mean_cost']} | latency {m['mean_latency_ms']}ms | "
+            f"routes {m['unique_routes']} | "
+            f"seeds {seed_info['frozen']}/{seed_info['of']}"
+        )
 
     elapsed = round(time.perf_counter() - started, 1)
     report = {

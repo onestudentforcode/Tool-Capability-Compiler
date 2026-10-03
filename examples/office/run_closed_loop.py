@@ -127,6 +127,16 @@ async def run_round(topology, suite, seeds, trials: int, topology_version: str,
     return outcome, obs, report
 
 
+def _metrics_line(metrics: dict) -> str:
+    """One aligned line for a trial-metrics dict (no python literals)."""
+    parts = [f"trials {metrics['trials']}", f"success {metrics['success_rate']}"]
+    if metrics.get("mean_cost") is not None:
+        parts.append(f"cost {metrics['mean_cost']}")
+    if metrics.get("mean_latency_ms") is not None:
+        parts.append(f"latency {metrics['mean_latency_ms']}ms")
+    return " | ".join(parts)
+
+
 def trial_metrics(results) -> dict:
     evaluated = [r for r in results if r.evaluation is not None]
     if evaluated:
@@ -230,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
         run_round(topology, suite, seeds, args.trials, version, out_dir, "1_declared")
     )
     round1 = trial_metrics(outcome.results)
-    print(f"Round 1 (declared): {round1}")
+    print(f"Round 1 (declared): {_metrics_line(round1)}")
 
     # ---- analyze: first real pruning candidates -----------------------------
     candidates = asyncio.run(
@@ -252,9 +262,15 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"analyze: {len(identified)} IDENTIFIED "
         f"({sum(1 for c in identified if c['kind'] == 'edge')} edges / "
-        f"{sum(1 for c in identified if c['kind'] == 'node')} nodes), "
-        f"counterfactual={next((c['counterfactual'] for c in identified if c['counterfactual']), None)}"
+        f"{sum(1 for c in identified if c['kind'] == 'node')} nodes)"
     )
+    counterfactual = next(
+        (c["counterfactual"] for c in identified if c["counterfactual"]), None
+    )
+    if counterfactual:
+        print(f"  counterfactual: {counterfactual['verdict']}"
+              + (f", regressed {len(counterfactual['regressed_scenarios'])}"
+                 if counterfactual.get("regressed_scenarios") else ", no regression"))
 
     # ---- validate: fast + slow + diversity on the gate split ----------------
     verdict = asyncio.run(
@@ -266,8 +282,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     check(verdict["verdict"] == "accept",
           f"validate rejected the patch: {verdict['failures']}")
-    print(f"validate: {verdict['verdict']} (fast={verdict['fast']}, "
-          f"slow={verdict['slow']}, diversity={verdict['diversity']})")
+    def _mark(gate: dict) -> str:
+        if gate.get("skipped"):
+            return "SKIP"
+        return "PASS" if gate.get("passed") else "FAIL"
+
+    print(f"validate: {verdict['verdict'].upper()} "
+          f"(fast {_mark(verdict['fast'])} / slow {_mark(verdict['slow'])} / "
+          f"diversity {_mark(verdict['diversity'])})")
 
     # ---- commit: the only write ---------------------------------------------
     versions_dir = out_dir / "versions"
@@ -310,7 +332,7 @@ def main(argv: list[str] | None = None) -> int:
                   out_dir, "2_committed")
     )
     round2_slow = trial_metrics(outcome2.results)
-    print(f"Round 2a (committed, slow): {round2_slow}")
+    print(f"Round 2a (committed, slow): {_metrics_line(round2_slow)}")
 
     # ---- rank: tiers over the committed topology's own evidence -------------
     # (the catalog binds ranking.topology_version to the served topology, so
@@ -337,8 +359,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     check(len(separating) >= 1,
           "no redundant capability has variants in different tiers")
-    print(f"rank: tiers={evidence['non_empty_tiers']}, "
-          f"separating capabilities={sorted(separating)}")
+    tiers_line = " / ".join(
+        f"{name} {count}" for name, count in evidence["non_empty_tiers"].items()
+    )
+    print(f"rank: tiers {tiers_line or '-'}")
+    print(f"  separating capabilities: {', '.join(sorted(separating)) or '-'}")
 
     # ---- select: online dry run over the committed catalog -----------------
     catalog = build_catalog(
@@ -387,11 +412,17 @@ def main(argv: list[str] | None = None) -> int:
         router_config_id="online-loopback",
     )
     round2 = trial_metrics(loopback)
-    round2["served"] = len(served)
-    round2["status_breakdown"] = dict(
-        sorted(Counter(r.status.value for r in online_results).items())
+    print(
+        f"Round 2 (online, committed topology): {_metrics_line(round2)}"
+        f" | served {len(served)}/{len(online_results)}"
     )
-    print(f"Round 2 (online, committed topology): {round2}")
+    status_line = " | ".join(
+        f"{name} {count}"
+        for name, count in sorted(
+            Counter(r.status.value for r in online_results).items()
+        )
+    )
+    print(f"  status: {status_line}")
 
     check(round2["success_rate"] >= round1["success_rate"],
           f"success rate dropped: {round1['success_rate']} -> {round2['success_rate']}")
