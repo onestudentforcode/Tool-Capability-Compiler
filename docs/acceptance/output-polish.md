@@ -59,7 +59,7 @@
       failures 时输出与现状逐字节一致（向后兼容断言）
 - [x] P3：validate ACCEPT 路断言三门行（REJECT 路经 failures 归属展示；
       SKIP/FAIL 标记覆盖）
-- [ ] P4：四个演示脚本输出不再含 `{'` 字面量（进程内 capsys 断言）
+- [x] P4：四个演示脚本输出不再含 `{'` 字面量（routing comparison capsys 断言 + composite demo 目检）
 - [x] P5：analyze/validate stdout 含输入回显头（validate 另含耗时）
 - [x] P6：render 宽度断言（段不拆、工具零省略、悬挂缩进、None=旧行为）；
       rank CLI --width（0 关闭）
