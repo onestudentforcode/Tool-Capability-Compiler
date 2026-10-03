@@ -8,21 +8,21 @@
 
 ## 1. 仓库当前状态
 
-- 分支 `dev`，领先 `main` **201 个本地提交**（按纪律默认不 push）；
-- 工作区干净；**653 个测试全绿**（`python -m pytest -q`），
+- 分支 `dev`，领先 `main` **208 个本地提交**（按纪律默认不 push）；
+- 工作区干净；**661 个测试全绿**（`python -m pytest -q`），
   compileall / diff-check 通过；
 - 本会话弧线的最近提交（全部已验证门）：
 
 ```text
-e3a1185 docs: check output-polish P4 acceptance box
-88cb0ef feat: wrap rank route lines at layer boundaries        (P6)
-e350747 feat: format demo consoles - no python literals       (P4)
-e1b81ad feat: polish CLI output - failure samples, gates      (P2/P3/P5)
-2c1d54e docs: charter output-polish milestone
-b814030/ee95267 fix: slow_refund 裸名类型引用 + quickstart 护栏
-4358d47 feat: office battlefield batch F - composite nodes
-6a969b6..36bf37a docs+feat: discovery-routing 批次 A-E
-（更早：office battlefield A-E、复合节点里程碑、资源计量等，见 AGENTS §7）
+e32cd2d fix: singularize scaffold tool count              (onboard)
+3bf4979 feat: carry first tool error in discovery reason  (诊断)
+350d810 docs: check output-polish P7/P8 boxes
+ffab23d feat: render metering section in slow report      (P7)
+862a411 feat: add CLI top-level exception backstop        (P8)
+18c9972 docs: spec output-polish P7/P8
+0e260c2 docs: add handoff snapshot (2026-10-03)
+（更早：输出润色 P2-P6、office battlefield A-F、discovery-routing
+批次 A-E 等，见 AGENTS.md §7）
 ```
 
 ## 2. 本阶段成果（四个弧线，全部收官）
@@ -45,8 +45,11 @@ b814030/ee95267 fix: slow_refund 裸名类型引用 + quickstart 护栏
 5. 种子生命周期：**复放验证是固化硬门槛**；覆盖判定权保留静态 fast；
 6. 批次 F 裁定：**门控首现**（不改核心提取语义）、**诚实计费**（外层
    cost = 内层声明和）、**最小演示**（6 场景独立套件）；
-7. 输出润色范围裁定：**P1 运行过程可观测性不做**；P7（slow Metering 段）
-   / P8（CLI 异常兜底）暂缓未废。
+7. 输出润色范围裁定：**P1 运行过程可观测性不做**；P7/P8 曾暂缓，
+   **2026-10-03 经用户指令"修复暴露的功能毛病"解除暂缓并已落地**；
+8. 2026-10-03 裁定：修复暴露的功能毛病；架构部分不轻易改，要改
+   必须先详细评估+文档留档（RouteSearch 预算截断的评估见
+   docs/routesearch-budget-evaluation.md，未实现，待裁定）。
 
 ## 4. 架构陷阱备忘（都付过学费，详文见 office-battlefield-notes.md）
 
@@ -113,20 +116,27 @@ python examples/office/render_review.py <产物目录>
 
 ## 7. 已知边界与暂缓项
 
-- P1（运行过程进度输出）/ P7（slow 渲染计量段）/ P8（CLI 顶层异常
-  兜底）——用户裁定不做或暂缓；
-- 精确 RouteSearch 宽拓扑枚举预算截断（语义由见证回退保证）；
+- P1（运行过程进度输出）——用户裁定不做；P7/P8 已于 2026-10-03
+  落地（slow Metering 段 + CLI 异常兜底）；
+- 精确 RouteSearch 宽拓扑枚举预算截断（语义由见证回退保证）——
+  已完成详细评估留档（docs/routesearch-budget-evaluation.md，
+  含 2026-10-03 实测：246 次截断事件/60 场景、5000 万预算 28 分钟
+  未跑完），改进选项 C1（枚举重排序，推荐）/C2/C3 待用户裁定；
 - 工具 latency 声明字段后置（P9 以 domain-package-conventions.md §7
   规范落地）；
 - 真实模型选路完整度不足（1.7B 系统性缺收尾检查）；
-- 复合嵌套深度上限 MAX_COMPOSITE_DEPTH=2。
+- 复合嵌套深度上限 MAX_COMPOSITE_DEPTH=2；
+- render_review.py 只认 closed_loop/scale 产物形状；composite_demo
+  与 model_discovery 目录自带各自渲染，不支持经 render_review 重建
+  （一致性重构候选，非缺陷）。
 
 ## 8. 候选下一步（启动前须用户裁定并起草验收文档）
 
 1. **路由质量改进**（真实发现跑的自然续集，三选一或组合）：路由
    prompt 注入场景期望能力（RoutingContext 目前只有 query）/ 更强
    本地模型 / 静态桥+模型发现混合校验；
-2. P7/P8 重启（输出润色遗留）；
+2. **RouteSearch 枚举重排序**（评估已完成待裁定）：见
+   docs/routesearch-budget-evaluation.md 选项 C1，验收口径已写好；
 3. Office 靶场深用：复合节点参与剪枝/排名对照、60 主套件接入
    composed capability（会改变 42-9-9 验收基线，需慎重）；
 4. phase6.md §23 工程化扩展（多租户/熔断/在线自适应）。
@@ -135,7 +145,7 @@ python examples/office/render_review.py <产物目录>
 
 ```bash
 git status --short          # 应为空
-python -m pytest -q         # 653 passed
+python -m pytest -q         # 661 passed
 python -m compileall -q src tests main.py examples
 python examples/office/run_composite_demo.py --trials 1   # ~1s 冒烟
 ```
