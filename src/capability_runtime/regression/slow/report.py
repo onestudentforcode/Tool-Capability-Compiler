@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from ...scenario.models import ScenarioSuite
 from ...topology.models import Topology
 from ...core.metrics import TokenUsage
-from .runner import SlowRunOutcome
+from .runner import SlowRunOutcome, sum_known_costs
 from .stats import ObservationReport, summarize
 from .trial import TrialExecutionStatus
 
@@ -49,6 +49,13 @@ class SlowRegressionReport:
     token_usage: TokenUsage
     unused_edges: int
     failure_by_category: tuple[tuple[str, int], ...] = ()
+    # Metering aggregates (output polish P7): summed with the same honesty
+    # rule as TrialResult — all-None stays None, absence is never faked as 0.
+    cost_tool: float | None = None
+    cost_routing: float | None = None
+    cost_evaluation: float | None = None
+    access_total: int | None = None
+    access_resources: int | None = None
 
     @property
     def coverage_node_rate(self) -> float:
@@ -107,6 +114,14 @@ def build_slow_regression_report(
     }
     unused_edges = len(declared_edges - used_edges)
 
+    access_total = 0
+    access_keys: set[str] = set()
+    for result in outcome.results:
+        if result.access_counts:
+            for key, count in result.access_counts.items():
+                access_total += count
+                access_keys.add(key)
+
     return SlowRegressionReport(
         suite_name=suite.name,
         suite_version=suite.version,
@@ -130,6 +145,17 @@ def build_slow_regression_report(
         token_usage=TokenUsage(input_tokens=total_input, output_tokens=total_output),
         unused_edges=unused_edges,
         failure_by_category=obs.failure_by_category,
+        cost_tool=sum_known_costs(
+            result.tool_cost for result in outcome.results
+        ),
+        cost_routing=sum_known_costs(
+            result.routing_cost for result in outcome.results
+        ),
+        cost_evaluation=sum_known_costs(
+            result.evaluation_cost for result in outcome.results
+        ),
+        access_total=access_total if access_keys else None,
+        access_resources=len(access_keys) if access_keys else None,
     )
 
 
@@ -189,6 +215,32 @@ def render_slow_report(report: SlowRegressionReport, *, failures=None) -> str:
         f"Observed Nodes: {report.observed_nodes} / {report.total_nodes}",
         f"Observed Edges: {report.observed_edges} / {report.total_edges}",
         f"Unused Edges:   {report.unused_edges}",
+    ]
+
+    # Metering facts (output polish P7): costs render '-' when the whole
+    # run is unmetered — absence is never faked as 0 (resource-metering §1).
+    cost_tool = f"{report.cost_tool:.4f}" if report.cost_tool is not None else "-"
+    cost_routing = (
+        f"{report.cost_routing:.4f}" if report.cost_routing is not None else "-"
+    )
+    cost_evaluation = (
+        f"{report.cost_evaluation:.4f}"
+        if report.cost_evaluation is not None
+        else "-"
+    )
+    if report.access_total is not None:
+        accesses = f"{report.access_total} ({report.access_resources} resources)"
+    else:
+        accesses = "-"
+    lines += [
+        "",
+        "Metering:",
+        f"  Tokens (in / out):   {report.token_usage.input_tokens} / "
+        f"{report.token_usage.output_tokens}",
+        f"  Tool Cost:           {cost_tool}",
+        f"  Routing Cost:        {cost_routing}",
+        f"  Evaluation Cost:     {cost_evaluation}",
+        f"  Resource Accesses:   {accesses}",
     ]
 
     # Facts, not recommendations: pruning is a Phase 4 decision (phase3 §108).

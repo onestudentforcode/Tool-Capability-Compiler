@@ -354,10 +354,10 @@ class SlowRegressionRunner:
                 topology_version=trial.topology_version,
                 started_at=datetime.now(),
             )
-        tool_cost = self._sum_costs(
+        tool_cost = sum_known_costs(
             execution.cost for layer in trace.layers for execution in layer.tool_executions
         )
-        routing_cost = self._sum_costs(
+        routing_cost = sum_known_costs(
             layer.routing_decision.routing_cost for layer in trace.layers
         )
         # execution cost = tool + routing; judge cost stays separate (phase3 §80)
@@ -390,12 +390,6 @@ class SlowRegressionRunner:
         )
 
     @staticmethod
-    def _sum_costs(values) -> float | None:
-        """Sum known costs; all-None stays None so absence is never faked as 0."""
-        known = [value for value in values if value is not None]
-        return sum(known) if known else None
-
-    @staticmethod
     def _aggregate_tokens(trace: ExecutionTrace) -> TokenUsage:
         total_input = 0
         total_output = 0
@@ -409,3 +403,9 @@ class SlowRegressionRunner:
                     total_input += execution.token_usage.input_tokens
                     total_output += execution.token_usage.output_tokens
         return TokenUsage(input_tokens=total_input, output_tokens=total_output)
+
+
+def sum_known_costs(values) -> float | None:
+    """Sum known costs; all-None stays None so absence is never faked as 0."""
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None

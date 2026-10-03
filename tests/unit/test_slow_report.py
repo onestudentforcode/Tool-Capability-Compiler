@@ -180,3 +180,58 @@ def test_render_slow_report_without_failures_unchanged() -> None:
     text = render_slow_report(report)
     assert "Failure Samples" not in text
     assert "(Phase 3 observes only" in text
+
+
+# ---- output polish P7: metering section -------------------------------------
+
+
+def test_report_aggregates_metering_costs_and_accesses() -> None:
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    topology = build_topology()
+    suite = make_suite()
+    outcome = sync_run(topology, suite, trials=2)
+    # Overlay metering evidence onto real trial results (the office domain
+    # carries costs; the unit helper topology does not).
+    patched = [
+        replace(
+            result,
+            tool_cost=0.5,
+            routing_cost=0.25 if index == 0 else None,
+            evaluation_cost=None,
+            access_counts={"docs[read]": 2, "fs[read]": 1},
+        )
+        for index, result in enumerate(outcome.results)
+    ]
+    outcome = SimpleNamespace(results=patched)
+    report = _build_report(outcome, suite, topology)
+
+    assert report.cost_tool == 1.0          # 0.5 per trial, both trials
+    assert report.cost_routing == 0.25      # None contributes nothing
+    assert report.cost_evaluation is None   # all-None stays None
+    assert report.access_total == 6         # 3 per trial, both trials
+    assert report.access_resources == 2
+
+    text = render_slow_report(report)
+    assert "Metering:" in text
+    assert "Tool Cost:           1.0000" in text
+    assert "Routing Cost:        0.2500" in text
+    assert "Evaluation Cost:     -" in text
+    assert "Resource Accesses:   6 (2 resources)" in text
+
+
+def test_report_unmetered_run_renders_dashes() -> None:
+    topology = build_topology()
+    suite = make_suite()
+    outcome = sync_run(topology, suite, trials=1)
+    report = _build_report(outcome, suite, topology)
+
+    assert report.cost_tool is None
+    assert report.access_total is None
+    text = render_slow_report(report)
+    assert "Metering:" in text
+    assert "Tool Cost:           -" in text
+    assert "Resource Accesses:   -" in text
+    # token counters always render (they default to zero, not absence)
+    assert "Tokens (in / out):" in text
