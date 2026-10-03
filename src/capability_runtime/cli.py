@@ -74,6 +74,7 @@ from .core.errors import (
     RouteCatalogError,
     RouteProfileError,
     RouteSelectionError,
+    TopologyFrameworkError,
 )
 from .optimization.pipeline import (
     ValidateConfig,
@@ -401,6 +402,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    # Backstop for input/environment failures across all subcommands: one
+    # stderr line + exit 2 (argparse's usage-error code). Subcommand-local
+    # handlers with richer context run first; anything outside this set is
+    # a framework defect and stays loud as a traceback (output-polish P8).
+    try:
+        return _dispatch(args)
+    except (TopologyFrameworkError, OSError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+
+def _dispatch(args: argparse.Namespace) -> int:
     if args.command == "regression":
         if args.subcommand == "fast":
             return run_fast(args)
