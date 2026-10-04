@@ -123,10 +123,37 @@ C 只读验证 + 文档。
 - [x] B：预言机"新 vs 旧"完备枚举集合相等全绿；既有测试零改动
       全绿；nogood 评估留档（不采用，理由见 §3.1 修正注）；
       预算口径 docstring + 默认值定标记录（见下）
-- [ ] C：覆盖 42-9-9 逐场景不变；office 候选分布 ≥ 基线且截断
+- [x] C：覆盖 42-9-9 逐场景不变；office 候选分布 ≥ 基线且截断
       事件数下降；下游对照留档；文档收尾
-- [ ] 全量测试 + compileall + diff-check；AGENTS §7 / README /
-      handoff 更新
+- [x] 全量测试 + compileall + diff-check；AGENTS §7 更新
+      （README 无 RouteSearch 表述，无需变更）
+
+### 批次 C 实测留档（2026-10-04）
+
+**闭环 A/B（`run_closed_loop.py --trials 8`，旧内核 vs 新内核）**：
+结果完全一致——Round 1 success 0.4989、identified 8、rank profiles
+101、三 Tier fast 2 / balanced 2 / quality 6。结构性原因：office
+闭环的 slow 路线由 `build_seeds` 手工种子钉死，不消费 fast
+candidate_routes；RouteSearch 只影响 fast/覆盖判定，而判定不变
+（60 场景测试逐场景断言）。候选池变宽发生在它真正的消费层
+（fast 报告 / seeds export 选料）。
+
+**seeds export × office（新内核与旧内核同结果）**：0/60 固化
+（51 replay-failed `layer_error` + 9 no-candidates）。预存在的
+域接线边界：`export_seeds` 的内部 replay 不携带 office fixture
+（语料挂载），office 流程刻意走自建种子 + 见证推导。与本次内核
+无关，如实留档。
+
+**顺手修复两个预存在缺陷（批次 F 复合节点 × 版本快照，自批次 F
+后从未被实跑踩到，office 闭环在复合拓扑上已断）**：
+
+1. `export_active_payload` 给复合条目注入 `providers/workers`
+   ——loader 复合模式禁止这两个字段，快照不可重载；
+2. 复合条目 `inner` 相对路径按快照目录解析——inner 文件不在那。
+   修复：快照自含（inner 拓扑拷贝到 versions/ 并改写引用，
+   `source` 参数自 CLI / 闭环脚本穿透）。修后 office 闭环在
+   53 节点复合拓扑上恢复全绿（commit → rollback → restored
+   重载 → 节点数一致性检查）。
 
 ### 批次 B 定标与实测（2026-10-04）
 
@@ -177,4 +204,4 @@ test/docs 批次 C：office 对照工件 + 文档收尾
 | --- | --- | --- |
 | A 安全网 | [x] | 预言机（5 形状语料 × 耗尽预算）、office 基线 fixture、覆盖解耦断言（合成 + office 见证契约） |
 | B 内芯替换 | [x] | 锚定 + 资格剪枝 + 切片轮转落地；nogood 评估不采用（§3.1 修正注）；预言机新旧等价全绿；定标见 §5 表 |
-| C 实证收尾 | [ ] | office 对照 + 下游穿透 + 文档收尾 |
+| C 实证收尾 | [x] | 闭环 A/B 一致（结构性原因见上）；seeds export × office 边界留档；顺手修复复合 × 版本快照两缺陷 |

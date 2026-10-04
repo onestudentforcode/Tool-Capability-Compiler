@@ -270,8 +270,26 @@ Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃�
      但 6/6 链不完整（系统性缺收尾检查），复放验证门全部拒绝——
      机制就绪，模型完整度不足；后续 = 路由 prompt 注入期望能力 /
      更强模型 / 静态+模型混合。顺手修复 LLMRouter 读超时裸抛缺陷。
-     已知边界：精确 RouteSearch 宽拓扑预算截断（见证回退保语义）；
-     latency 声明字段后置（P9 以规范落地）。
+     已知边界：精确 RouteSearch 宽拓扑预算截断（见证回退保语义；
+     已由下方条目 7 消除）——latency 声明字段后置（P9 以规范落地）。
+
+7. RouteSearch 能力指派枚举——已完成（2026-10，批次 A-C 全部落地）
+     docs/acceptance/routesearch-assignment.md（评估留档见
+     docs/routesearch-budget-evaluation.md；预言机 =
+     tests/unit/_routesearch_reference.py 冻结的旧子集枚举实现）。
+     候选生成器内芯替换：逐层子集枚举 → 能力指派锚定 + 资格剪枝 +
+     预算切片轮转（nogood 评估后不采用，理由见验收文档 §3.1 修正
+     注）；输出契约零变更（候选定义 / _interconnected 谓词 / 双预算
+     / 见证回退 / 公共 API 全部不动）。
+     office 实测：候选 142→206（逐场景无一回退）、预算截断事件
+     246→0（枚举在默认预算内完备完成）、扫描耗时 -30%、覆盖判定
+     60/60 不变；耗尽预算下新旧集合逐指纹等价（预言机长期回归）。
+     顺手修复两个预存在缺陷（批次 F 复合节点 × 版本快照，复合入图
+     后从未被实跑踩到）：export_active_payload 向复合条目注入
+     providers/workers 致快照不可重载；复合 inner 相对路径按快照
+     目录解析找不到文件（修复 = 快照自含：inner 拷入 versions/ 并
+     改写引用，source 自 CLI/闭环脚本穿透）。修后 office 闭环在
+     53 节点复合拓扑上恢复全绿。
 
 工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
 
