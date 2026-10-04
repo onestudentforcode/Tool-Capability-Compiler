@@ -48,8 +48,10 @@ ffab23d feat: render metering section in slow report      (P7)
 7. 输出润色范围裁定：**P1 运行过程可观测性不做**；P7/P8 曾暂缓，
    **2026-10-03 经用户指令"修复暴露的功能毛病"解除暂缓并已落地**；
 8. 2026-10-03 裁定：修复暴露的功能毛病；架构部分不轻易改，要改
-   必须先详细评估+文档留档（RouteSearch 预算截断的评估见
-   docs/routesearch-budget-evaluation.md，未实现，待裁定）。
+   必须先详细评估+文档留档。RouteSearch 预算截断已完成评估
+   （docs/routesearch-budget-evaluation.md）并于 2026-10-04 起草
+   验收文档（docs/acceptance/routesearch-assignment.md），未实现，
+   待验收。
 
 ## 4. 架构陷阱备忘（都付过学费，详文见 office-battlefield-notes.md）
 
@@ -119,9 +121,10 @@ python examples/office/render_review.py <产物目录>
 - P1（运行过程进度输出）——用户裁定不做；P7/P8 已于 2026-10-03
   落地（slow Metering 段 + CLI 异常兜底）；
 - 精确 RouteSearch 宽拓扑枚举预算截断（语义由见证回退保证）——
-  已完成详细评估留档（docs/routesearch-budget-evaluation.md，
-  含 2026-10-03 实测：246 次截断事件/60 场景、5000 万预算 28 分钟
-  未跑完），改进选项 C1（枚举重排序，推荐）/C2/C3 待用户裁定；
+  评估留档 docs/routesearch-budget-evaluation.md（实测：246 次截断
+  事件/60 场景、5000 万预算 28 分钟未跑完）；改进验收文档已起草：
+  docs/acceptance/routesearch-assignment.md（能力指派枚举 + 桥接
+  定向补全 + 死路记忆，输出契约不变），**待用户验收后实现**；
 - 工具 latency 声明字段后置（P9 以 domain-package-conventions.md §7
   规范落地）；
 - 真实模型选路完整度不足（1.7B 系统性缺收尾检查）；
@@ -132,11 +135,13 @@ python examples/office/render_review.py <产物目录>
 
 ## 8. 候选下一步（启动前须用户裁定并起草验收文档）
 
-1. **路由质量改进**（真实发现跑的自然续集，三选一或组合）：路由
+1. **RouteSearch 能力指派枚举**（验收文档已起草待验收）：
+   docs/acceptance/routesearch-assignment.md——批次 A 安全网 /
+   B 内芯替换 / C office 实证；背景与实测见
+   docs/routesearch-budget-evaluation.md；
+2. **路由质量改进**（真实发现跑的自然续集，三选一或组合）：路由
    prompt 注入场景期望能力（RoutingContext 目前只有 query）/ 更强
    本地模型 / 静态桥+模型发现混合校验；
-2. **RouteSearch 枚举重排序**（评估已完成待裁定）：见
-   docs/routesearch-budget-evaluation.md 选项 C1，验收口径已写好；
 3. Office 靶场深用：复合节点参与剪枝/排名对照、60 主套件接入
    composed capability（会改变 42-9-9 验收基线，需慎重）；
 4. phase6.md §23 工程化扩展（多租户/熔断/在线自适应）。
