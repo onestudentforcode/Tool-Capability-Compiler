@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from typing import Any
 
 from ..core.errors import FastRegressionError
 from ..capability import CapabilityResolver
+from ..route.models import RouteLayer
 from ..scenario import Scenario, ScenarioSuite
 from ..topology import Topology
 from .coverage import (
@@ -13,7 +15,7 @@ from .coverage import (
     CoverageStatus,
     FailureReason,
 )
-from .route_search import CandidateRoute
+from .candidate_route import CandidateRoute
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,3 +293,104 @@ class FastRegressionRunner:
             )
             for capabilities in sorted(affected)
         )
+
+
+def route_to_json(route: CandidateRoute) -> dict[str, Any]:
+    return {
+        "layers": [
+            {"layer": segment.layer, "tools": list(segment.tools)}
+            for segment in route.layers
+        ],
+        "capabilities": sorted(route.capabilities),
+    }
+
+
+def route_from_json(payload: dict[str, Any]) -> CandidateRoute:
+    return CandidateRoute(
+        layers=tuple(
+            RouteLayer(segment["layer"], tuple(segment["tools"]))
+            for segment in payload["layers"]
+        ),
+        capabilities=frozenset(payload["capabilities"]),
+    )
+
+
+def fast_report_to_json(report: CoverageReport) -> dict[str, Any]:
+    """Full-fidelity JSON view (candidate routes included) for seed export.
+
+    The rendered fast report is a summary; the baseline is a diff vector —
+    neither carries the per-scenario feasible chains, so the seed bridge
+    persists this instead (discovery-routing.md batch A).
+    """
+    return {
+        "stage": "fast",
+        "suite": {"name": report.suite_name, "version": report.suite_version},
+        "topology_version": report.topology_version,
+        "total": report.total,
+        "covered": report.covered,
+        "uncertain": report.uncertain,
+        "uncovered": report.uncovered,
+        "results": [
+            {
+                "scenario_id": result.scenario_id,
+                "category": result.category,
+                "status": result.status.value,
+                "reason": result.reason.value if result.reason else None,
+                "required_capabilities": list(result.required_capabilities),
+                "covered_capabilities": list(result.covered_capabilities),
+                "missing_capabilities": list(result.missing_capabilities),
+                "optional_capabilities": list(result.optional_capabilities),
+                "missing_capability_hints": list(result.missing_capability_hints),
+                "confidence": result.confidence,
+                "reason_detail": result.reason_detail,
+                "candidate_routes": [
+                    route_to_json(route) for route in result.candidate_routes
+                ],
+            }
+            for result in report.results
+        ],
+    }
+
+
+def fast_report_from_json(payload: dict[str, Any]) -> CoverageReport:
+    """Rebuild a CoverageReport from :func:`fast_report_to_json` output.
+
+    Candidate-route edge lists are not serialized (execution resolves
+    inputs from state, not from edges); category/gap aggregations are
+    recomputed from the restored per-scenario results.
+    """
+    results = tuple(
+        FastRegressionResult(
+            scenario_id=item["scenario_id"],
+            category=item.get("category"),
+            status=CoverageStatus(item["status"]),
+            reason=FailureReason(item["reason"]) if item.get("reason") else None,
+            required_capabilities=tuple(item["required_capabilities"]),
+            covered_capabilities=tuple(item["covered_capabilities"]),
+            missing_capabilities=tuple(item["missing_capabilities"]),
+            candidate_routes=tuple(
+                route_from_json(route) for route in item["candidate_routes"]
+            ),
+            confidence=item.get("confidence", 1.0),
+            reason_detail=item.get("reason_detail", ""),
+            optional_capabilities=tuple(item.get("optional_capabilities", ())),
+            missing_capability_hints=tuple(item.get("missing_capability_hints", ())),
+        )
+        for item in payload["results"]
+    )
+    counts = Counter(result.status for result in results)
+    return CoverageReport(
+        suite_name=payload["suite"]["name"],
+        suite_version=payload["suite"]["version"],
+        topology_version=payload["topology_version"],
+        total=payload.get("total", len(results)),
+        covered=payload.get("covered", counts[CoverageStatus.COVERED]),
+        uncertain=payload.get("uncertain", counts[CoverageStatus.UNCERTAIN]),
+        uncovered=payload.get("uncovered", counts[CoverageStatus.UNCOVERED]),
+        results=results,
+        categories=FastRegressionRunner._category_coverage(results),
+        missing_capabilities=FastRegressionRunner._gap_entries(
+            results, FailureReason.MISSING_CAPABILITY
+        ),
+        topology_gaps=FastRegressionRunner._topology_gap_entries(results),
+    )

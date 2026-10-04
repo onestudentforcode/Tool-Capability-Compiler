@@ -219,3 +219,6 @@ __marimo__/
 
 # Slow Regression demo artifacts
 examples/slow_refund/artifacts/
+
+# Local run outputs (quickstart / optimize / rank)
+artifacts/

@@ -1,0 +1,156 @@
+{
+  "version": "v0.3.1",
+  "layers": [
+    {
+      "name": "read",
+      "order": 0
+    },
+    {
+      "name": "analyze",
+      "order": 1
+    },
+    {
+      "name": "action",
+      "order": 2
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_ticket",
+      "layer": "action",
+      "implementation": "examples.slow_refund.refund:create_ticket",
+      "produces": [
+        "examples.slow_refund.facts:Ticket"
+      ],
+      "capabilities": [
+        "ticket.create"
+      ],
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "erp",
+      "layer": "read",
+      "implementation": "examples.slow_refund.refund:erp",
+      "produces": [
+        "examples.slow_refund.facts:ErpRecord"
+      ],
+      "capabilities": [
+        "erp.read"
+      ],
+      "cost_per_call": 0.003
+    },
+    {
+      "name": "order_db",
+      "layer": "read",
+      "implementation": "examples.slow_refund.refund:order_db",
+      "produces": [
+        "examples.slow_refund.facts:Order"
+      ],
+      "capabilities": [
+        "order.read",
+        "order.search"
+      ],
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "policy_check",
+      "layer": "analyze",
+      "implementation": "examples.slow_refund.refund:policy_check",
+      "consumes": [
+        "examples.slow_refund.facts:Order"
+      ],
+      "produces": [
+        "examples.slow_refund.facts:PolicyDecision"
+      ],
+      "capabilities": [
+        "refund.policy.check"
+      ],
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "rag",
+      "layer": "read",
+      "implementation": "examples.slow_refund.refund:rag",
+      "produces": [
+        "examples.slow_refund.facts:Passage"
+      ],
+      "capabilities": [
+        "refund.policy.read"
+      ],
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "refund_api",
+      "layer": "action",
+      "implementation": "examples.slow_refund.refund:refund_api",
+      "consumes": [
+        "examples.slow_refund.facts:Order",
+        "examples.slow_refund.facts:PolicyDecision"
+      ],
+      "produces": [
+        "examples.slow_refund.facts:RefundResult"
+      ],
+      "capabilities": [
+        "refund.execute"
+      ],
+      "cost_per_call": 0.01
+    },
+    {
+      "name": "risk_check",
+      "layer": "analyze",
+      "implementation": "examples.slow_refund.refund:risk_check",
+      "consumes": [
+        "examples.slow_refund.facts:Order"
+      ],
+      "produces": [
+        "examples.slow_refund.facts:RiskReport"
+      ],
+      "capabilities": [
+        "refund.risk.check"
+      ],
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "send_email",
+      "layer": "action",
+      "implementation": "examples.slow_refund.refund:send_email",
+      "consumes": [
+        "examples.slow_refund.facts:Order"
+      ],
+      "produces": [
+        "examples.slow_refund.facts:EmailSent"
+      ],
+      "capabilities": [
+        "email.send"
+      ],
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "summarizer",
+      "layer": "analyze",
+      "implementation": "examples.slow_refund.refund:summarizer",
+      "consumes": [
+        "examples.slow_refund.facts:Order"
+      ],
+      "produces": [
+        "examples.slow_refund.facts:Digest"
+      ],
+      "capabilities": [
+        "order.summarize"
+      ],
+      "cost_per_call": 0.001
+    },
+    {
+      "name": "web_search",
+      "layer": "read",
+      "implementation": "examples.slow_refund.refund:web_search",
+      "produces": [
+        "examples.slow_refund.facts:SearchResult"
+      ],
+      "capabilities": [
+        "web.search"
+      ],
+      "cost_per_call": 0.005
+    }
+  ]
+}

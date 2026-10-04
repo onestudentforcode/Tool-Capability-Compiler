@@ -6,6 +6,8 @@ import pytest
 
 from capability_runtime import TopologyBuildError, TopologyLoader
 
+from tests.unit import _seed_bridge_tools
+
 
 MINIMAL = {
     "version": "1.0",
@@ -102,3 +104,63 @@ def test_cross_layer_worker_reference_rejected() -> None:
     )
     with pytest.raises(TopologyBuildError):
         TopologyLoader().load_data(bad)
+
+def test_type_references_resolved_into_schema() -> None:
+    payload = {
+        "version": "1.0",
+        "layers": [{"name": "read", "order": 0}],
+        "tools": [
+            {
+                "name": "db",
+                "layer": "read",
+                "capabilities": ["order.read"],
+                "consumes": [],
+                "produces": ["tests.unit._seed_bridge_tools:Order"],
+            }
+        ],
+    }
+    topology = TopologyLoader().load_data(payload)
+    spec = topology.node("db").spec
+    assert spec.consumes == ()
+    assert spec.produces == (_seed_bridge_tools.Order,)
+
+
+def test_type_references_bad_module_rejected() -> None:
+    payload = {
+        "version": "1.0",
+        "layers": [{"name": "read", "order": 0}],
+        "tools": [
+            {
+                "name": "db",
+                "layer": "read",
+                "capabilities": ["order.read"],
+                "consumes": ["no.such.module:Thing"],
+            }
+        ],
+    }
+    with pytest.raises(TopologyBuildError, match="cannot resolve type reference"):
+        TopologyLoader().load_data(payload)
+
+
+def test_type_references_non_class_rejected() -> None:
+    payload = {
+        "version": "1.0",
+        "layers": [{"name": "read", "order": 0}],
+        "tools": [
+            {
+                "name": "db",
+                "layer": "read",
+                "capabilities": ["order.read"],
+                "produces": ["math:pi"],
+            }
+        ],
+    }
+    with pytest.raises(TopologyBuildError, match="is not a class"):
+        TopologyLoader().load_data(payload)
+
+
+def test_type_references_absent_fields_stay_backward_compatible() -> None:
+    topology = TopologyLoader().load_data(MINIMAL)
+    for name in topology.nodes():
+        assert topology.node(name).spec.consumes == ()
+        assert topology.node(name).spec.produces == ()

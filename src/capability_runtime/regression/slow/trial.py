@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ...core.errors import ExecutionError
+from ...core.failure import TrialFailureCategory
 from ...core.metrics import TokenUsage
 from ...evaluation.base import EvaluationResult
 from .route import ObservedRoute
@@ -58,9 +59,20 @@ class TrialResult:
     latency_ms: float
     token_usage: TokenUsage
     cost: float | None
+    tool_cost: float | None = None
+    routing_cost: float | None = None
+    evaluation_cost: float | None = None
+    access_counts: dict[str, int] | None = None
+    failure_category: TrialFailureCategory | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.latency_ms, bool) or self.latency_ms < 0:
             raise ExecutionError("TrialResult latency_ms must be non-negative")
         if not isinstance(self.token_usage, TokenUsage):
             raise ExecutionError("TrialResult token_usage must be a TokenUsage")
+        for name in ("cost", "tool_cost", "routing_cost", "evaluation_cost"):
+            value = getattr(self, name)
+            if value is not None and (isinstance(value, bool) or value < 0):
+                raise ExecutionError(
+                    f"TrialResult {name} must be a non-negative number"
+                )

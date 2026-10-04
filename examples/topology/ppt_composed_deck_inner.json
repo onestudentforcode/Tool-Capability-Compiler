@@ -1,0 +1,106 @@
+{
+  "version": "inner-ppt_composed_deck",
+  "layers": [
+    {
+      "name": "c_draft",
+      "order": 0
+    },
+    {
+      "name": "c_check",
+      "order": 1
+    },
+    {
+      "name": "c_polish",
+      "order": 2
+    },
+    {
+      "name": "c_release",
+      "order": 3
+    }
+  ],
+  "tools": [
+    {
+      "name": "deck_check_step",
+      "layer": "c_check",
+      "implementation": "examples.office.composite_inner:deck_check_step",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDeck"
+      ],
+      "produces": [
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "capabilities": [
+        "ppt.overflow.inner"
+      ],
+      "description": "Inner overflow rule: <=5 bullets per slide, <=90 chars per bullet",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "deck_holdover",
+      "layer": "c_release",
+      "implementation": "examples.office.composite_inner:deck_holdover",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDeck"
+      ],
+      "produces": [
+        "examples.office.composite_inner:KeepNote"
+      ],
+      "capabilities": [
+        "ppt.hold.inner"
+      ],
+      "description": "Keeps the release layer alive while the gate refuses",
+      "cost_per_call": 0.0001
+    },
+    {
+      "name": "deck_polish_step",
+      "layer": "c_polish",
+      "implementation": "examples.office.composite_inner:deck_polish_step",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDeck",
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "produces": [
+        "examples.office.composite_inner:WorkingDeck"
+      ],
+      "capabilities": [
+        "ppt.trim.inner"
+      ],
+      "description": "Deterministic trim to <=5 bullets and <=90 chars; updates the gate's current best",
+      "cost_per_call": 0.002
+    },
+    {
+      "name": "deck_release",
+      "layer": "c_release",
+      "implementation": "examples.office.composite_inner:deck_release",
+      "consumes": [
+        "examples.office.composite_inner:WorkingDeck",
+        "examples.office.composite_inner:InnerReview"
+      ],
+      "produces": [
+        "examples.office.facts:SlideCopy"
+      ],
+      "capabilities": [
+        "ppt.release.inner"
+      ],
+      "description": "Terminal gate: emits the SlideCopy only when the inner overflow review passed",
+      "cost_per_call": 0.0005
+    },
+    {
+      "name": "deck_step",
+      "layer": "c_draft",
+      "implementation": "examples.office.composite_inner:deck_step",
+      "consumes": [
+        "examples.office.facts:SourceDoc",
+        "examples.office.facts:FactSheet"
+      ],
+      "produces": [
+        "examples.office.composite_inner:WorkingDeck"
+      ],
+      "capabilities": [
+        "ppt.deck.inner"
+      ],
+      "description": "Rough deck: headers, sentences and key facts crammed onto one slide (overflow fuel); gate-cached afterwards",
+      "cost_per_call": 0.001
+    }
+  ]
+}

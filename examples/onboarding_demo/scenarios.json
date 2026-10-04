@@ -1,0 +1,1 @@
+{"version":"1.0","name":"onboard_demo","scenarios":[{"id":"demo_001","query":"refund my order","category":"refund","expected_capabilities":["order.read","refund.policy.check","refund.execute"]},{"id":"demo_002","query":"create an invoice","category":"invoice","expected_capabilities":["invoice.send"]}]}

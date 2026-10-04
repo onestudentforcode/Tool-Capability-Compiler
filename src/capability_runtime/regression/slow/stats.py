@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from ...core.failure import TrialFailureCategory
 from .trial import TrialResult, TrialExecutionStatus
 
 
@@ -62,6 +63,7 @@ class RouteObservationStats:
     latencies: tuple[float, ...] = ()
     costs: tuple[float, ...] = ()
     quality_scores: tuple[float, ...] = ()
+    access_counts: dict[str, int] | None = None
 
     @property
     def latency_basics(self) -> tuple[float | None, float | None, float | None]:
@@ -86,6 +88,7 @@ class ObservationReport:
     selection_events: tuple[SelectionEvent, ...]
     scenario_route_distribution: dict[str, dict[str, int]]
     unique_route_count: int
+    failure_by_category: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +207,14 @@ def build_observation_stats(
             opportunity_count=edge_opportunity[(source, target)],
         )
 
+    route_access: dict[str, dict[str, int]] = defaultdict(dict)
+    for result in results:
+        if result.route is None or not result.access_counts:
+            continue
+        bucket = route_access[result.route.route_id]
+        for key, count in result.access_counts.items():
+            bucket[key] = bucket.get(key, 0) + count
+
     route_stats: dict[str, RouteObservationStats] = {}
     for route_id in sorted(observed_routes):
         route_stats[route_id] = RouteObservationStats(
@@ -215,12 +226,23 @@ def build_observation_stats(
             latencies=tuple(sorted(route_lat[route_id])),
             costs=tuple(sorted(route_cost[route_id])),
             quality_scores=tuple(sorted(route_quality[route_id])),
+            access_counts=dict(sorted(route_access[route_id].items()))
+            or None,
         )
 
     distribution = {
         scenario: dict(sorted(routes.items()))
         for scenario, routes in sorted(scenario_route.items())
     }
+    failure_counter: Counter[str] = Counter()
+    for result in results:
+        category = result.failure_category
+        if category is not None and category is not TrialFailureCategory.SUCCESS:
+            failure_counter[category.value] += 1
+    failure_by_category = tuple(
+        (name, failure_counter[name])
+        for name in sorted(failure_counter)
+    )
     return ObservationReport(
         scenario_count=len(scenarios),
         trial_count=len(results),
@@ -230,6 +252,7 @@ def build_observation_stats(
         selection_events=tuple(events),
         scenario_route_distribution=distribution,
         unique_route_count=len(observed_routes),
+        failure_by_category=failure_by_category,
     )
 
 

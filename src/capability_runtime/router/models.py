@@ -11,6 +11,7 @@ from ..core.errors import (
     InvalidToolSelectionError,
     RoutingError,
 )
+from ..core.metrics import TokenUsage
 from ..core.tool import ToolNode
 
 EXPLORATION_MODES = frozenset({"free", "guided", "replay"})
@@ -59,6 +60,8 @@ class RoutingDecision:
     action: RoutingAction
     selected_tools: tuple[str, ...] = ()
     reason: str | None = None
+    token_usage: TokenUsage | None = None
+    routing_cost: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.action, RoutingAction):
@@ -69,6 +72,21 @@ class RoutingDecision:
             raise RoutingError("selected_tools must be a tuple of non-empty strings")
         if len(set(self.selected_tools)) != len(self.selected_tools):
             raise InvalidRoutingDecisionError("selected_tools cannot contain duplicates")
+        if self.token_usage is not None and not isinstance(
+            self.token_usage, TokenUsage
+        ):
+            raise RoutingError("token_usage must be a TokenUsage")
+        if self.routing_cost is not None and (
+            isinstance(self.routing_cost, bool) or self.routing_cost < 0
+        ):
+            raise RoutingError("routing_cost must be a non-negative number")
+
+
+def _validate_price(value: float | None, name: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or value < 0:
+        raise RoutingError(f"RouterConfig {name} must be a non-negative number")
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +96,8 @@ class RouterConfig:
     max_tools_per_layer: int
     exploration_mode: str = "free"
     prompt_version: str = "1"
+    input_cost_per_1k: float | None = None
+    output_cost_per_1k: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.model, str) or not self.model.strip():
@@ -95,6 +115,8 @@ class RouterConfig:
             )
         if not isinstance(self.prompt_version, str) or not self.prompt_version.strip():
             raise RoutingError("RouterConfig prompt_version must be a non-empty string")
+        _validate_price(self.input_cost_per_1k, "input_cost_per_1k")
+        _validate_price(self.output_cost_per_1k, "output_cost_per_1k")
 
 
 def validate_decision(
@@ -118,7 +140,8 @@ def validate_decision(
     unknown = sorted(set(decision.selected_tools) - known)
     if unknown:
         raise InvalidToolSelectionError(
-            f"selected tools not available: {', '.join(unknown)}"
+            f"selected tools not available: {', '.join(unknown)}",
+            unknown_tools=tuple(unknown),
         )
 
 

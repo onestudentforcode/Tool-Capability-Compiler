@@ -35,6 +35,7 @@ from typing import Any
 
 from ..core.env import env_float, env_string
 from ..core.errors import EvaluationError
+from ..core.failure import TrialFailureCategory
 from ..scenario.models import Scenario
 from .base import CriterionResult, EvaluationResult, Evaluator, FinalResult
 
@@ -193,6 +194,7 @@ class LLMJudgeEvaluator:
             ),
             quality_score=quality,
             reason=reason,
+            category=None if success else TrialFailureCategory.ANSWER_ERROR,
         )
 
     @staticmethod

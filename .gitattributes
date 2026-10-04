@@ -1,0 +1,24 @@
+# Normalize line endings: every text file is stored and checked out as LF,
+# overriding core.autocrlf (which would otherwise convert to CRLF on Windows
+# and trigger spurious "LF will be replaced by CRLF" warnings).
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+.gitattributes text eol=lf
+
+# Binary files must never be normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

@@ -19,6 +19,7 @@ def tool(
     produces: Iterable[type] = (),
     name: str | None = None,
     description: str = "",
+    cost_per_call: float | None = None,
 ) -> Callable[[Callable[..., Awaitable[Any]]], ToolNode]:
     """Declare a node in the layered tool-routing search space."""
 
@@ -35,6 +36,10 @@ def tool(
         raise RegistrationError("A tool cannot consume the same schema twice")
     if len(set(produce_types)) != len(produce_types):
         raise RegistrationError("A tool cannot produce the same schema twice")
+    if cost_per_call is not None and (
+        isinstance(cost_per_call, bool) or cost_per_call < 0
+    ):
+        raise RegistrationError("Tool cost_per_call must be a non-negative number")
     provider_selector = NodeSelector.parse(providers)
     worker_selector = NodeSelector.parse(workers)
 
@@ -51,6 +56,16 @@ def tool(
             if parameter.kind
             in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
         ]
+        # onboarding-assist batch A: infer the I/O contract from type
+        # annotations when not declared. Types only fill the execution
+        # contract (consumes/produces) — they never build edges (AGENTS §2).
+        nonlocal consume_types, produce_types
+        if not consume_types and positional:
+            consume_types = _infer_consumes(positional, tool_name)
+        if not produce_types:
+            inferred_produce = _infer_produce(signature, tool_name)
+            if inferred_produce is not None:
+                produce_types = (inferred_produce,)
         if len(positional) != len(consume_types):
             raise RegistrationError(
                 f"Tool {tool_name} declares {len(consume_types)} schema inputs but "
@@ -66,8 +81,54 @@ def tool(
                 consumes=consume_types,
                 produces=produce_types,
                 description=description.strip(),
+                cost_per_call=cost_per_call,
             ),
             handler=function,
         )
 
     return decorate
+
+
+def _infer_consumes(positional, tool_name: str) -> tuple[type, ...]:
+    """One type annotation per positional parameter, or a pointed error."""
+    inferred: list[type] = []
+    for parameter in positional:
+        annotation = parameter.annotation
+        if annotation is inspect.Parameter.empty:
+            raise RegistrationError(
+                f"Tool {tool_name}: parameter {parameter.name!r} has no type "
+                "annotation — declare consumes explicitly or annotate the "
+                "parameter"
+            )
+        if isinstance(annotation, str):
+            raise RegistrationError(
+                f"Tool {tool_name}: parameter {parameter.name!r} has a string "
+                "annotation (module uses `from __future__ import "
+                "annotations`?) — declare consumes explicitly or remove the "
+                "future import from the tool module"
+            )
+        if not isinstance(annotation, type):
+            raise RegistrationError(
+                f"Tool {tool_name}: parameter {parameter.name!r} annotation "
+                "is not a type"
+            )
+        inferred.append(annotation)
+    return tuple(inferred)
+
+
+def _infer_produce(signature: inspect.Signature, tool_name: str) -> type | None:
+    """The return annotation when it is a resolvable type; else no inference.
+
+    A string annotation (future-annotations module) skips inference silently:
+    existing tools in such modules return typed values without declaring
+    produces, and erroring there would break them for no contract gain —
+    consumes inference stays strict because parameters need a contract source.
+    """
+    annotation = signature.return_annotation
+    if annotation is inspect.Signature.empty or annotation is None:
+        return None
+    if isinstance(annotation, str):
+        return None
+    if not isinstance(annotation, type):
+        return None
+    return annotation

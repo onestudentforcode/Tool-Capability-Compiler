@@ -86,7 +86,11 @@ def test_schema_mismatch_warns_but_does_not_remove_declared_edge() -> None:
 
     topology = build(db, refund_builder)
     assert topology.has_edge("db", "refund_builder")
-    assert len(topology.warnings()) == 1
+    # scoped to SCHEMA_MISMATCH: the no-producer consumption here also
+    # earns an UNSATISFIABLE_INPUT (declaration diagnostics, batch D),
+    # which is asserted in its own tests.
+    mismatch = [w for w in topology.warnings() if w.code == "SCHEMA_MISMATCH"]
+    assert len(mismatch) == 1
     assert topology.warnings()[0].code == "SCHEMA_MISMATCH"
 
 

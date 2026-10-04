@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..core.errors import EvaluationError
+from ..core.failure import TrialFailureCategory
 from ..execution.state import ExecutionState
 from ..scenario.models import Scenario
 from .base import CriterionResult, EvaluationResult, FinalResult
@@ -50,4 +51,5 @@ class StructuredEvaluator:
             criteria=criteria,
             quality_score=1.0 if success else 0.0,
             reason=None if success else "not all expected facts matched",
+            category=None if success else TrialFailureCategory.ANSWER_ERROR,
         )

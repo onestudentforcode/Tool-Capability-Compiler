@@ -21,7 +21,6 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "src"))
 
 from capability_runtime import (  # noqa: E402
-    DefaultFixtureManager,
     SlowRegressionRunner,
     SlowRegressionWriter,
     build_observation_stats,
@@ -30,7 +29,9 @@ from capability_runtime import (  # noqa: E402
     render_slow_report,
 )
 from capability_runtime.scenario import ScenarioLoader  # noqa: E402
-from refund import RefundEvaluator, build_topology  # noqa: E402
+import store  # noqa: E402
+from fixtures import DEFAULT_FIXTURE, SandboxFixtureManager  # noqa: E402
+from refund import build_evaluator, build_topology  # noqa: E402
 
 _TOPOLOGY_VERSION = "v0.3.1"
 
@@ -43,14 +44,15 @@ def main(argv: list[str] | None = None) -> int:
 
     scenarios_per = max(1, args.trials // 5)
 
+    store.STORE.reset(DEFAULT_FIXTURE)
     topology, version = build_topology(topology_version=_TOPOLOGY_VERSION)
     suite = ScenarioLoader().load_file(str(_HERE / "scenarios.json"))
     seeds = _load_seeds(_HERE / "seeds.json")
 
     runner = SlowRegressionRunner(
         topology=topology,
-        evaluator=RefundEvaluator(),
-        fixture_manager=DefaultFixtureManager(),
+        evaluator=build_evaluator(),
+        fixture_manager=SandboxFixtureManager(),
         seeds=seeds,
         trials_per_scenario=scenarios_per,
         topology_version=version,

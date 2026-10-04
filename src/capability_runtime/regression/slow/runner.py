@@ -8,9 +8,12 @@ from datetime import datetime
 from ...core.errors import (
     ExecutionError,
     FixtureError,
+    InvalidRoutingDecisionError,
+    InvalidToolSelectionError,
     LayerExecutionError,
     RoutingError,
 )
+from ...core.failure import TrialFailureCategory
 from ...core.metrics import TokenUsage
 from ...evaluation.base import EvaluationResult, Evaluator, FinalResult
 from ...execution.context import ExecutionContext, ExecutionEnvironment
@@ -72,9 +75,14 @@ class SlowRegressionRunner:
         environment: ExecutionEnvironment = ExecutionEnvironment.SANDBOX,
         router_config_id: str = "basefast",
         router: LayerRouter | None = None,
+        per_tool_timeout_seconds: float | None = None,
     ) -> None:
         if trials_per_scenario < 1:
             raise ExecutionError("trials_per_scenario must be positive")
+        if per_tool_timeout_seconds is not None and (
+            isinstance(per_tool_timeout_seconds, bool) or per_tool_timeout_seconds <= 0
+        ):
+            raise ExecutionError("per_tool_timeout_seconds must be positive or None")
         self._topology = topology
         self._evaluator = evaluator
         self._fixture_manager = fixture_manager
@@ -86,6 +94,7 @@ class SlowRegressionRunner:
         self._environment = environment
         self._router_config_id = router_config_id
         self._router = router
+        self._timeout = per_tool_timeout_seconds
         self._filter = TopologyFilter(topology)
 
     async def run(self, suite: ScenarioSuite) -> SlowRunOutcome:
@@ -116,6 +125,7 @@ class SlowRegressionRunner:
         start_wall = time.perf_counter()
         state = ExecutionState(query=scenario.query)
         status = TrialExecutionStatus.COMPLETED
+        failure_category: TrialFailureCategory | None = None
 
         if self._fixture_manager is not None:
             try:
@@ -126,6 +136,7 @@ class SlowRegressionRunner:
                     TrialExecutionStatus.FIXTURE_ERROR,
                     start_wall,
                     route=None,
+                    failure_category=TrialFailureCategory.FIXTURE_ERROR,
                 )
 
         trace = ExecutionTrace(
@@ -171,11 +182,28 @@ class SlowRegressionRunner:
                     context=ExecutionContext(
                         environment=self._environment,
                         max_concurrency=self._max_concurrency,
+                        per_tool_timeout_seconds=self._timeout,
                     )
                 )
-                tool_executions = await executor.run(
-                    [self._topology.node(name) for name in selection], state
-                )
+                try:
+                    tool_executions = await executor.run(
+                        [self._topology.node(name) for name in selection], state
+                    )
+                except LayerExecutionError as exc:
+                    # Whole-layer failure still records what was attempted —
+                    # and billed — before the trial stops (phase3 §42).
+                    trace.add_layer(
+                        LayerExecution(
+                            layer=layer_name,
+                            available_tools=available,
+                            selected_tools=selection,
+                            routing_decision=decision,
+                            tool_executions=exc.executions,
+                            started_at=started_at,
+                            ended_at=datetime.now(),
+                        )
+                    )
+                    raise
                 ended_at = datetime.now()
                 trace.add_layer(
                     LayerExecution(
@@ -189,6 +217,12 @@ class SlowRegressionRunner:
                     )
                 )
                 previous_selected = selection
+        except InvalidToolSelectionError as exc:
+            status = TrialExecutionStatus.ROUTING_ERROR
+            failure_category = self._selection_category(exc)
+        except InvalidRoutingDecisionError:
+            status = TrialExecutionStatus.ROUTING_ERROR
+            failure_category = TrialFailureCategory.TOOL_SELECTION_ERROR
         except RoutingError:
             status = TrialExecutionStatus.ROUTING_ERROR
         except LayerExecutionError:
@@ -204,14 +238,37 @@ class SlowRegressionRunner:
             except FixtureError:
                 if status is TrialExecutionStatus.COMPLETED:
                     status = TrialExecutionStatus.FIXTURE_ERROR
+                    failure_category = TrialFailureCategory.FIXTURE_ERROR
 
         evaluation = None
         if status is TrialExecutionStatus.COMPLETED:
-            evaluation = await self._evaluate(scenario, state, trace)
+            try:
+                evaluation = await self._evaluate(scenario, state, trace)
+            except Exception as exc:  # noqa: BLE001 - evaluator failure != business failure
+                status = TrialExecutionStatus.EVALUATION_ERROR
+                failure_category = TrialFailureCategory.EVALUATION_ERROR
+                evaluation = None
+            else:
+                if evaluation is not None and not evaluation.success:
+                    failure_category = evaluation.category
 
         return self._finalize(
-            trial, status, start_wall, trace=trace, route=route, evaluation=evaluation
+            trial,
+            status,
+            start_wall,
+            trace=trace,
+            route=route,
+            evaluation=evaluation,
+            failure_category=failure_category,
         )
+
+    def _selection_category(self, exc: InvalidToolSelectionError) -> TrialFailureCategory:
+        """MISSING_TOOL when a picked tool does not exist; else TOOL_SELECTION_ERROR."""
+        if exc.unknown_tools and not set(exc.unknown_tools).issubset(
+            set(self._topology.nodes())
+        ):
+            return TrialFailureCategory.MISSING_TOOL
+        return TrialFailureCategory.TOOL_SELECTION_ERROR
 
     async def _route_with_router(
         self,
@@ -288,6 +345,7 @@ class SlowRegressionRunner:
         trace: ExecutionTrace | None = None,
         route: ObservedRoute | None = None,
         evaluation: EvaluationResult | None = None,
+        failure_category: TrialFailureCategory | None = None,
     ) -> TrialResult:
         if trace is None:
             trace = ExecutionTrace(
@@ -296,6 +354,25 @@ class SlowRegressionRunner:
                 topology_version=trial.topology_version,
                 started_at=datetime.now(),
             )
+        tool_cost = sum_known_costs(
+            execution.cost for layer in trace.layers for execution in layer.tool_executions
+        )
+        routing_cost = sum_known_costs(
+            layer.routing_decision.routing_cost for layer in trace.layers
+        )
+        # execution cost = tool + routing; judge cost stays separate (phase3 §80)
+        if tool_cost is None and routing_cost is None:
+            execution_cost = None
+        else:
+            execution_cost = (tool_cost or 0.0) + (routing_cost or 0.0)
+        access_counts: dict[str, int] | None = None
+        for layer in trace.layers:
+            for execution in layer.tool_executions:
+                if execution.access_counts:
+                    if access_counts is None:
+                        access_counts = {}
+                    for key, count in execution.access_counts.items():
+                        access_counts[key] = access_counts.get(key, 0) + count
         return TrialResult(
             trial=trial,
             execution_status=status,
@@ -304,7 +381,12 @@ class SlowRegressionRunner:
             evaluation=evaluation,
             latency_ms=(time.perf_counter() - start_wall) * 1000.0,
             token_usage=self._aggregate_tokens(trace),
-            cost=None,
+            cost=execution_cost,
+            tool_cost=tool_cost,
+            routing_cost=routing_cost,
+            evaluation_cost=evaluation.cost if evaluation is not None else None,
+            access_counts=access_counts,
+            failure_category=failure_category,
         )
 
     @staticmethod
@@ -312,8 +394,18 @@ class SlowRegressionRunner:
         total_input = 0
         total_output = 0
         for layer in trace.layers:
+            usage = layer.routing_decision.token_usage
+            if usage is not None:
+                total_input += usage.input_tokens
+                total_output += usage.output_tokens
             for execution in layer.tool_executions:
                 if execution.token_usage is not None:
                     total_input += execution.token_usage.input_tokens
                     total_output += execution.token_usage.output_tokens
         return TokenUsage(input_tokens=total_input, output_tokens=total_output)
+
+
+def sum_known_costs(values) -> float | None:
+    """Sum known costs; all-None stays None so absence is never faked as 0."""
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None

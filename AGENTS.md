@@ -40,6 +40,33 @@ Minimal Dependency DAG
 Provider Priority Planner
 ```
 
+### 2.1 已评估并暂时废弃的方向（2026-09 裁定）
+
+以下方向经过评估，明确**暂不开发**，现有限制保持不变：
+
+```text
+方向一：涌现拓扑 / 薄声明
+  取消严格 layer / provider / worker 声明，让拓扑结构在调用过程中自动产生
+  （含数据流诱导层序、类型提议连接等一切变体）。
+
+方向二原始形态：图层递归 / 真环
+  在拓扑图层面允许 cycle 以表达递归或"最终能力"。
+```
+
+裁定与理由：
+
+- 现阶段**保持严格拓扑约束**：Layer 有序 + provider/worker 双向白名单
+  决定 ToolEdge；`consumes / produces` 只验证已声明边，绝不建边
+  （Phase 0 §6–7 不变）；
+- 涌现拓扑会同时拆掉三面承重墙：Declared/Active 分离（回滚与剪枝安全
+  的来源）、opportunity 统计语义（剪枝证据的根基）、TopologyFilter
+  （在线约束的执行点）；其"降低接入负担"的目标中，clerical 部分可用
+  与拓扑模型解耦的手段达成（见 §7 可开发方向 3），无需改拓扑模型；
+- 图层真环会摧毁 route_id / opportunity / Counterfactual / 在线有界执行
+  的语义；递归需求以"复合节点 + 有界展开"实现（见 §7 可开发方向 2）；
+- 重启条件：任何一项要重启，必须先起草新的 Phase 验收文档，论证如何
+  保住上述语义后再评估。
+
 ## 3. Phase / Step 推进流程
 
 每次实现 Phase 或 Step 时，按以下顺序推进：
@@ -136,26 +163,138 @@ refactor: remove deprecated artifact planner
 - 如果一个批次验证失败，不得提交该批次；
 - 用户明确要求“提交更改”时，优先按上述职责拆分，而不是创建一个巨型提交。
 
-## 7. Phase 2 Current Boundary
+## 7. Current Boundary
 
-当前 Phase 2 实现进度以 `docs/acceptance/phase2.md` 为准。
+当前实现进度以各 Phase 验收文档（含其 `phaseN-plan.md` 的实现进度表）为准。
 
 已实现：
 
 ```text
-Step 1: Tool capabilities + CapabilityRegistry
-Step 2: Scenario + ScenarioSuite + ScenarioLoader
-Step 3: Gold Mode Coverage Analyzer (COVERED / UNCOVERED)
-Step 4: Candidate Route Search
-Step 5: Coverage Status + complete Failure Reason
-Step 6: Coverage Report + Category / Capability / Topology Gap Reports
-Step 7: CapabilityResolver Protocol + Fake Resolver
+Phase 1  Layered Declared Topology（全部完成）
+Phase 2  Fast Regression（Step 1-10 全部完成：
+             CapabilityRegistry / Scenario / Coverage / Route Search /
+             Reports / Resolver / Ollama Resolver / Baseline Diff / CLI）
+Phase 3  Slow Regression（Step 1-14 全部完成：
+             Execution / Router（free + basefast seed）/ Trace / ObservedRoute /
+             Evaluation（Structured / LLM Judge / Composite）/ Fixtures /
+             Observation Stats / LLMRouter / 持久化 / CLI / 离线 Demo）
+Phase 4  拓扑学习与安全剪枝（Step 1-13 全部完成：
+             Evidence / Candidate / Protection / TopologyPatch /
+             Counterfactual / Probe（basefast 定向 seed）/ Batch /
+             Fast+Slow Validation Gate / Route Diversity Guard /
+             DatasetSplit / TopologyVersion（commit / rollback）/ optimize CLI）
+Phase 5  Route 排名与分级（Step 1-9 全部完成：
+             ranking/ 顶包：stats / profile / eligibility / pareto / tier /
+             family / report；`tool-topology rank` CLI 消费 slow artifacts）
+Phase 6  在线路由（Step 1-9 全部完成：
+             online/ 顶包：catalog / selection / balancer / fallback /
+             runtime / telemetry；`tool-topology select` 干跑 CLI；
+             在线遥测经 online_results_to_trials 回流离线闭环）
 ```
 
-尚未进入：
+Phase 0-6 全部完成，项目主循环（Declare → Fast → Slow → Prune → Rank →
+Route → 回流）闭合。方向一（涌现拓扑）已评估并暂时废弃（见 §2.1），
+严格拓扑约束保持不变。当前可继续开发的方向（每项启动前必须先起草
+新的验收文档；优先级由用户裁定）：
 
 ```text
-Step 8+: Real LLM Resolver, Baseline, CLI
+核心内方向（不动严格拓扑约束）：
+
+1. 资源 facade 计量（管道拦截）——已完成
+     docs/acceptance/resource-metering.md（批次 A-E 全部落地）。
+     resources/ 顶包：metered() / InMemoryStore / LLMResource；
+     三档 MeteringSource 诚实标注；access_counts 贯通
+     ToolExecution → TrialResult → route_stats → RouteProfile → 在线遥测；
+     计费基准保持声明值，实测值作证据与漂移信号（drift_findings）。
+
+2. 复合节点（方向二的采纳形态）——已完成
+     docs/acceptance/composite-nodes.md（+ composite-nodes-plan.md，Step 1-8 全部落地）。
+     "最终能力"作为宏节点入图：对外是与 ToolNode 完全同构的工具工厂
+     （注册/建边/覆盖/执行/在线零特殊分支），内部是更小的子拓扑 +
+     有界循环（stop_when + max_iterations + 持久黑板）；计量内层汇总
+     外层，证据经 flattener 用同一套机器离线处理；外层保持无环
+     （深度/自引用构建期拦截），不引入图层面 cycle。
+
+3. 接入辅助（降低接入负担中与拓扑解耦的部分）——已完成
+     docs/acceptance/onboarding-assist.md（+ onboarding-assist-plan.md，
+     批次 A-D 全部落地）。
+     装饰器从类型注解自动推断 consumes/produces（类型不建边，仅免除
+     重复声明）；OpenAI specs 批量适配器；capabilities 由 LLM 批量
+     提案、人工审阅 diff 后应用（提案永不直接落盘）；onboard 三段式
+     CLI。目标：框架边际接入成本趋近 OpenAI tool spec 基线
+     （编写负担降幅 >= 80%，semantic 负担 authoring → review）。
+
+4. optimize 三段式编排补全——已完成
+     docs/acceptance/optimize-pipeline.md（Step 1-6 全部落地）。
+     analyze（证据→候选提案，只读）/ validate（快慢双门+多样性三关判定，
+     REJECT 退出码 1）/ commit（唯一写操作，ACCEPT 验证记录 + 补丁指纹
+     一致是硬门槛）+ rollback；三段零隐式串联，probe 保持显式，
+     旧版两版本报告保留为 optimize report。
+
+5. Office Battlefield 真实域靶场——已完成（2026-10）
+     docs/acceptance/office-battlefield.md（批次 A-F 全部落地，2026-10）。
+     examples/office/：5 层 51 工具节点（42 实现 + 工厂变体）、
+     11 个冗余 capability、60 场景 / 4 家族 / 42-9-9 覆盖分布、
+     clean/messy/sparse/conflict 语料变体、确定性离线 fake LLM。
+     里程碑意义兑现：optimize 首次在真实证据上产出非空补丁
+     （6 个 IDENTIFIED 边候选）并走通 validate ACCEPT → commit →
+     rollback；rank 三 Tier 全非空且 6 个冗余 capability 变体跨 Tier；
+     两轮收敛（在线 60/60 成功，延迟 183→174ms）。顺手修复四个
+     此前从未被触达的核心缺陷（pipeline analyze 节点/边候选混淆、
+     CounterfactualResult 字段误用、RouteSearch 预算不约束子集扫描、
+     Tier 参照池含零成功路线）——详见 office-battlefield.md §12。
+     批次 F（复合节点展台，2026-10 追加）：doc_composed_report /
+     ppt_composed_deck 入图（51+2）；门控首现设计（终态类型仅收尾门
+     产出，绕开 runtime 首个匹配提取语义）、诚实计费、6 场景独立
+     展台（21 次复合执行全部恰好 2 轮确定性收敛）；loader composite
+     条目放开可选 consumes/produces（批次 C 机制延伸，双路径等价
+     覆盖复合节点）。deck 复合消费对齐 (SourceDoc, FactSheet)：
+     严格邻接边下，坐镇 L2 只吃 L0 产物的复合在跳过 extract 的
+     路线上不可达——复合与普通工具同受邻接约束（零特殊分支的
+     另一面）。
+     已知边界：精确 RouteSearch 在宽最大链拓扑上仍受枚举预算截断
+     （可行性见证回退保证语义），60 场景覆盖报告由种子见证路线
+     线性推导（语义等价）。
+
+6. Discovery & Routing 发现与路由——已完成（2026-10，批次 A-E 全部落地）
+     docs/acceptance/discovery-routing.md（+ discovery-routing-plan.md
+     逐批次计划、domain-package-conventions.md 域包规范、
+     ranking-tiers.md Tier 口径）。
+     种子生命周期正位：fast 候选链（seeds export，复放验证 + 指纹
+     绑定）与模型驱动发现（seeds discover，ScenarioScriptedRouter
+     离线 / LLMRouter 真实）双路径，复放不过不固化；覆盖判定权
+     保留静态 fast。
+     JSON/Python 双构建路径等价（loader 类型保真 + 往返一致性测试）；
+     声明期诊断（UNSATISFIABLE_INPUT / SLOT_NAME_CONFLICT）。
+     LLM 路由首次真实实测（空洞 #3）：qwen3:1.7B 合法池内零违例，
+     但 6/6 链不完整（系统性缺收尾检查），复放验证门全部拒绝——
+     机制就绪，模型完整度不足；后续 = 路由 prompt 注入期望能力 /
+     更强模型 / 静态+模型混合。顺手修复 LLMRouter 读超时裸抛缺陷。
+     已知边界：精确 RouteSearch 宽拓扑预算截断（见证回退保语义；
+     已由下方条目 7 消除）——latency 声明字段后置（P9 以规范落地）。
+
+7. RouteSearch 能力指派枚举——已完成（2026-10，批次 A-C 全部落地）
+     docs/acceptance/routesearch-assignment.md（评估留档见
+     docs/routesearch-budget-evaluation.md；预言机 =
+     tests/unit/_routesearch_reference.py 冻结的旧子集枚举实现）。
+     候选生成器内芯替换：逐层子集枚举 → 能力指派锚定 + 资格剪枝 +
+     预算切片轮转（nogood 评估后不采用，理由见验收文档 §3.1 修正
+     注）；输出契约零变更（候选定义 / _interconnected 谓词 / 双预算
+     / 见证回退 / 公共 API 全部不动）。
+     office 实测：候选 142→206（逐场景无一回退）、预算截断事件
+     246→0（枚举在默认预算内完备完成）、扫描耗时 -30%、覆盖判定
+     60/60 不变；耗尽预算下新旧集合逐指纹等价（预言机长期回归）。
+     顺手修复两个预存在缺陷（批次 F 复合节点 × 版本快照，复合入图
+     后从未被实跑踩到）：export_active_payload 向复合条目注入
+     providers/workers 致快照不可重载；复合 inner 相对路径按快照
+     目录解析找不到文件（修复 = 快照自含：inner 拷入 versions/ 并
+     改写引用，source 自 CLI/闭环脚本穿透）。修后 office 闭环在
+     53 节点复合拓扑上恢复全绿。
+
+工程化扩展（不属于核心假设验证范围，见 phase6.md §23）：
+
+多租户服务化 / 在线自适应 / 熔断器 / 监控体系 / LLMRouter 真实规模实跑
+校验等。
 ```
 
-后续任务必须从当前最早未完成 Step 开始，除非用户明确调整优先级或 Phase 文档。
+后续任务必须从用户裁定的方向起草验收文档开始；未经用户明确调整，不得启动已废弃方向（§2.1）。

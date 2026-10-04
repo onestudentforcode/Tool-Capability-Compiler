@@ -7,11 +7,12 @@ from capability_runtime import (
     ArtifactValue,
     ExecutionContext,
     ExecutionEnvironment,
-    ExecutionError,
     ExecutionState,
+    SchemaMismatchError,
     ToolExecutionError,
     ToolExecutionStatus,
     ToolExecutor,
+    TrialFailureCategory,
     tool,
 )
 
@@ -89,14 +90,16 @@ def test_failing_tool_records_error_and_writes_no_produces() -> None:
     assert state.get_artifacts("order") == ()
 
 
-def test_missing_required_input_raises_and_writes_nothing() -> None:
+def test_missing_required_input_records_schema_mismatch_and_writes_nothing() -> None:
     @tool(layer="analyze", consumes=[Order])
     async def classifier(order: Order) -> None:
         return None
 
     state = ExecutionState(query="q")  # no Order present
-    with pytest.raises(ExecutionError):
-        asyncio.run(make_executor().execute(classifier, state))
+    execution = asyncio.run(make_executor().execute(classifier, state))
+    assert execution.status is ToolExecutionStatus.ERROR
+    assert isinstance(execution.error, SchemaMismatchError)
+    assert execution.error_category is TrialFailureCategory.SCHEMA_MISMATCH
     assert state.names() == ()
 
 
@@ -124,6 +127,45 @@ def test_snake_case_produces_slot_naming() -> None:
     state = ExecutionState(query="q")
     asyncio.run(make_executor().execute(judge, state))
     assert len(state.get_artifacts("refund_decision")) == 1
+
+
+def test_return_annotation_fills_missing_produces_for_chaining() -> None:
+    # JSON-bound tools declare no typed contracts (spec.produces empty); the
+    # handler's real return annotation fills the execution contract so a
+    # downstream layer can still consume the artifact.
+    @tool(layer="read")
+    async def db() -> Order:
+        return Order("009")
+
+    @tool(layer="analyze", consumes=[Order])
+    async def check(order: Order) -> RefundDecision:
+        return RefundDecision(True)
+
+    executor = make_executor()
+    state = ExecutionState(query="q")
+    first = asyncio.run(executor.execute(db, state))
+    assert first.status is ToolExecutionStatus.SUCCESS
+    assert len(state.get_artifacts("order")) == 1
+
+    second = asyncio.run(executor.execute(check, state))
+    assert second.status is ToolExecutionStatus.SUCCESS
+    assert second.input_summary == [Order("009")]
+
+
+def test_missing_produces_without_annotation_writes_nothing() -> None:
+    # no declared produces and no return annotation: nothing is registered —
+    # same behaviour as before the annotation fallback
+    @tool(layer="read", consumes=[Order])
+    async def silent(order: Order):
+        return Order("x")
+
+    state = ExecutionState(query="q")
+    state.add_artifact(
+        "order", ArtifactValue(value=Order("i"), source_tool="src", layer="read")
+    )
+    execution = asyncio.run(make_executor().execute(silent, state))
+    assert execution.status is ToolExecutionStatus.SUCCESS
+    assert len(state.get_artifacts("order")) == 1  # only the seeded one
 
 
 def test_execution_records_metadata() -> None:

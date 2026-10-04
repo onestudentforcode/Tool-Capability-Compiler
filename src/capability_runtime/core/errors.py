@@ -62,6 +62,10 @@ class FastRegressionError(TopologyFrameworkError):
     pass
 
 
+class SeedExportError(FastRegressionError):
+    pass
+
+
 class BaselineError(FastRegressionError):
     pass
 
@@ -106,8 +110,24 @@ class ToolExecutionError(ExecutionError):
     pass
 
 
+class SchemaMismatchError(ExecutionError):
+    """Tool argument resolution failed (missing / type-mismatched input)."""
+
+
+class TimeoutExecutionError(ExecutionError):
+    """A tool invocation exceeded its configured timeout."""
+
+
 class LayerExecutionError(ExecutionError):
-    pass
+    """Every selected tool of a layer failed.
+
+    Carries the layer's tool-execution records so the trace still shows — and
+    bills — what was attempted before the trial stopped.
+    """
+
+    def __init__(self, message: str, executions: tuple = ()) -> None:
+        super().__init__(message)
+        self.executions = tuple(executions)
 
 
 class RoutingError(SlowRegressionError):
@@ -119,7 +139,9 @@ class InvalidRoutingDecisionError(RoutingError):
 
 
 class InvalidToolSelectionError(RoutingError):
-    pass
+    def __init__(self, message: str, *, unknown_tools: tuple[str, ...] = ()) -> None:
+        super().__init__(message)
+        self.unknown_tools = tuple(unknown_tools)
 
 
 class EvaluationError(SlowRegressionError):
@@ -160,3 +182,75 @@ class ValidationGateError(OptimizationError):
 
 class TopologyVersioningError(OptimizationError):
     pass
+
+
+class RankingError(TopologyFrameworkError):
+    """Phase 5 route ranking failure root (profile / config)."""
+
+
+class RouteProfileError(RankingError):
+    """Trace rows are inconsistent: mixed versions or unreadable payloads."""
+
+
+class RankingConfigError(RankingError):
+    """RankConfig / TierConfig parameters are invalid."""
+
+
+class OnlineRoutingError(TopologyFrameworkError):
+    """Phase 6 online routing failure root (catalog / selection)."""
+
+
+class RouteCatalogError(OnlineRoutingError):
+    """Ranking/topology mismatch or an un-reconstructable route structure."""
+
+
+class RouteSelectionError(OnlineRoutingError):
+    """No ranked candidate satisfies the request's category/tier preference."""
+
+
+class MeteringError(TopologyFrameworkError):
+    """Resource-handle metering failure root (resource-metering milestone)."""
+
+
+class ResourceHandleError(MeteringError):
+    """A resource handle was constructed or used incorrectly."""
+
+
+class MeteringContextError(MeteringError):
+    """Metering was recorded outside a tool-call context (no collector)."""
+
+
+class CompositeError(TopologyFrameworkError):
+    """Composite-node failure root (composite-nodes milestone)."""
+
+
+class CompositeSpecError(CompositeError):
+    """Invalid composite declaration (route/budget/depth/self-reference)."""
+
+
+class CompositeExecutionError(CompositeError):
+    """Runtime failure inside a composite (stop condition unmet, etc.)."""
+
+
+class OnboardingError(TopologyFrameworkError):
+    """Onboarding-assist failure root (onboarding-assist milestone)."""
+
+
+class ProposalError(OnboardingError):
+    """Capability-proposal transport/parse failure."""
+
+
+class ApplyError(OnboardingError):
+    """Review-gate rejection or failed validation on apply."""
+
+
+class OptimizePipelineError(TopologyFrameworkError):
+    """Optimize-pipeline orchestration failure root (optimize-pipeline milestone)."""
+
+
+class ArtifactLoadError(OptimizePipelineError):
+    """Slow-run artifacts missing, version-contradictory or unparseable."""
+
+
+class CommitGateError(OptimizePipelineError):
+    """Commit refused: no ACCEPT record, fingerprint mismatch, version clash."""
