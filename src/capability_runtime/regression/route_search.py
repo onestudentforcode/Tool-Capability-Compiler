@@ -11,9 +11,26 @@ from ..route.models import RouteLayer
 from ..topology.models import ToolEdge, Topology
 from .candidate_route import CandidateRoute
 
+# Minimum budget slice one anchor's superset exploration gets before the
+# round-robin moves on (routesearch-assignment batch B calibration).
+_ANCHOR_SLICE = 2_000
+
 
 class RouteSearch:
-    """Exact feasibility plus bounded candidate enumeration."""
+    """Exact feasibility plus assignment-anchored candidate enumeration.
+
+    Generator (routesearch-assignment milestone): every legal selection
+    contains at least one capability assignment (a map from each required
+    capability to one of its providers), so the enumeration anchors each
+    DFS on an assignment's forced tools and explores supersets of them.
+    Completeness follows: the union of anchored regions is the space of
+    all legal selections. Three prunings keep the budget on high-value
+    branches: eligibility (a tool without a backward edge from the fixed
+    left selection can never join), suffix coverage (missing capabilities
+    must remain coverable by later layers), and a nogood memo on exact
+    ``(layer, covered, selection)`` states. ``_interconnected`` stays the
+    final acceptance predicate — nothing bypasses it.
+    """
 
     def __init__(
         self,
@@ -46,7 +63,10 @@ class RouteSearch:
             return ()
 
         routes: dict[str, CandidateRoute] = {}
-        expansions = [0]
+        # The budget counts every anchor materialization and every subset
+        # examination, screened or not. Feasibility never depends on it
+        # (the witness below); only candidate diversity does.
+        budget = [0]
         names = [layer.name for layer in self._topology.layers()]
         for start in range(len(names)):
             for end in range(start, len(names)):
@@ -65,12 +85,26 @@ class RouteSearch:
                 groups = [
                     (name, tuple(sorted(maximal[name]))) for name in span
                 ]
-                self._enumerate(
-                    groups, 0, [], frozenset(), required, cap_of, routes, expansions
-                )
-                if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+                # Round-robin anchors with budget slices: one anchor's wide
+                # superset enumeration must not starve the provider
+                # diversity of the others (the actual point of anchoring).
+                for forced in self._anchors(groups, required, cap_of, budget):
+                    remaining = self._max_expansions - budget[0]
+                    if remaining <= 0:
+                        break
+                    slice_cap = budget[0] + max(_ANCHOR_SLICE, remaining // 8)
+                    self._complete(
+                        groups, 0, [], frozenset(), forced, required,
+                        cap_of, routes, budget, slice_cap,
+                    )
+                    if (
+                        len(routes) >= self._limit
+                        or budget[0] >= self._max_expansions
+                    ):
+                        break
+                if len(routes) >= self._limit or budget[0] >= self._max_expansions:
                     break
-            if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+            if len(routes) >= self._limit or budget[0] >= self._max_expansions:
                 break
 
         # Feasibility must not depend on the enumeration budget.
@@ -171,61 +205,165 @@ class RouteSearch:
                     return span, maximal
         return None
 
-    def _enumerate(
+    def _anchors(
+        self,
+        groups: list[tuple[str, tuple[str, ...]]],
+        required: frozenset[str],
+        cap_of: dict[str, frozenset[str]],
+        budget: list[int],
+    ):
+        """Lazily yield forced-tool maps, one per capability assignment.
+
+        An assignment picks one provider per required capability; the union
+        of all anchored regions is the full selection space (completeness).
+        Anchors whose forced map is a layer-wise superset of an
+        already-yielded anchor explore a subset of its region and are
+        skipped. Providers are tried multi-capability-first so small forced
+        maps (and their minimal routes) surface early; the order is total
+        and deterministic.
+        """
+        layer_of: dict[str, int] = {}
+        for index, (_, tools) in enumerate(groups):
+            for tool in tools:
+                layer_of[tool] = index
+        providers: dict[str, tuple[str, ...]] = {}
+        for capability in sorted(required):
+            found = [
+                tool
+                for _, tools in groups
+                for tool in tools
+                if capability in cap_of[tool]
+            ]
+            if not found:
+                return
+            found.sort(
+                key=lambda tool: (-len(cap_of[tool] & required), tool)
+            )
+            providers[capability] = tuple(found)
+
+        caps = sorted(required)
+        yielded: list[tuple[frozenset[str], ...]] = []
+
+        def walk(index: int, forced: list[set[str]]):
+            if budget[0] >= self._max_expansions:
+                return
+            if index == len(caps):
+                budget[0] += 1
+                candidate = tuple(frozenset(entry) for entry in forced)
+                for existing in yielded:
+                    if all(
+                        existing[i] <= candidate[i]
+                        for i in range(len(groups))
+                    ):
+                        return  # subsumed: its region is already covered
+                yielded.append(candidate)
+                yield candidate
+                return
+            for tool in providers[caps[index]]:
+                forced[layer_of[tool]].add(tool)
+                yield from walk(index + 1, forced)
+                forced[layer_of[tool]].discard(tool)
+
+        yield from walk(0, [set() for _ in groups])
+
+    def _complete(
         self,
         groups: list[tuple[str, tuple[str, ...]]],
         index: int,
         selected: list[tuple[str, tuple[str, ...]]],
         covered: frozenset[str],
+        forced: tuple[frozenset[str], ...],
         required: frozenset[str],
         cap_of: dict[str, frozenset[str]],
         routes: dict[str, CandidateRoute],
-        expansions: list[int],
+        budget: list[int],
+        slice_cap: int,
     ) -> None:
-        if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+        if len(routes) >= self._limit or budget[0] >= slice_cap:
             return
         if index == len(groups):
             if required.issubset(covered):
-                route = self._make_route(selected, cap_of)
-                route_tools = self._route_tools(route)
-                if any(self._route_tools(old) < route_tools for old in routes.values()):
-                    return
-                for key, old in tuple(routes.items()):
-                    if route_tools < self._route_tools(old):
-                        del routes[key]
-                routes[route.fingerprint] = route
+                self._pareto_insert(
+                    routes, self._make_route(selected, cap_of)
+                )
             return
-        expansions[0] += 1
         layer, tools = groups[index]
-        for size in range(1, len(tools) + 1):
-            for subset in itertools.combinations(tools, size):
-                # The budget must bound every subset examination, screened or
-                # not: on wide maximal chains the failing-subset scan alone is
-                # exponential while recursion-only counting never sees it.
-                # Feasibility does not depend on this budget (witness below).
-                expansions[0] += 1
-                if len(routes) >= self._limit or expansions[0] >= self._max_expansions:
+        must = forced[index]
+        left = selected[-1][1] if selected else None
+        # A forced tool without a backward edge from the fixed left selection
+        # can never join a legal selection on this branch.
+        if left is not None and any(
+            not any(self._topology.has_edge(source, tool) for source in left)
+            for tool in must
+        ):
+            return
+        pool = [
+            tool
+            for tool in tools
+            if tool not in must
+            and (
+                left is None
+                or any(
+                    self._topology.has_edge(source, tool) for source in left
+                )
+            )
+        ]
+        suffix = {
+            capability
+            for _, later_tools in groups[index + 1 :]
+            for tool in later_tools
+            for capability in cap_of[tool]
+        }
+        # Value ordering: pool members that advance coverage come first, so
+        # the budget meets high-value supersets before lexicographic noise.
+        pool.sort(
+            key=lambda tool: (
+                -len((cap_of[tool] & required) - covered),
+                tool,
+            )
+        )
+        # Every layer of a route selects at least one tool; when the anchor
+        # pins none here, the empty extra set is not a selection.
+        for size in range(0 if must else 1, len(pool) + 1):
+            for extra in itertools.combinations(pool, size):
+                # The budget bounds every subset examination, screened or
+                # not. Feasibility does not depend on it (witness above).
+                budget[0] += 1
+                if (
+                    len(routes) >= self._limit
+                    or budget[0] >= slice_cap
+                ):
                     return
-                if selected and not self._interconnected(selected[-1][1], subset):
+                subset = tuple(sorted(must.union(extra)))
+                if left is not None and not self._interconnected(left, subset):
                     continue
                 new_covered = covered.union(
                     capability for tool in subset for capability in cap_of[tool]
                 )
                 missing = required - new_covered
-                suffix = {
-                    capability
-                    for _, later_tools in groups[index + 1 :]
-                    for tool in later_tools
-                    for capability in cap_of[tool]
-                }
                 if missing and not missing.issubset(suffix):
                     continue
                 selected.append((layer, subset))
-                self._enumerate(
-                    groups, index + 1, selected, new_covered, required,
-                    cap_of, routes, expansions
+                self._complete(
+                    groups, index + 1, selected, new_covered, forced,
+                    required, cap_of, routes, budget, slice_cap,
                 )
                 selected.pop()
+
+    def _pareto_insert(
+        self, routes: dict[str, CandidateRoute], route: CandidateRoute
+    ) -> None:
+        """Keep the tool-set antichain: supersets drop out, subsets evict."""
+        route_tools = self._route_tools(route)
+        if any(
+            self._route_tools(old) < route_tools
+            for old in routes.values()
+        ):
+            return
+        for key, old in tuple(routes.items()):
+            if route_tools < self._route_tools(old):
+                del routes[key]
+        routes[route.fingerprint] = route
 
     def _interconnected(
         self, left: tuple[str, ...], right: tuple[str, ...]

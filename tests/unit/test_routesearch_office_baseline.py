@@ -64,7 +64,7 @@ def test_office_baseline_self_consistent_and_witness_contract() -> None:
     rows = _fixture_rows()
     assert len(rows) == 60
     total_routes = 0
-    for row in rows:
+    for index, row in enumerate(rows):
         required = tuple(row["required"])
         routes = search.search(required)
         # budget-free columns: must never change across batches
@@ -72,10 +72,21 @@ def test_office_baseline_self_consistent_and_witness_contract() -> None:
         assert list(search.covered_capabilities(required)) == row["covered"], row["id"]
         # witness-fallback contract: feasible <=> at least one route
         assert bool(routes) is row["feasible"], row["id"]
-        # default-budget columns: baseline of the subset era
-        assert [r.fingerprint for r in routes] == row["fingerprints"], row["id"]
+        # default-budget columns changed by design in batch B (acceptance
+        # §3.3): count never below the subset-era baseline; determinism is
+        # spot-checked on a fixed sample (full double sweep would double the
+        # gate's runtime for the same guarantee).
+        if index % 12 == 0:
+            again = search.search(required)
+            assert [r.fingerprint for r in again] == [
+                r.fingerprint for r in routes
+            ], row["id"]
+        assert len(routes) >= row["route_count"], row["id"]
         total_routes += len(routes)
-    assert total_routes == sum(r["route_count"] for r in rows)
+    assert total_routes >= sum(r["route_count"] for r in rows)
+    # subset-era baseline totals 142; the assignment era must not regress
+    # the aggregate pool (measured 206 at batch B landing)
+    assert total_routes >= 142
 
 
 def _synthetic_truncating_topology() -> Topology:
