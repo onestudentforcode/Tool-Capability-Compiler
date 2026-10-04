@@ -202,19 +202,43 @@ def test_export_active_payload_keeps_composite_entries_loader_clean() -> None:
     # Materializing adjacency into them made the version snapshot
     # unloadable — caught by the closed-loop rollback path after batch F
     # put composites into the office topology (2026-10-04).
-    topology, _ = sandbox_refund.build_topology()
+    from capability_runtime import (
+        LayerRegistry,
+        ToolRegistry,
+        TopologyBuilder,
+    )
+
+    def node(name: str, layer: str) -> ToolNode:
+        async def handler() -> dict:
+            return {"tool": name}
+
+        return ToolNode(
+            spec=ToolSpec(
+                name=name,
+                layer=layer,
+                providers=NodeSelector(all_nodes=True),
+                workers=NodeSelector(all_nodes=True),
+                capabilities=frozenset({f"demo.{name}"}),
+            ),
+            handler=handler,
+        )
+
+    layers = LayerRegistry()
+    layers.register("read", 0)
+    layers.register("analyze", 1)
+    tools = ToolRegistry()
+    tools.register(node("plain_tool", "read"))
+    tools.register(node("doc_composed_report", "analyze"))
+    topology = TopologyBuilder(layers, tools).build()
+
     payload = {
         "version": "1.0",
         "layers": [
             {"name": "read", "order": 0},
             {"name": "analyze", "order": 1},
-            {"name": "action", "order": 2},
         ],
         "tools": [
-            {"name": name, "layer": topology.node(name).spec.layer}
-            for name in topology.nodes()
-        ]
-        + [
+            {"name": "plain_tool", "layer": "read"},
             {
                 "kind": "composite",
                 "name": "doc_composed_report",
@@ -223,11 +247,10 @@ def test_export_active_payload_keeps_composite_entries_loader_clean() -> None:
                 "route": [{"layer": "only", "tools": ["worker"]}],
                 "stop_when": ["report.final"],
                 "max_iterations": 2,
-            }
+            },
         ],
     }
-    active = topology  # no patch: adjacency materialization still runs
-    exported = export_active_payload(payload, active)
+    exported = export_active_payload(payload, topology)
     composite = next(
         item
         for item in exported["tools"]
