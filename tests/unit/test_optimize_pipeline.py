@@ -665,3 +665,59 @@ def test_cli_commit_refuses_without_accept_record(tmp_path, capsys) -> None:
     assert "verdict=accept" in captured.err
 
 
+
+
+def test_rollback_snapshot_is_self_contained_with_composites(tmp_path) -> None:
+    # Version snapshots must load on their own: composite inner paths are
+    # relative to the DECLARED file, so the snapshot copies each inner
+    # topology next to itself and rewrites the reference. Caught on the
+    # office closed loop after batch F put composites in the default
+    # topology (2026-10-04).
+    from capability_runtime import TopologyLoader
+    from capability_runtime.optimization.pipeline import rollback
+
+    inner = {
+        "version": "1.0",
+        "layers": [{"name": "only", "order": 0}],
+        "tools": [
+            {
+                "name": "fetch",
+                "layer": "only",
+                "implementation": "tests.unit._binding_tools:fetch",
+            }
+        ],
+    }
+    (tmp_path / "inner.json").write_text(
+        json.dumps(inner), encoding="utf-8"
+    )
+    declared = {
+        "version": "1.0",
+        "layers": [{"name": "act", "order": 0}],
+        "tools": [
+            {
+                "name": "macro",
+                "layer": "act",
+                "kind": "composite",
+                "inner": "inner.json",
+                "route": [{"layer": "only", "tools": ["fetch"]}],
+                "stop_when": ["note"],
+                "max_iterations": 2,
+                "capabilities": ["demo.macro"],
+            }
+        ],
+    }
+    declared_path = tmp_path / "declared.json"
+    declared_path.write_text(json.dumps(declared), encoding="utf-8")
+    topology = TopologyLoader().load_file(declared_path)
+
+    record = rollback(
+        topology,
+        declared,
+        versions_dir=tmp_path / "versions",
+        source=declared_path,
+    )
+    assert record["version"] == "declared-restored"
+    snapshot = tmp_path / "versions" / "declared-restored.topology.json"
+    restored = TopologyLoader().load_file(snapshot)
+    assert "macro" in restored.nodes()
+    assert (tmp_path / "versions" / "macro_inner.json").is_file()

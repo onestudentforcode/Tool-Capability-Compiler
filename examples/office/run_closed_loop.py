@@ -293,10 +293,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- commit: the only write ---------------------------------------------
     versions_dir = out_dir / "versions"
+    declared_json = _ROOT / "examples" / "topology" / "office.json"
     record = commit(
         topology, original_payload, patch,
         validation=verdict, version="office-v0.1",
         versions_dir=versions_dir, base_version="office-v0",
+        source=declared_json,
     )
     print(f"commit: office-v0.1 recorded "
           f"({len(record['composed']['disabled_edges'])} edges + "
@@ -304,7 +306,8 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- rollback: record replay proves reversibility -----------------------
     rolled = rollback(topology, original_payload,
-                      versions_dir=versions_dir, to="office-v0.1")
+                      versions_dir=versions_dir, to="office-v0.1",
+                      source=declared_json)
     check(rolled["version"] == "office-v0.1-restored", "rollback replay failed")
     restored = TopologyLoader().load_file(
         str(versions_dir / "office-v0.1-restored.topology.json")

@@ -351,6 +351,7 @@ def commit(
     version: str,
     versions_dir: str | Path,
     base_version: str = "v1",
+    source: str | Path | None = None,
 ) -> dict[str, Any]:
     """The only write to topology versions; ACCEPT record is a hard gate (§4)."""
     if not isinstance(validation, dict) or validation.get("verdict") != "accept":
@@ -400,14 +401,9 @@ def commit(
     record_path.write_text(
         json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    topology_path = directory / f"{version}.topology.json"
-    topology_path.write_text(
-        json.dumps(
-            export_active_payload(original_payload, new_version.active),
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
+    _write_snapshot(
+        Path(versions_dir), version, original_payload, new_version.active,
+        source,
     )
     (directory / "current.json").write_text(
         json.dumps({"version": new_version.version}, indent=2),
@@ -422,6 +418,7 @@ def rollback(
     *,
     versions_dir: str | Path,
     to: str | None = None,
+    source: str | Path | None = None,
 ) -> dict[str, Any]:
     """Record replay — never an inverse patch (§4 dependencies)."""
     directory = Path(versions_dir)
@@ -457,14 +454,8 @@ def rollback(
         record["version"] = f"{to}-restored"
         active = apply_patch(topology, patch)
 
-    topology_path = directory / f"{record['version']}.topology.json"
-    topology_path.write_text(
-        json.dumps(
-            export_active_payload(original_payload, active),
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
+    _write_snapshot(
+        directory, record["version"], original_payload, active, source
     )
     (directory / "current.json").write_text(
         json.dumps({"version": record["version"]}, indent=2),
@@ -484,3 +475,56 @@ def patch_from_payload(payload: dict[str, Any]) -> TopologyPatch:
 
 def load_original_payload(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _self_contained_composites(
+    exported: dict[str, Any], directory: Path, source: Path | None
+) -> None:
+    """Make composite inner references loadable from the snapshot dir.
+
+    Version snapshots must be loader-loadable on their own (the closed
+    loop reloads them for sanity checks; optimize CLI audit does too).
+    Composite ``inner`` paths are relative to the DECLARED file's
+    directory while the snapshot lives in ``versions/`` — each inner
+    topology is copied next to the snapshot and the reference rewritten.
+    Nested composite entries inside an inner topology recurse the same
+    way, relative to that inner file.
+    """
+    base = source.parent if source is not None else Path.cwd()
+    for item in exported.get("tools", []):
+        if item.get("kind") != "composite":
+            continue
+        inner = Path(str(item["inner"]))
+        if not inner.is_absolute():
+            inner = base / inner
+        if not inner.is_file():
+            raise CommitGateError(
+                f"composite {item.get('name')!r} inner topology not "
+                f"found: {inner}"
+            )
+        name = str(item.get("name") or "composite")
+        payload = json.loads(inner.read_text(encoding="utf-8"))
+        _self_contained_composites(payload, directory, inner)
+        target = directory / f"{name}_inner.json"
+        target.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        item["inner"] = target.name
+
+
+def _write_snapshot(
+    directory: Path,
+    version: str,
+    payload: dict[str, Any],
+    active,
+    source: str | Path | None,
+) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    exported = export_active_payload(payload, active)
+    if source is not None:
+        _self_contained_composites(exported, directory, Path(source))
+    (directory / f"{version}.topology.json").write_text(
+        json.dumps(exported, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )

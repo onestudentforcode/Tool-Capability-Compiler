@@ -1027,6 +1027,7 @@ def run_optimize_commit(args: argparse.Namespace) -> int:
             version=args.version,
             versions_dir=args.versions_dir,
             base_version=args.base_version,
+            source=args.topology,
         )
     except CommitGateError as exc:
         print(f"commit refused: {exc}", file=sys.stderr)
@@ -1048,7 +1049,8 @@ def run_optimize_rollback(args: argparse.Namespace) -> int:
         topology = TopologyLoader().load_file(args.topology)
         payload = load_original_payload(args.topology)
         record = pipeline_rollback(
-            topology, payload, versions_dir=args.versions_dir, to=args.to
+            topology, payload, versions_dir=args.versions_dir, to=args.to,
+            source=args.topology,
         )
     except CommitGateError as exc:
         print(f"rollback refused: {exc}", file=sys.stderr)
