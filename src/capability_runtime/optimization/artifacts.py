@@ -212,6 +212,11 @@ def export_active_payload(payload: dict[str, Any], topology_active) -> dict[str,
     Disabled nodes are dropped; providers/workers are materialized from the
     ACTIVE topology's actual adjacency so the exported file reproduces the
     active search space exactly (the declared file is never touched).
+    Composite entries (``kind: composite``) keep the loader's default-all
+    outer edges instead: the composite schema forbids providers/workers, so
+    a patch that disables a composite outer edge is not representable in
+    the JSON snapshot — the in-memory ``apply_patch`` view stays the only
+    faithful representation of that pruning.
     """
     exported = json.loads(json.dumps(dict(payload)))
     active_names = set(topology_active.nodes())
@@ -220,8 +225,9 @@ def export_active_payload(payload: dict[str, Any], topology_active) -> dict[str,
         if str(item.get("name")) not in active_names:
             continue
         name = str(item["name"])
-        item["workers"] = sorted(topology_active.successors(name))
-        item["providers"] = sorted(topology_active.predecessors(name))
+        if item.get("kind") != "composite":
+            item["workers"] = sorted(topology_active.successors(name))
+            item["providers"] = sorted(topology_active.predecessors(name))
         kept_tools.append(item)
     exported["tools"] = kept_tools
     return exported

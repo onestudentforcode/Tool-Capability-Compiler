@@ -196,6 +196,53 @@ def test_export_active_payload_reproduces_active_space() -> None:
     assert set(reloaded.edges()) == set(active.edges())
 
 
+def test_export_active_payload_keeps_composite_entries_loader_clean() -> None:
+    # Composite entries carry kind: composite and the loader's composite
+    # schema forbids providers/workers (outer edges default to all).
+    # Materializing adjacency into them made the version snapshot
+    # unloadable — caught by the closed-loop rollback path after batch F
+    # put composites into the office topology (2026-10-04).
+    topology, _ = sandbox_refund.build_topology()
+    payload = {
+        "version": "1.0",
+        "layers": [
+            {"name": "read", "order": 0},
+            {"name": "analyze", "order": 1},
+            {"name": "action", "order": 2},
+        ],
+        "tools": [
+            {"name": name, "layer": topology.node(name).spec.layer}
+            for name in topology.nodes()
+        ]
+        + [
+            {
+                "kind": "composite",
+                "name": "doc_composed_report",
+                "layer": "analyze",
+                "inner": "inner/topo.json",
+                "route": [{"layer": "only", "tools": ["worker"]}],
+                "stop_when": ["report.final"],
+                "max_iterations": 2,
+            }
+        ],
+    }
+    active = topology  # no patch: adjacency materialization still runs
+    exported = export_active_payload(payload, active)
+    composite = next(
+        item
+        for item in exported["tools"]
+        if item.get("kind") == "composite"
+    )
+    assert composite["name"] == "doc_composed_report"
+    assert "providers" not in composite
+    assert "workers" not in composite
+    # plain tools keep materialized adjacency
+    plain = next(
+        item for item in exported["tools"] if "kind" not in item
+    )
+    assert "providers" in plain and "workers" in plain
+
+
 # ---- analyze (Step 2) ----------------------------------------------------------------
 
 
